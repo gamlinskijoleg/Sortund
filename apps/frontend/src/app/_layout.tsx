@@ -1,15 +1,20 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
-import { useColorScheme } from 'react-native';
+import { Stack } from "expo-router";
+import { TamaguiProvider, Theme } from "tamagui";
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import appTamaguiConfig from "../../tamagui.config";
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
+export default function RootLayout() {
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <AppTabs />
-    </ThemeProvider>
+    <TamaguiProvider config={appTamaguiConfig} defaultTheme="light">
+      <Theme name="light">
+        <Stack
+          screenOptions={{
+            headerStyle: { backgroundColor: "#0b1220" },
+            headerTintColor: "#f8fafc",
+            contentStyle: { backgroundColor: "#050816" },
+          }}
+        />
+      </Theme>
+    </TamaguiProvider>
   );
 }
