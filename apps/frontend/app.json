@@ -1,32 +1,44 @@
 {
-  "expo": {
-    "name": "sortund-frontend",
-    "slug": "sortund-frontend",
-    "version": "1.0.0",
-    "orientation": "portrait",
+    "expo": {
+        "name": "sortund-frontend",
+        "slug": "sortund-frontend",
+        "version": "1.0.0",
+        "orientation": "portrait",
 
-    "scheme": "sortundfrontend",
-    "userInterfaceStyle": "automatic",
-    "ios": {},
-    "android": {
-      "predictiveBackGestureEnabled": false
-    },
-    "web": {
-      "output": "static"
-    },
-    "plugins": [
-      "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "backgroundColor": "#208AEF",
-          "android": {}
+        "scheme": "sortundfrontend",
+        "userInterfaceStyle": "automatic",
+        "android": {
+            "package": "com.sortund.frontend",
+            "predictiveBackGestureEnabled": false,
+            "adaptiveIcon": {
+                "backgroundColor": "#E6F4FE",
+                "foregroundImage": "./assets/icon.png",
+                "backgroundImage": "./assets/icon.png",
+                "monochromeImage": "./assets/icon.png"
+            }
+        },
+        "ios": {
+            "bundleIdentifier": "com.sortund.frontend"
+        },
+        "web": {
+            "output": "static"
+        },
+        "plugins": [
+            "expo-router",
+            [
+                "expo-splash-screen",
+                {
+                    "backgroundColor": "#208AEF",
+                    "image": "./assets/icon.png",
+                    "android": {
+                        "image": "./assets/icon.png"
+                    }
+                }
+            ]
+        ],
+        "experiments": {
+            "typedRoutes": true,
+            "reactCompiler": true
         }
-      ]
-    ],
-    "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
     }
-  }
 }

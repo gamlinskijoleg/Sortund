@@ -8,5 +8,5 @@ export default tamaguiConfig;
 type AppConfig = typeof tamaguiConfig;
 
 declare module "tamagui" {
-  interface TamaguiCustomConfig extends AppConfig {}
+    interface TamaguiCustomConfig extends AppConfig {}
 }
