@@ -1,0 +1,1 @@
+An application that helps you manage your music :D
