@@ -18,7 +18,7 @@ export type AppTheme = {
 function readThemeValue(
     theme: Record<string, { val?: string } | undefined>,
     key: string,
-    fallback: string,
+    fallback: string
 ) {
     return theme[key]?.val ?? fallback;
 }
@@ -36,7 +36,7 @@ export function useAppTheme(): AppTheme {
         surfaceStrong: readThemeValue(
             themeValues,
             "backgroundPress",
-            "#ededed",
+            "#ededed"
         ),
         text: readThemeValue(themeValues, "color", "#111111"),
         textMuted: readThemeValue(themeValues, "colorHover", "#6f6f6f"),

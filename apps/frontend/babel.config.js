@@ -13,7 +13,7 @@ module.exports = function (api) {
             //         components: ["tamagui"]
             //     }
             // ],
-            "react-native-reanimated/plugin"
-        ]
+            "react-native-reanimated/plugin",
+        ],
     };
 };

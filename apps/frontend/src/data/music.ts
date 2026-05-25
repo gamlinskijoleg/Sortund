@@ -78,7 +78,7 @@ export async function loadMusicTracks(limit = 50): Promise<MusicTrack[]> {
                         error,
                     });
                     return null;
-                },
+                }
             );
 
             console.log("Loaded track metadata", { uri, metadata });
@@ -91,7 +91,7 @@ export async function loadMusicTracks(limit = 50): Promise<MusicTrack[]> {
                 duration: metadata?.duration ?? null,
                 color: colorFromName(metadata?.title ?? `Track ${index + 1}`),
             } satisfies MusicTrack;
-        }),
+        })
     );
 
     return tracks;
@@ -124,7 +124,7 @@ export function useMusicTracks(limit = 50) {
                 setError(
                     loadError instanceof Error
                         ? loadError.message
-                        : "Unable to load local music files.",
+                        : "Unable to load local music files."
                 );
             })
             .finally(() => {

@@ -1,25 +1,33 @@
 {
-  "name": "Sortund",
-  "private": true,
-  "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
-  },
-  "devDependencies": {
-    "@types/jest": "29.5.14",
-    "prettier": "^3.7.4",
-    "turbo": "^2.9.14",
-    "typescript": "~6.0.3"
-  },
-  "engines": {
-    "node": ">=18"
-  },
-  "packageManager": "npm@11.7.0",
-  "workspaces": [
-    "apps/*",
-    "packages/*"
-  ]
+    "name": "Sortund",
+    "private": true,
+    "scripts": {
+        "build": "turbo run build",
+        "dev": "turbo run dev",
+        "lint": "turbo run lint",
+        "format": "prettier --write .",
+        "check-types": "turbo run check-types",
+        "prepare": "husky"
+    },
+    "devDependencies": {
+        "@types/jest": "29.5.14",
+        "husky": "^9.1.7",
+        "lint-staged": "^17.0.5",
+        "prettier": "^3.8.3",
+        "turbo": "^2.9.14",
+        "typescript": "~6.0.3"
+    },
+    "engines": {
+        "node": ">=18"
+    },
+    "packageManager": "npm@11.7.0",
+    "workspaces": [
+        "apps/*",
+        "packages/*"
+    ],
+    "lint-staged": {
+        "**/*.{js,ts,jsx,tsx,json,css,md}": [
+            "prettier --write"
+        ]
+    }
 }
