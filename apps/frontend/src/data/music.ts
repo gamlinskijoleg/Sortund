@@ -66,6 +66,8 @@ export async function loadMusicTracks(limit = 50): Promise<MusicTrack[]> {
         .limit(limit)
         .exe();
 
+    console.log("Loaded music assets:", assets.length);
+
     const tracks = await Promise.all(
         assets.map(async (asset: Asset, index: number) => {
             const uri = await asset.getUri();
@@ -81,12 +83,14 @@ export async function loadMusicTracks(limit = 50): Promise<MusicTrack[]> {
                 }
             );
 
-            console.log("Loaded track metadata", { uri, metadata });
+            if (!metadata?.title) {
+                console.warn("Missing title metadata for", { uri, metadata });
+            }
 
             return {
                 sourceUri: uri,
                 assetId: asset.id,
-                title: metadata?.title ?? `Track ${index + 1}`,
+                title: metadata?.title ?? decodeURI(uri).split("/").pop()!,
                 artist: metadata?.artist ?? "Unknown artist",
                 duration: metadata?.duration ?? null,
                 color: colorFromName(metadata?.title ?? `Track ${index + 1}`),
