@@ -3,24 +3,45 @@ import { router } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { AppScreen } from "../app-screen";
-import { featureCards, musicSections, musicTracks } from "../../data/music";
+import {
+    createListenRoute,
+    featureCards,
+    musicSections,
+    type MusicTrack,
+    useMusicTracks,
+} from "../../data/music";
+import { useAppTheme } from "../../theme/app-theme";
 
 function MusicSearchBar() {
+    const theme = useAppTheme();
+
     return (
         <Pressable
             accessibilityRole="button"
             onPress={() => router.push("/search")}
-            style={styles.searchBar}
+            style={[styles.searchBar, { backgroundColor: theme.surface }]}
         >
-            <MaterialCommunityIcons name="magnify" size={24} color="#9a9a9a" />
-            <Text style={styles.searchPlaceholder} numberOfLines={1}>
+            <MaterialCommunityIcons
+                name="magnify"
+                size={24}
+                color={theme.textSubtle}
+            />
+            <Text
+                style={[styles.searchPlaceholder, { color: theme.textSubtle }]}
+                numberOfLines={1}
+            >
                 Search songs, playlists, and artists
             </Text>
-            <View style={styles.searchDivider} />
+            <View
+                style={[
+                    styles.searchDivider,
+                    { backgroundColor: theme.border },
+                ]}
+            />
             <MaterialCommunityIcons
                 name="microphone"
                 size={24}
-                color="#7f7f7f"
+                color={theme.textMuted}
             />
         </Pressable>
     );
@@ -35,6 +56,7 @@ function MusicFeatureCard({
     color: string;
     href: "/library/favourites" | "/library/playlists" | "/library/recent";
 }) {
+    const theme = useAppTheme();
     const iconName =
         title === "Favourites"
             ? "heart"
@@ -45,7 +67,7 @@ function MusicFeatureCard({
     return (
         <Pressable
             accessibilityRole="button"
-            onPress={() => router.push(href)}
+            onPress={() => router.push(href as never)}
             style={({ pressed }) => [
                 styles.featureCard,
                 { backgroundColor: color, opacity: pressed ? 0.92 : 1 },
@@ -59,19 +81,23 @@ function MusicFeatureCard({
                     size={20}
                     color={
                         title === "Favourites"
-                            ? "#a53a67"
+                            ? theme.accentStrong
                             : title === "Playlists"
-                              ? "#3d748d"
-                              : "#5b4db3"
+                              ? theme.accent
+                              : theme.textMuted
                     }
                 />
             </View>
-            <Text style={styles.featureTitle}>{title}</Text>
+            <Text style={[styles.featureTitle, { color: theme.inverseText }]}>
+                {title}
+            </Text>
         </Pressable>
     );
 }
 
 function SectionTabs() {
+    const theme = useAppTheme();
+
     return (
         <View style={styles.tabsRow}>
             {musicSections.map((section) => {
@@ -84,14 +110,22 @@ function SectionTabs() {
                         onPress={() => router.push(section.href)}
                         style={({ pressed }) => [
                             styles.tabPill,
-                            isActive && styles.tabPillActive,
+                            {
+                                backgroundColor: isActive
+                                    ? theme.text
+                                    : "transparent",
+                            },
                             pressed && styles.pressed,
                         ]}
                     >
                         <Text
                             style={[
                                 styles.tabText,
-                                isActive && styles.tabActiveText,
+                                {
+                                    color: isActive
+                                        ? theme.inverseText
+                                        : theme.textMuted,
+                                },
                             ]}
                         >
                             {section.label}
@@ -104,29 +138,35 @@ function SectionTabs() {
 }
 
 function ActionBar() {
+    const theme = useAppTheme();
+
     return (
         <View style={styles.shuffleRow}>
             <View style={styles.shuffleLeft}>
-                <View style={styles.playButton}>
+                <View
+                    style={[styles.playButton, { backgroundColor: theme.text }]}
+                >
                     <MaterialCommunityIcons
                         name="play"
                         size={20}
-                        color="#ffffff"
+                        color={theme.inverseText}
                     />
                 </View>
-                <Text style={styles.shuffleText}>Shuffle playback</Text>
+                <Text style={[styles.shuffleText, { color: theme.text }]}>
+                    Shuffle playback
+                </Text>
             </View>
 
             <View style={styles.shuffleActions}>
                 <MaterialCommunityIcons
                     name="swap-vertical"
                     size={28}
-                    color="#111111"
+                    color={theme.text}
                 />
                 <MaterialCommunityIcons
                     name="format-list-bulleted"
                     size={28}
-                    color="#111111"
+                    color={theme.text}
                 />
             </View>
         </View>
@@ -134,60 +174,104 @@ function ActionBar() {
 }
 
 function TrackRow({
-    title,
-    artist,
-    color,
+    track,
+    onPress,
 }: {
-    title: string;
-    artist: string;
-    color: string;
+    track: MusicTrack;
+    onPress?: () => void;
 }) {
+    const theme = useAppTheme();
+    const { title, artist, color } = track;
+
     return (
-        <View style={styles.trackRow}>
+        <Pressable
+            accessibilityRole="button"
+            onPress={onPress}
+            style={({ pressed }) => [
+                styles.trackRow,
+                pressed && styles.trackRowPressed,
+            ]}
+        >
             <View style={[styles.trackArt, { backgroundColor: color }]}>
                 <MaterialCommunityIcons
                     name="music-note"
                     size={16}
-                    color="#f8fafc"
+                    color={theme.inverseText}
                     style={styles.trackNoteBadge}
                 />
                 <Text style={styles.trackMonogram}>M</Text>
             </View>
             <View style={styles.trackTextWrap}>
-                <Text style={styles.trackTitle} numberOfLines={1}>
+                <Text
+                    style={[styles.trackTitle, { color: theme.text }]}
+                    numberOfLines={1}
+                >
                     {title}
                 </Text>
-                <Text style={styles.trackArtist} numberOfLines={1}>
+                <Text
+                    style={[styles.trackArtist, { color: theme.textMuted }]}
+                    numberOfLines={1}
+                >
                     {artist}
                 </Text>
             </View>
             <MaterialCommunityIcons
                 name="dots-vertical"
                 size={28}
-                color="#bdbdbd"
+                color={theme.border}
             />
-        </View>
+        </Pressable>
     );
 }
 
-function MiniPlayer() {
+function MiniPlayer({
+    track,
+    onPress,
+}: {
+    track?: MusicTrack;
+    onPress?: () => void;
+}) {
+    const theme = useAppTheme();
+
     return (
-        <View style={styles.miniPlayer}>
+        <Pressable
+            accessibilityRole="button"
+            onPress={onPress}
+            style={({ pressed }) => [
+                styles.miniPlayer,
+                { backgroundColor: theme.surfaceStrong },
+                pressed && styles.miniPressed,
+            ]}
+        >
             <View style={styles.miniArtWrap}>
                 <View style={styles.miniVinylOuter}>
                     <View style={styles.miniVinylInner} />
                 </View>
-                <View style={styles.miniArt}>
+                <View
+                    style={[
+                        styles.miniArt,
+                        { backgroundColor: track?.color ?? theme.accent },
+                    ]}
+                >
                     <Text style={styles.trackMonogram}>M</Text>
                 </View>
             </View>
 
             <View style={styles.miniTextWrap}>
-                <Text style={styles.miniTitle} numberOfLines={1}>
-                    Adele - Skyfall (Lyrics)
+                <Text
+                    style={[styles.miniTitle, { color: theme.inverseText }]}
+                    numberOfLines={1}
+                >
+                    {track?.title ?? "Loading local music"}
                 </Text>
-                <Text style={styles.miniArtist} numberOfLines={1}>
-                    7clouds Rock
+                <Text
+                    style={[
+                        styles.miniArtist,
+                        { color: theme.inverseText, opacity: 0.82 },
+                    ]}
+                    numberOfLines={1}
+                >
+                    {track?.artist ?? "Scanning your music files"}
                 </Text>
             </View>
 
@@ -196,47 +280,23 @@ function MiniPlayer() {
                     <MaterialCommunityIcons
                         name="play"
                         size={16}
-                        color="#ffffff"
+                        color={theme.inverseText}
                     />
                 </View>
                 <MaterialCommunityIcons
                     name="skip-next"
                     size={18}
-                    color="#ffffff"
+                    color={theme.inverseText}
                 />
             </View>
-        </View>
-    );
-}
-
-function BottomNav() {
-    return (
-        <View style={styles.bottomNav}>
-            <View style={styles.navItemActive}>
-                <MaterialCommunityIcons
-                    name="headphones"
-                    size={30}
-                    color="#111111"
-                />
-                <Text style={styles.navLabelActive}>My music</Text>
-            </View>
-            <Pressable
-                accessibilityRole="button"
-                onPress={() => router.push("/watch")}
-                style={styles.navItem}
-            >
-                <MaterialCommunityIcons
-                    name="watch-variant"
-                    size={34}
-                    color="#d8d8d8"
-                />
-                <Text style={styles.navLabel}>Watch</Text>
-            </Pressable>
-        </View>
+        </Pressable>
     );
 }
 
 export default function MusicHomeScreen() {
+    const theme = useAppTheme();
+    const { tracks, isLoading, error } = useMusicTracks();
+
     return (
         <AppScreen>
             <View style={styles.screen}>
@@ -248,7 +308,7 @@ export default function MusicHomeScreen() {
                         <MaterialCommunityIcons
                             name="tune-variant"
                             size={30}
-                            color="#111111"
+                            color={theme.text}
                         />
                     </Pressable>
                     <MusicSearchBar />
@@ -267,13 +327,52 @@ export default function MusicHomeScreen() {
                     contentContainerStyle={styles.listContent}
                     showsVerticalScrollIndicator={false}
                 >
-                    {musicTracks.map((track) => (
-                        <TrackRow key={track.title} {...track} />
-                    ))}
+                    {isLoading ? (
+                        <Text
+                            style={[
+                                styles.emptyState,
+                                { color: theme.textMuted },
+                            ]}
+                        >
+                            Loading local music files...
+                        </Text>
+                    ) : error ? (
+                        <Text
+                            style={[
+                                styles.emptyState,
+                                { color: theme.textMuted },
+                            ]}
+                        >
+                            {error}
+                        </Text>
+                    ) : tracks.length > 0 ? (
+                        tracks.map((track) => (
+                            <TrackRow
+                                key={track.sourceUri ?? track.title}
+                                track={track}
+                                onPress={() => router.push(createListenRoute(track))}
+                            />
+                        ))
+                    ) : (
+                        <Text
+                            style={[
+                                styles.emptyState,
+                                { color: theme.textMuted },
+                            ]}
+                        >
+                            No local audio files found.
+                        </Text>
+                    )}
                 </ScrollView>
 
-                <MiniPlayer />
-                <BottomNav />
+                <MiniPlayer
+                    track={tracks[0]}
+                    onPress={
+                        tracks[0]
+                            ? () => router.push(createListenRoute(tracks[0]))
+                            : undefined
+                    }
+                />
             </View>
         </AppScreen>
     );
@@ -282,7 +381,6 @@ export default function MusicHomeScreen() {
 const styles = StyleSheet.create({
     screen: {
         flex: 1,
-        backgroundColor: "#ffffff",
         paddingTop: 8,
     },
     topRow: {
@@ -301,7 +399,6 @@ const styles = StyleSheet.create({
         flex: 1,
         height: 50,
         borderRadius: 26,
-        backgroundColor: "#f4f4f4",
         flexDirection: "row",
         alignItems: "center",
         paddingHorizontal: 14,
@@ -309,7 +406,6 @@ const styles = StyleSheet.create({
     },
     searchPlaceholder: {
         flex: 1,
-        color: "#8f8f8f",
         fontSize: 15,
         includeFontPadding: false,
         paddingVertical: 0,
@@ -317,7 +413,6 @@ const styles = StyleSheet.create({
     searchDivider: {
         width: 1,
         height: 18,
-        backgroundColor: "#d2d2d2",
     },
     featureRow: {
         flexDirection: "row",
@@ -341,7 +436,6 @@ const styles = StyleSheet.create({
         alignItems: "center",
     },
     featureTitle: {
-        color: "#ffffff",
         fontSize: 20,
         fontWeight: "700",
         lineHeight: 24,
@@ -360,18 +454,9 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
     },
-    tabPillActive: {
-        backgroundColor: "#000000",
-    },
     tabText: {
-        color: "#6f6f6f",
         fontSize: 18,
         fontWeight: "500",
-    },
-    tabActiveText: {
-        color: "#ffffff",
-        fontSize: 18,
-        fontWeight: "700",
     },
     pressed: {
         opacity: 0.84,
@@ -392,13 +477,11 @@ const styles = StyleSheet.create({
         width: 48,
         height: 48,
         borderRadius: 24,
-        backgroundColor: "#1f1f1f",
         justifyContent: "center",
         alignItems: "center",
     },
     shuffleText: {
         fontSize: 18,
-        color: "#111111",
         fontWeight: "600",
     },
     shuffleActions: {
@@ -411,10 +494,18 @@ const styles = StyleSheet.create({
         paddingTop: 16,
         paddingBottom: 220,
     },
+    emptyState: {
+        fontSize: 15,
+        lineHeight: 20,
+        paddingVertical: 12,
+    },
     trackRow: {
         flexDirection: "row",
         alignItems: "center",
         marginBottom: 22,
+    },
+    trackRowPressed: {
+        opacity: 0.84,
     },
     trackArt: {
         width: 68,
@@ -429,7 +520,6 @@ const styles = StyleSheet.create({
         position: "absolute",
         top: 5,
         left: 5,
-        color: "#f8fafc",
         fontSize: 14,
         lineHeight: 14,
         opacity: 0.9,
@@ -445,14 +535,12 @@ const styles = StyleSheet.create({
         paddingRight: 10,
     },
     trackTitle: {
-        color: "#2f2f2f",
         fontSize: 16,
         lineHeight: 21,
         fontWeight: "500",
         marginBottom: 6,
     },
     trackArtist: {
-        color: "#8d8d8d",
         fontSize: 15,
         lineHeight: 19,
     },
@@ -463,11 +551,13 @@ const styles = StyleSheet.create({
         bottom: 70,
         height: 72,
         borderRadius: 22,
-        backgroundColor: "#d4cce0",
         flexDirection: "row",
         alignItems: "center",
         paddingLeft: 58,
         paddingRight: 18,
+    },
+    miniPressed: {
+        opacity: 0.92,
     },
     miniArtWrap: {
         position: "absolute",
@@ -515,14 +605,12 @@ const styles = StyleSheet.create({
         paddingLeft: 4,
     },
     miniTitle: {
-        color: "#ffffff",
         fontSize: 15,
         fontWeight: "700",
         lineHeight: 18,
         marginBottom: 6,
     },
     miniArtist: {
-        color: "#f0eef3",
         fontSize: 14,
         lineHeight: 17,
         fontWeight: "500",
@@ -541,37 +629,5 @@ const styles = StyleSheet.create({
         borderColor: "rgba(255,255,255,0.65)",
         justifyContent: "center",
         alignItems: "center",
-    },
-    bottomNav: {
-        position: "absolute",
-        left: 0,
-        right: 0,
-        bottom: 0,
-        height: 82,
-        flexDirection: "row",
-        justifyContent: "space-evenly",
-        alignItems: "center",
-        backgroundColor: "#ffffff",
-        borderTopWidth: 0,
-    },
-    navItemActive: {
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 4,
-    },
-    navItem: {
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 4,
-    },
-    navLabelActive: {
-        color: "#000000",
-        fontSize: 14,
-        fontWeight: "500",
-    },
-    navLabel: {
-        color: "#bebebe",
-        fontSize: 14,
-        fontWeight: "500",
     },
 });

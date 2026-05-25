@@ -9,10 +9,10 @@
     "check-types": "turbo run check-types"
   },
   "devDependencies": {
-    "@types/jest": "^30.0.0",
+    "@types/jest": "29.5.14",
     "prettier": "^3.7.4",
     "turbo": "^2.9.14",
-    "typescript": "5.9.2"
+    "typescript": "~6.0.3"
   },
   "engines": {
     "node": ">=18"

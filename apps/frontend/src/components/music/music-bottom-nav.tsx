@@ -1,0 +1,88 @@
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { router, usePathname } from "expo-router";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+
+import { useAppTheme } from "../../theme/app-theme";
+
+const musicRoutes = new Set(["/", "/videos", "/artists", "/albums"]);
+
+export function MusicBottomNav() {
+    const theme = useAppTheme();
+    const pathname = usePathname();
+
+    if (!musicRoutes.has(pathname) && pathname !== "/watch") {
+        return null;
+    }
+
+    return (
+        <View
+            style={[
+                styles.bottomNav,
+                {
+                    backgroundColor: theme.background,
+                    borderTopColor: theme.border,
+                },
+            ]}
+        >
+            <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push("/")}
+                style={styles.navItem}
+            >
+                <MaterialCommunityIcons
+                    name="headphones"
+                    size={30}
+                    color={theme.text}
+                />
+                <Text style={[styles.navLabel, { color: theme.text }]}>
+                    My music
+                </Text>
+            </Pressable>
+
+            <Pressable
+                accessibilityRole="button"
+                onPress={() => router.push("/watch")}
+                style={styles.navItem}
+            >
+                <MaterialCommunityIcons
+                    name="watch-variant"
+                    size={34}
+                    color={theme.textSubtle}
+                />
+                <Text
+                    style={[
+                        styles.navLabel,
+                        {
+                            color: theme.textSubtle,
+                        },
+                    ]}
+                >
+                    Watch
+                </Text>
+            </Pressable>
+        </View>
+    );
+}
+
+const styles = StyleSheet.create({
+    bottomNav: {
+        position: "absolute",
+        left: 0,
+        right: 0,
+        bottom: 0,
+        height: 82,
+        flexDirection: "row",
+        justifyContent: "space-evenly",
+        alignItems: "center",
+        borderTopWidth: 1,
+    },
+    navItem: {
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 4,
+    },
+    navLabel: {
+        fontSize: 14,
+        fontWeight: "500",
+    },
+});

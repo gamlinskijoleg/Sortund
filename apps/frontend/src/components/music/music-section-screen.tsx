@@ -3,10 +3,17 @@ import { router, usePathname } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { AppScreen } from "../app-screen";
-import { musicSections, musicTracks } from "../../data/music";
+import {
+    createListenRoute,
+    musicSections,
+    type MusicTrack,
+    useMusicTracks,
+} from "../../data/music";
+import { useAppTheme } from "../../theme/app-theme";
 
 function SectionTabs() {
     const pathname = usePathname();
+    const theme = useAppTheme();
 
     return (
         <View style={styles.tabsRow}>
@@ -20,14 +27,22 @@ function SectionTabs() {
                         onPress={() => router.push(section.href)}
                         style={({ pressed }) => [
                             styles.tabPill,
-                            isActive && styles.tabPillActive,
+                            {
+                                backgroundColor: isActive
+                                    ? theme.text
+                                    : "transparent",
+                            },
                             pressed && styles.pressed,
                         ]}
                     >
                         <Text
                             style={[
                                 styles.tabText,
-                                isActive && styles.tabActiveText,
+                                {
+                                    color: isActive
+                                        ? theme.inverseText
+                                        : theme.textMuted,
+                                },
                             ]}
                         >
                             {section.label}
@@ -40,43 +55,57 @@ function SectionTabs() {
 }
 
 function TrackRow({
-    title,
-    artist,
-    color,
+    track,
+    onPress,
 }: {
-    title: string;
-    artist: string;
-    color: string;
+    track: MusicTrack;
+    onPress?: () => void;
 }) {
+    const theme = useAppTheme();
+    const { title, artist, color } = track;
+
     return (
-        <View style={styles.trackRow}>
+        <Pressable
+            accessibilityRole="button"
+            onPress={onPress}
+            style={({ pressed }) => [styles.trackRow, pressed && styles.pressed]}
+        >
             <View style={[styles.trackArt, { backgroundColor: color }]}>
                 <MaterialCommunityIcons
                     name="music-note"
                     size={16}
-                    color="#f8fafc"
+                    color={theme.inverseText}
                     style={styles.trackNoteBadge}
                 />
                 <Text style={styles.trackMonogram}>M</Text>
             </View>
             <View style={styles.trackTextWrap}>
-                <Text style={styles.trackTitle} numberOfLines={1}>
+                <Text
+                    style={[styles.trackTitle, { color: theme.text }]}
+                    numberOfLines={1}
+                >
                     {title}
                 </Text>
-                <Text style={styles.trackArtist} numberOfLines={1}>
+                <Text
+                    style={[styles.trackArtist, { color: theme.textMuted }]}
+                    numberOfLines={1}
+                >
                     {artist}
                 </Text>
             </View>
             <MaterialCommunityIcons
                 name="dots-vertical"
                 size={28}
-                color="#bdbdbd"
+                color={theme.border}
             />
-        </View>
+        </Pressable>
     );
 }
 
 export default function MusicSectionScreen() {
+    const theme = useAppTheme();
+    const { tracks, isLoading, error } = useMusicTracks();
+
     return (
         <AppScreen>
             <View style={styles.screen}>
@@ -88,18 +117,21 @@ export default function MusicSectionScreen() {
                         <MaterialCommunityIcons
                             name="tune-variant"
                             size={30}
-                            color="#111111"
+                            color={theme.text}
                         />
                     </Pressable>
                     <Pressable
                         accessibilityRole="button"
                         onPress={() => router.push("/search")}
-                        style={styles.searchBar}
+                        style={[
+                            styles.searchBar,
+                            { backgroundColor: theme.surface },
+                        ]}
                     >
                         <MaterialCommunityIcons
                             name="magnify"
                             size={24}
-                            color="#9a9a9a"
+                            color={theme.textSubtle}
                         />
                         <Text
                             style={styles.searchPlaceholder}
@@ -107,24 +139,36 @@ export default function MusicSectionScreen() {
                         >
                             Search songs, playlists, and artists
                         </Text>
-                        <View style={styles.searchDivider} />
+                        <View
+                            style={[
+                                styles.searchDivider,
+                                { backgroundColor: theme.border },
+                            ]}
+                        />
                         <MaterialCommunityIcons
                             name="microphone"
                             size={24}
-                            color="#7f7f7f"
+                            color={theme.textMuted}
                         />
                     </Pressable>
                 </View>
 
                 <SectionTabs />
 
-                <View style={styles.banner}>
-                    <Text style={styles.bannerTitle}>
-                        Browse the collection
-                    </Text>
-                    <Text style={styles.bannerSubtitle}>
-                        Switch routes with the tabs above, or use the bottom bar
-                        to jump between music and watch views.
+                <View
+                    style={[
+                        styles.banner,
+                        { backgroundColor: theme.surfaceStrong },
+                    ]}
+                >
+                    <Text style={[styles.bannerTitle, { color: theme.text }]}>Browse the collection</Text>
+                    <Text
+                        style={[
+                            styles.bannerSubtitle,
+                            { color: theme.textMuted },
+                        ]}
+                    >
+                        Switch routes with the tabs above, or use the bottom bar to jump between music and watch views.
                     </Text>
                 </View>
 
@@ -132,37 +176,43 @@ export default function MusicSectionScreen() {
                     contentContainerStyle={styles.listContent}
                     showsVerticalScrollIndicator={false}
                 >
-                    {musicTracks.map((track) => (
-                        <TrackRow key={track.title} {...track} />
-                    ))}
+                    {isLoading ? (
+                        <Text
+                            style={[
+                                styles.emptyState,
+                                { color: theme.textMuted },
+                            ]}
+                        >
+                            Loading local music files...
+                        </Text>
+                    ) : error ? (
+                        <Text
+                            style={[
+                                styles.emptyState,
+                                { color: theme.textMuted },
+                            ]}
+                        >
+                            {error}
+                        </Text>
+                    ) : tracks.length > 0 ? (
+                        tracks.map((track) => (
+                            <TrackRow
+                                key={track.sourceUri ?? track.title}
+                                track={track}
+                                onPress={() => router.push(createListenRoute(track))}
+                            />
+                        ))
+                    ) : (
+                        <Text
+                            style={[
+                                styles.emptyState,
+                                { color: theme.textMuted },
+                            ]}
+                        >
+                            No local audio files found.
+                        </Text>
+                    )}
                 </ScrollView>
-
-                <View style={styles.bottomNav}>
-                    <Pressable
-                        accessibilityRole="button"
-                        onPress={() => router.push("/")}
-                        style={styles.navItemActive}
-                    >
-                        <MaterialCommunityIcons
-                            name="headphones"
-                            size={30}
-                            color="#111111"
-                        />
-                        <Text style={styles.navLabelActive}>My music</Text>
-                    </Pressable>
-                    <Pressable
-                        accessibilityRole="button"
-                        onPress={() => router.push("/watch")}
-                        style={styles.navItem}
-                    >
-                        <MaterialCommunityIcons
-                            name="watch-variant"
-                            size={34}
-                            color="#d8d8d8"
-                        />
-                        <Text style={styles.navLabel}>Watch</Text>
-                    </Pressable>
-                </View>
             </View>
         </AppScreen>
     );
@@ -171,7 +221,6 @@ export default function MusicSectionScreen() {
 const styles = StyleSheet.create({
     screen: {
         flex: 1,
-        backgroundColor: "#ffffff",
         paddingTop: 8,
     },
     topRow: {
@@ -190,7 +239,6 @@ const styles = StyleSheet.create({
         flex: 1,
         height: 50,
         borderRadius: 26,
-        backgroundColor: "#f4f4f4",
         flexDirection: "row",
         alignItems: "center",
         paddingHorizontal: 14,
@@ -198,7 +246,6 @@ const styles = StyleSheet.create({
     },
     searchPlaceholder: {
         flex: 1,
-        color: "#8f8f8f",
         fontSize: 15,
         includeFontPadding: false,
         paddingVertical: 0,
@@ -206,7 +253,6 @@ const styles = StyleSheet.create({
     searchDivider: {
         width: 1,
         height: 18,
-        backgroundColor: "#d2d2d2",
     },
     tabsRow: {
         flexDirection: "row",
@@ -222,18 +268,9 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
     },
-    tabPillActive: {
-        backgroundColor: "#000000",
-    },
     tabText: {
-        color: "#6f6f6f",
         fontSize: 18,
         fontWeight: "500",
-    },
-    tabActiveText: {
-        color: "#ffffff",
-        fontSize: 18,
-        fontWeight: "700",
     },
     pressed: {
         opacity: 0.84,
@@ -243,24 +280,26 @@ const styles = StyleSheet.create({
         marginHorizontal: 16,
         borderRadius: 24,
         padding: 18,
-        backgroundColor: "#f4f0e8",
     },
     bannerTitle: {
         fontSize: 22,
         lineHeight: 26,
         fontWeight: "800",
-        color: "#111111",
         marginBottom: 8,
     },
     bannerSubtitle: {
         fontSize: 14,
         lineHeight: 20,
-        color: "#595959",
     },
     listContent: {
         paddingHorizontal: 16,
         paddingTop: 18,
         paddingBottom: 118,
+    },
+    emptyState: {
+        fontSize: 15,
+        lineHeight: 20,
+        paddingVertical: 12,
     },
     trackRow: {
         flexDirection: "row",
@@ -280,7 +319,6 @@ const styles = StyleSheet.create({
         position: "absolute",
         top: 5,
         left: 5,
-        color: "#f8fafc",
         fontSize: 14,
         lineHeight: 14,
         opacity: 0.9,
@@ -296,46 +334,13 @@ const styles = StyleSheet.create({
         paddingRight: 10,
     },
     trackTitle: {
-        color: "#2f2f2f",
         fontSize: 16,
         lineHeight: 21,
         fontWeight: "500",
         marginBottom: 6,
     },
     trackArtist: {
-        color: "#8d8d8d",
         fontSize: 15,
         lineHeight: 19,
-    },
-    bottomNav: {
-        position: "absolute",
-        left: 0,
-        right: 0,
-        bottom: 0,
-        height: 82,
-        flexDirection: "row",
-        justifyContent: "space-evenly",
-        alignItems: "center",
-        backgroundColor: "#ffffff",
-    },
-    navItemActive: {
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 4,
-    },
-    navItem: {
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 4,
-    },
-    navLabelActive: {
-        color: "#000000",
-        fontSize: 14,
-        fontWeight: "500",
-    },
-    navLabel: {
-        color: "#bebebe",
-        fontSize: 14,
-        fontWeight: "500",
     },
 });

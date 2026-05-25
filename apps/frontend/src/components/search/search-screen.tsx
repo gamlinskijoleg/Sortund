@@ -4,8 +4,11 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppScreen } from "../app-screen";
 import { searchSuggestions } from "../../data/music";
+import { useAppTheme } from "../../theme/app-theme";
 
 export default function SearchScreen() {
+    const theme = useAppTheme();
+
     return (
         <AppScreen>
             <View style={styles.screen}>
@@ -18,33 +21,54 @@ export default function SearchScreen() {
                         <MaterialCommunityIcons
                             name="chevron-left"
                             size={30}
-                            color="#111111"
+                            color={theme.text}
                         />
                     </Pressable>
-                    <Text style={styles.title}>Search</Text>
+                    <Text style={[styles.title, { color: theme.text }]}>
+                        Search
+                    </Text>
                 </View>
 
-                <View style={styles.searchBox}>
+                <View
+                    style={[
+                        styles.searchBox,
+                        { backgroundColor: theme.surface },
+                    ]}
+                >
                     <MaterialCommunityIcons
                         name="magnify"
                         size={24}
-                        color="#9a9a9a"
+                        color={theme.textSubtle}
                     />
-                    <Text style={styles.searchText}>
+                    <Text
+                        style={[styles.searchText, { color: theme.textMuted }]}
+                    >
                         Search songs, albums, and people
                     </Text>
                 </View>
 
-                <View style={styles.card}>
-                    <Text style={styles.cardTitle}>Quick prompts</Text>
+                <View
+                    style={[
+                        styles.card,
+                        { backgroundColor: theme.surfaceStrong },
+                    ]}
+                >
+                    <Text style={[styles.cardTitle, { color: theme.text }]}>
+                        Quick prompts
+                    </Text>
                     {searchSuggestions.map((suggestion) => (
                         <View key={suggestion} style={styles.suggestionRow}>
                             <MaterialCommunityIcons
                                 name="radio-tower"
                                 size={18}
-                                color="#5b4db3"
+                                color={theme.accent}
                             />
-                            <Text style={styles.suggestionText}>
+                            <Text
+                                style={[
+                                    styles.suggestionText,
+                                    { color: theme.textMuted },
+                                ]}
+                            >
                                 {suggestion}
                             </Text>
                         </View>
@@ -59,7 +83,6 @@ const styles = StyleSheet.create({
     screen: {
         flex: 1,
         paddingHorizontal: 16,
-        backgroundColor: "#ffffff",
     },
     header: {
         flexDirection: "row",
@@ -71,7 +94,6 @@ const styles = StyleSheet.create({
         width: 34,
         height: 34,
         borderRadius: 17,
-        backgroundColor: "#f3f3f3",
         justifyContent: "center",
         alignItems: "center",
     },
@@ -79,12 +101,10 @@ const styles = StyleSheet.create({
         fontSize: 28,
         lineHeight: 32,
         fontWeight: "800",
-        color: "#111111",
     },
     searchBox: {
         minHeight: 58,
         borderRadius: 18,
-        backgroundColor: "#f4f4f4",
         flexDirection: "row",
         alignItems: "center",
         gap: 10,
@@ -93,12 +113,10 @@ const styles = StyleSheet.create({
     },
     searchText: {
         flex: 1,
-        color: "#8f8f8f",
         fontSize: 16,
     },
     card: {
         borderRadius: 24,
-        backgroundColor: "#f9f7fd",
         padding: 18,
     },
     cardTitle: {
@@ -106,7 +124,6 @@ const styles = StyleSheet.create({
         lineHeight: 22,
         fontWeight: "700",
         marginBottom: 14,
-        color: "#111111",
     },
     suggestionRow: {
         flexDirection: "row",
@@ -116,7 +133,6 @@ const styles = StyleSheet.create({
     },
     suggestionText: {
         flex: 1,
-        color: "#4b4b4b",
         fontSize: 15,
         lineHeight: 20,
     },

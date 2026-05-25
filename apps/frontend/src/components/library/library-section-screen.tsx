@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppScreen } from "../app-screen";
 import { librarySectionCopy, type LibrarySectionKey } from "../../data/music";
+import { useAppTheme } from "../../theme/app-theme";
 
 const libraryIcons: Record<
     LibrarySectionKey,
@@ -15,6 +16,8 @@ const libraryIcons: Record<
 };
 
 export default function LibrarySectionScreen() {
+    const theme = useAppTheme();
+
     const params = useLocalSearchParams<{ section?: string | string[] }>();
     const rawSection = Array.isArray(params.section)
         ? params.section[0]
@@ -38,24 +41,49 @@ export default function LibrarySectionScreen() {
                         <MaterialCommunityIcons
                             name="chevron-left"
                             size={30}
-                            color="#111111"
+                            color={theme.text}
                         />
                     </Pressable>
                     <View style={styles.headerTextWrap}>
-                        <Text style={styles.kicker}>Library</Text>
-                        <Text style={styles.title}>{copy.title}</Text>
-                        <Text style={styles.subtitle}>{copy.subtitle}</Text>
+                        <Text
+                            style={[styles.kicker, { color: theme.textMuted }]}
+                        >
+                            Library
+                        </Text>
+                        <Text style={[styles.title, { color: theme.text }]}>
+                            {copy.title}
+                        </Text>
+                        <Text
+                            style={[
+                                styles.subtitle,
+                                { color: theme.textMuted },
+                            ]}
+                        >
+                            {copy.subtitle}
+                        </Text>
                     </View>
                 </View>
 
-                <View style={styles.card}>
+                <View
+                    style={[
+                        styles.card,
+                        { backgroundColor: theme.surfaceStrong },
+                    ]}
+                >
                     <MaterialCommunityIcons
                         name={libraryIcons[section]}
                         size={30}
-                        color="#111111"
+                        color={theme.text}
                     />
-                    <Text style={styles.cardTitle}>Saved area view</Text>
-                    <Text style={styles.cardSubtitle}>
+                    <Text style={[styles.cardTitle, { color: theme.text }]}>
+                        Saved area view
+                    </Text>
+                    <Text
+                        style={[
+                            styles.cardSubtitle,
+                            { color: theme.textMuted },
+                        ]}
+                    >
                         This page is now route-driven, so it can grow into real
                         saved-area management without changing the home layout.
                     </Text>
@@ -80,7 +108,6 @@ const styles = StyleSheet.create({
         width: 34,
         height: 34,
         borderRadius: 17,
-        backgroundColor: "#f3f3f3",
         justifyContent: "center",
         alignItems: "center",
         marginTop: 2,
@@ -89,7 +116,6 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     kicker: {
-        color: "#8a8a8a",
         textTransform: "uppercase",
         letterSpacing: 1,
         fontSize: 12,
@@ -97,20 +123,17 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     title: {
-        color: "#111111",
         fontSize: 28,
         lineHeight: 32,
         fontWeight: "800",
         marginBottom: 6,
     },
     subtitle: {
-        color: "#5f5f5f",
         fontSize: 15,
         lineHeight: 21,
     },
     card: {
         borderRadius: 24,
-        backgroundColor: "#f6f4ff",
         padding: 18,
         gap: 10,
     },
@@ -118,11 +141,9 @@ const styles = StyleSheet.create({
         fontSize: 18,
         lineHeight: 22,
         fontWeight: "700",
-        color: "#111111",
     },
     cardSubtitle: {
         fontSize: 14,
         lineHeight: 20,
-        color: "#4f4f4f",
     },
 });

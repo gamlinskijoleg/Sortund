@@ -3,6 +3,8 @@ import { StatusBar } from "expo-status-bar";
 import { StyleSheet, View, type ViewStyle } from "react-native";
 import { SafeAreaView, type Edge } from "react-native-safe-area-context";
 
+import { useAppTheme } from "../theme/app-theme";
+
 type AppScreenProps = {
     children: ReactNode;
     backgroundColor?: string;
@@ -13,14 +15,19 @@ type AppScreenProps = {
 
 export function AppScreen({
     children,
-    backgroundColor = "#ffffff",
+    backgroundColor,
     edges = ["top", "bottom"],
     style,
     statusBarStyle = "dark",
 }: AppScreenProps) {
+    const theme = useAppTheme();
+
     return (
         <SafeAreaView
-            style={[styles.safeArea, { backgroundColor }]}
+            style={[
+                styles.safeArea,
+                { backgroundColor: backgroundColor ?? theme.background },
+            ]}
             edges={edges}
         >
             <StatusBar style={statusBarStyle} />

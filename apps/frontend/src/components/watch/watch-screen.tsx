@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { AppScreen } from "../app-screen";
+import { useAppTheme } from "../../theme/app-theme";
 
 const watchItems = [
     {
@@ -23,8 +24,10 @@ const watchItems = [
 ];
 
 export default function WatchScreen() {
+    const theme = useAppTheme();
+
     return (
-        <AppScreen backgroundColor="#101012" statusBarStyle="light">
+        <AppScreen statusBarStyle="light">
             <View style={styles.screen}>
                 <View style={styles.header}>
                     <Pressable
@@ -35,12 +38,21 @@ export default function WatchScreen() {
                         <MaterialCommunityIcons
                             name="chevron-left"
                             size={30}
-                            color="#ffffff"
+                            color={theme.text}
                         />
                     </Pressable>
                     <View>
-                        <Text style={styles.kicker}>Watch</Text>
-                        <Text style={styles.title}>
+                        <Text
+                            style={[
+                                styles.kicker,
+                                { color: theme.text, opacity: 0.7 },
+                            ]}
+                        >
+                            Watch
+                        </Text>
+                        <Text
+                            style={[styles.title, { color: theme.text }]}
+                        >
                             Video-first music views
                         </Text>
                     </View>
@@ -53,7 +65,13 @@ export default function WatchScreen() {
                     {watchItems.map((item) => (
                         <View
                             key={item.title}
-                            style={[styles.card, { borderColor: item.color }]}
+                            style={[
+                                styles.card,
+                                {
+                                    borderColor: item.color,
+                                    backgroundColor: "rgba(255,255,255,0.04)",
+                                },
+                            ]}
                         >
                             <View
                                 style={[
@@ -61,36 +79,25 @@ export default function WatchScreen() {
                                     { backgroundColor: item.color },
                                 ]}
                             />
-                            <Text style={styles.cardTitle}>{item.title}</Text>
-                            <Text style={styles.cardSubtitle}>
+                            <Text
+                                style={[
+                                    styles.cardTitle,
+                                    { color: theme.text },
+                                ]}
+                            >
+                                {item.title}
+                            </Text>
+                            <Text
+                                style={[
+                                    styles.cardSubtitle,
+                                    { color: theme.text, opacity: 0.72 },
+                                ]}
+                            >
                                 {item.subtitle}
                             </Text>
                         </View>
                     ))}
                 </ScrollView>
-
-                <View style={styles.bottomNav}>
-                    <Pressable
-                        accessibilityRole="button"
-                        onPress={() => router.push("/")}
-                        style={styles.navItem}
-                    >
-                        <MaterialCommunityIcons
-                            name="headphones"
-                            size={30}
-                            color="#6e6e6e"
-                        />
-                        <Text style={styles.navLabel}>My music</Text>
-                    </Pressable>
-                    <View style={styles.navItemActive}>
-                        <MaterialCommunityIcons
-                            name="watch-variant"
-                            size={34}
-                            color="#ffffff"
-                        />
-                        <Text style={styles.navLabelActive}>Watch</Text>
-                    </View>
-                </View>
             </View>
         </AppScreen>
     );
@@ -111,12 +118,10 @@ const styles = StyleSheet.create({
         width: 34,
         height: 34,
         borderRadius: 17,
-        backgroundColor: "rgba(255,255,255,0.1)",
         justifyContent: "center",
         alignItems: "center",
     },
     kicker: {
-        color: "#9a9a9a",
         textTransform: "uppercase",
         letterSpacing: 1.1,
         fontSize: 12,
@@ -124,7 +129,6 @@ const styles = StyleSheet.create({
         marginBottom: 2,
     },
     title: {
-        color: "#ffffff",
         fontSize: 26,
         lineHeight: 30,
         fontWeight: "800",
@@ -138,7 +142,6 @@ const styles = StyleSheet.create({
         borderRadius: 24,
         borderWidth: 1,
         padding: 18,
-        backgroundColor: "rgba(255,255,255,0.04)",
         overflow: "hidden",
     },
     cardAccent: {
@@ -148,45 +151,12 @@ const styles = StyleSheet.create({
         marginBottom: 14,
     },
     cardTitle: {
-        color: "#ffffff",
         fontSize: 18,
         fontWeight: "700",
         marginBottom: 6,
     },
     cardSubtitle: {
-        color: "#c6c6c6",
         fontSize: 14,
         lineHeight: 20,
-    },
-    bottomNav: {
-        position: "absolute",
-        left: 0,
-        right: 0,
-        bottom: 0,
-        height: 82,
-        flexDirection: "row",
-        justifyContent: "space-evenly",
-        alignItems: "center",
-        backgroundColor: "#101012",
-    },
-    navItem: {
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 4,
-    },
-    navItemActive: {
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 4,
-    },
-    navLabel: {
-        color: "#6e6e6e",
-        fontSize: 14,
-        fontWeight: "500",
-    },
-    navLabelActive: {
-        color: "#ffffff",
-        fontSize: 14,
-        fontWeight: "500",
     },
 });
