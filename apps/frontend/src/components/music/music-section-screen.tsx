@@ -68,7 +68,10 @@ function TrackRow({
         <Pressable
             accessibilityRole="button"
             onPress={onPress}
-            style={({ pressed }) => [styles.trackRow, pressed && styles.pressed]}
+            style={({ pressed }) => [
+                styles.trackRow,
+                pressed && styles.pressed,
+            ]}
         >
             <View style={[styles.trackArt, { backgroundColor: color }]}>
                 <MaterialCommunityIcons
@@ -161,14 +164,17 @@ export default function MusicSectionScreen() {
                         { backgroundColor: theme.surfaceStrong },
                     ]}
                 >
-                    <Text style={[styles.bannerTitle, { color: theme.text }]}>Browse the collection</Text>
+                    <Text style={[styles.bannerTitle, { color: theme.text }]}>
+                        Browse the collection
+                    </Text>
                     <Text
                         style={[
                             styles.bannerSubtitle,
                             { color: theme.textMuted },
                         ]}
                     >
-                        Switch routes with the tabs above, or use the bottom bar to jump between music and watch views.
+                        Switch routes with the tabs above, or use the bottom bar
+                        to jump between music and watch views.
                     </Text>
                 </View>
 
@@ -199,7 +205,9 @@ export default function MusicSectionScreen() {
                             <TrackRow
                                 key={track.sourceUri ?? track.title}
                                 track={track}
-                                onPress={() => router.push(createListenRoute(track))}
+                                onPress={() =>
+                                    router.push(createListenRoute(track))
+                                }
                             />
                         ))
                     ) : (

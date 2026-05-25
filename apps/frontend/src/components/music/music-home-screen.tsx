@@ -182,7 +182,6 @@ function TrackRow({
 }) {
     const theme = useAppTheme();
     const { title, artist, color } = track;
-
     return (
         <Pressable
             accessibilityRole="button"
@@ -350,7 +349,9 @@ export default function MusicHomeScreen() {
                             <TrackRow
                                 key={track.sourceUri ?? track.title}
                                 track={track}
-                                onPress={() => router.push(createListenRoute(track))}
+                                onPress={() =>
+                                    router.push(createListenRoute(track))
+                                }
                             />
                         ))
                     ) : (

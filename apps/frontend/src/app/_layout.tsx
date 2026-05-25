@@ -6,13 +6,8 @@ import { TamaguiProvider, Theme } from "tamagui";
 
 import appTamaguiConfig from "../../tamagui.config";
 import { MusicBottomNav } from "../components/music/music-bottom-nav";
-import { ensureMusicPlayerReady } from "../player/music-player";
 
 export default function RootLayout() {
-    useEffect(() => {
-        void ensureMusicPlayerReady();
-    }, []);
-
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
             <SafeAreaProvider>

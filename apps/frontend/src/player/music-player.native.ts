@@ -1,94 +1,100 @@
-import TrackPlayer, { PlayerCommand } from "@rntp/player";
-
+import TrackPlayer, { PlayerCommand, PlaybackState } from "@rntp/player";
 import type { MusicTrack } from "../data/music";
 
-let setupPromise: Promise<void> | null = null;
+let initialized = false;
 
-export function ensureMusicPlayerReady() {
-    if (!setupPromise) {
-        setupPromise = Promise.resolve()
-            .then(() => {
-                return TrackPlayer.setupPlayer({
-                    contentType: "music",
-                    handleAudioBecomingNoisy: true,
-                    android: {
-                        wakeMode: "local",
-                    },
-                });
-            })
-            .then(() => {
-                return TrackPlayer.setCommands({
-                    capabilities: [
-                        PlayerCommand.PlayPause,
-                        PlayerCommand.Next,
-                        PlayerCommand.Previous,
-                        PlayerCommand.Seek,
-                        PlayerCommand.SkipForward,
-                        PlayerCommand.SkipBackward,
-                    ],
-                    forwardInterval: 15,
-                    backwardInterval: 15,
-                });
-            })
-            .catch((error: unknown) => {
-                setupPromise = null;
-                throw error;
-            });
+export async function initPlayer() {
+    if (initialized) return;
+
+    try {
+        console.log("Player: initializing TrackPlayer");
+        await TrackPlayer.setupPlayer();
+
+        // Configure basic capabilities — keep this minimal and cross-platform.
+        await TrackPlayer.updateOptions({
+            capabilities: [
+                PlayerCommand.Play,
+                PlayerCommand.Pause,
+                PlayerCommand.SeekTo,
+                PlayerCommand.SkipToNext,
+                PlayerCommand.SkipToPrevious,
+            ],
+            compactCapabilities: [PlayerCommand.Play, PlayerCommand.Pause],
+        });
+
+        initialized = true;
+        console.log("Player: TrackPlayer initialized");
+    } catch (error) {
+        console.warn("Player: failed to initialize TrackPlayer", error);
     }
-
-    return setupPromise;
 }
 
-function buildPlayerMediaItems(tracks: MusicTrack[]) {
-    return tracks
-        .filter((track): track is MusicTrack & { sourceUri: string } => {
-            return Boolean(track.sourceUri);
-        })
-        .map((track) => ({
-            mediaId: track.sourceUri,
-            url: track.sourceUri,
-            title: track.title,
-            artist: track.artist,
-            duration: track.duration,
-        }));
-}
+export async function playTrack(track: MusicTrack) {
+    await initPlayer();
 
-function resolveTrackIndex(tracks: MusicTrack[], sourceUri?: string) {
-    const tracksWithUri = tracks.filter(
-        (track): track is MusicTrack & { sourceUri: string } => {
-            return Boolean(track.sourceUri);
-        },
-    );
-
-    if (!tracksWithUri.length) {
-        return -1;
+    try {
+        // Ensure player is in a clean state.
+        await TrackPlayer.reset();
+    } catch (err) {
+        console.warn("Player: reset failed", err);
     }
 
-    if (!sourceUri) {
-        return 0;
+    const mediaItem: any = {
+        id: track.assetId ?? track.sourceUri,
+        url: track.sourceUri,
+        title: track.title,
+        artist: track.artist,
+    };
+
+    // Avoid sending potentially incorrect or null durations to native.
+    if (
+        typeof track.duration === "number" &&
+        Number.isFinite(track.duration) &&
+        track.duration > 0
+    ) {
+        // TrackPlayer expects duration in seconds. If the loader provides milliseconds,
+        // the caller can convert before assigning. We omit duration here to be safe.
+        // mediaItem.duration = track.duration / 1000;
     }
 
-    const index = tracksWithUri.findIndex(
-        (track) => track.sourceUri === sourceUri,
-    );
-
-    return index >= 0 ? index : 0;
-}
-
-export async function startTrackPlayback(
-    tracks: MusicTrack[],
-    sourceUri?: string,
-) {
-    await ensureMusicPlayerReady();
-
-    const mediaItems = buildPlayerMediaItems(tracks);
-    const startIndex = resolveTrackIndex(tracks, sourceUri);
-
-    if (!mediaItems.length || startIndex < 0) {
-        return null;
+    try {
+        await TrackPlayer.setMediaItems([mediaItem]);
+        // Prefer prepare() if available, otherwise start playback directly.
+        if (typeof (TrackPlayer as any).prepare === "function") {
+            await (TrackPlayer as any).prepare();
+        } else {
+            await TrackPlayer.play();
+        }
+        console.log("Player: playback started", mediaItem.id);
+    } catch (error) {
+        console.error("Player: failed to set media items / play", error);
     }
-
-    TrackPlayer.setMediaItems(mediaItems, startIndex);
-
-    return mediaItems[startIndex] ?? null;
 }
+
+export async function pausePlayback() {
+    try {
+        await TrackPlayer.pause();
+    } catch (error) {
+        console.warn("Player: pause failed", error);
+    }
+}
+
+export async function togglePlayback() {
+    try {
+        const state = await (TrackPlayer as any).getState();
+        if (state === PlaybackState.Playing) {
+            await TrackPlayer.pause();
+        } else {
+            await TrackPlayer.play();
+        }
+    } catch (error) {
+        console.warn("Player: toggle failed", error);
+    }
+}
+
+export default {
+    initPlayer,
+    playTrack,
+    pausePlayback,
+    togglePlayback,
+};

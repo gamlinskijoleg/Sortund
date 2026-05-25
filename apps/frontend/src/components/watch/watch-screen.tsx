@@ -50,9 +50,7 @@ export default function WatchScreen() {
                         >
                             Watch
                         </Text>
-                        <Text
-                            style={[styles.title, { color: theme.text }]}
-                        >
+                        <Text style={[styles.title, { color: theme.text }]}>
                             Video-first music views
                         </Text>
                     </View>

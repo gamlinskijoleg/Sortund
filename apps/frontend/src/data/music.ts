@@ -6,13 +6,15 @@ import {
     requestPermissionsAsync,
     Asset,
 } from "expo-media-library";
+import { getMetadata } from "react-native-audio-metadata";
 
 export type MusicTrack = {
     title: string;
     artist: string;
     color: string;
-    sourceUri?: string;
-    duration?: number;
+    sourceUri: string;
+    duration: number | null;
+    assetId?: string;
 };
 
 export type MusicSection = {
@@ -26,7 +28,8 @@ export function createListenRoute(track: MusicTrack) {
     return {
         pathname: "/listen" as const,
         params: {
-            sourceUri: encodeURIComponent(track.sourceUri ?? ""),
+            assetId: track.assetId,
+            sourceUri: encodeURIComponent(track.sourceUri),
             title: track.title,
             artist: track.artist,
             color: track.color,
@@ -50,18 +53,6 @@ function colorFromName(value: string) {
     return `hsl(${hue} 52% 46%)`;
 }
 
-function stripExtension(value: string) {
-    return value.replace(/\.[^.]+$/, "");
-}
-
-function formatDuration(durationMs: number) {
-    const totalSeconds = Math.max(0, Math.round(durationMs / 1000));
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-
-    return `${minutes}:${String(seconds).padStart(2, "0")}`;
-}
-
 export async function loadMusicTracks(limit = 50): Promise<MusicTrack[]> {
     const permission = await requestPermissionsAsync(false, ["audio"]);
 
@@ -69,7 +60,6 @@ export async function loadMusicTracks(limit = 50): Promise<MusicTrack[]> {
         return [];
     }
 
-    // Use the modern Query class-based API
     const assets = await new Query()
         .eq(AssetField.MEDIA_TYPE, MediaType.AUDIO)
         .orderBy(AssetField.CREATION_TIME)
@@ -78,40 +68,35 @@ export async function loadMusicTracks(limit = 50): Promise<MusicTrack[]> {
 
     const tracks = await Promise.all(
         assets.map(async (asset: Asset, index: number) => {
-            // Fetch data using the async getters
-            const [duration, uri, filename] = await Promise.all([
-                asset.getDuration(),
-                asset.getUri(),
-                asset.getFilename(),
-            ]);
+            const uri = await asset.getUri();
 
-            const title =
-                stripExtension(filename ?? "") || `Track ${index + 1}`;
-            const durationMs = duration ?? 0;
+            const cleanPath = decodeURIComponent(uri).replace(/^file:\/\//, "");
+            const metadata = await getMetadata(decodeURI(cleanPath)).catch(
+                (error) => {
+                    console.error("Error reading metadata for", {
+                        uri,
+                        error,
+                    });
+                    return null;
+                },
+            );
 
-            // Gracefully handle the null duration
-            const artist =
-                durationMs > 0
-                    ? `Local audio file · ${formatDuration(durationMs)}`
-                    : "Local audio file";
+            console.log("Loaded track metadata", { uri, metadata });
 
             return {
-                title,
-                artist:
-                    durationMs > 0
-                        ? `Local audio file · ${formatDuration(durationMs)}`
-                        : "Local audio file",
-                color: colorFromName(filename ?? asset.id),
-                sourceUri: uri ?? undefined,
-                // If duration is 0, let it be undefined.
-                // Your UI should check: if (track.duration) { showTime() }
-                duration: durationMs > 0 ? durationMs : undefined,
+                sourceUri: uri,
+                assetId: asset.id,
+                title: metadata?.title ?? `Track ${index + 1}`,
+                artist: metadata?.artist ?? "Unknown artist",
+                duration: metadata?.duration ?? null,
+                color: colorFromName(metadata?.title ?? `Track ${index + 1}`),
             } satisfies MusicTrack;
         }),
     );
 
     return tracks;
 }
+
 export function useMusicTracks(limit = 50) {
     const [tracks, setTracks] = useState<MusicTrack[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -135,6 +120,7 @@ export function useMusicTracks(limit = 50) {
                 }
 
                 setTracks([]);
+                console.error("Error loading music tracks:", loadError);
                 setError(
                     loadError instanceof Error
                         ? loadError.message

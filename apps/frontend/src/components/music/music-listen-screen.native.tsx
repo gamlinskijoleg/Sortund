@@ -1,59 +1,71 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import TrackPlayer, {
-    PlaybackState,
-    useActiveMediaItem,
-    useIsPlaying,
-    usePlaybackState,
-    useProgress,
-} from "@rntp/player";
-
 import { AppScreen } from "../app-screen";
 import { useMusicTracks } from "../../data/music";
-import { startTrackPlayback } from "../../player/music-player";
 
-function formatTime(seconds: number) {
-    const safeSeconds = Math.max(0, Math.floor(seconds));
+function formatTime(miliseconds: number) {
+    const safeSeconds = Math.max(0, Math.floor(miliseconds / 1000));
     const minutes = Math.floor(safeSeconds / 60);
+    const hours = Math.floor(minutes / 60);
     const remainder = safeSeconds % 60;
-
-    return `${minutes}:${String(remainder).padStart(2, "0")}`;
+    if (hours > 0) {
+        return `${hours}:${String(minutes % 60).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
+    }
+    return `${String(minutes % 60).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
 }
 
 export default function MusicListenScreen() {
     const params = useLocalSearchParams<{
-        sourceUri?: string;
-        title?: string;
-        artist?: string;
-        color?: string;
+        assetId: string;
+        sourceUri: string;
+        title: string;
+        artist: string;
+        color: string;
     }>();
-    const sourceUri =
-        typeof params.sourceUri === "string" && params.sourceUri.length > 0
-            ? decodeURIComponent(params.sourceUri)
-            : undefined;
-    const fallbackTitle =
-        typeof params.title === "string" ? params.title : "Local track";
-    const fallbackArtist =
-        typeof params.artist === "string"
-            ? params.artist
-            : "From your device library";
-    const fallbackColor =
-        typeof params.color === "string" ? params.color : "#1f2430";
+    const sourceUri = decodeURIComponent(params.sourceUri);
+
+    const assetId = params.assetId;
+    const fallbackTitle = params.title;
+    const fallbackArtist = params.artist;
+    const fallbackColor = params.color;
 
     const { tracks, isLoading, error } = useMusicTracks();
-    const activeItem = useActiveMediaItem();
-    const isPlaying = useIsPlaying();
-    const playbackState = usePlaybackState();
-    const progress = useProgress(0.5);
-    const [playbackError, setPlaybackError] = useState<string | null>(null);
-    const preparedKeyRef = useRef<string | null>(null);
-    const pendingPlayRef = useRef(false);
 
-    const selectedTrack = useMemo(() => {
+    const [isPlaying, setIsPlaying] = useState(false);
+
+    async function handlePlay() {
+        if (!selectedTrack) return;
+        try {
+            const player = await import("../../player/music-player.native");
+            await player.playTrack(selectedTrack);
+            setIsPlaying(true);
+        } catch (err) {
+            console.warn("Play failed", err);
+        }
+    }
+
+    async function handlePause() {
+        try {
+            const player = await import("../../player/music-player.native");
+            await player.pausePlayback();
+            setIsPlaying(false);
+        } catch (err) {
+            console.warn("Pause failed", err);
+        }
+    }
+
+    const selectedTrack = (() => {
         if (!tracks.length) {
             return null;
+        }
+
+        if (assetId) {
+            const match = tracks.find((track) => track.assetId === assetId);
+            if (match) {
+                return match;
+            }
         }
 
         if (sourceUri) {
@@ -64,90 +76,24 @@ export default function MusicListenScreen() {
         }
 
         return tracks[0] ?? null;
-    }, [sourceUri, tracks]);
+    })();
 
-    useEffect(() => {
-        if (!tracks.length) {
-            return;
-        }
+    // Playback logic removed: this screen only displays metadata from `useMusicTracks()`.
 
-        const queueKey = `${tracks
-            .map((track) => track.sourceUri ?? track.title)
-            .join("|")}::${sourceUri ?? ""}`;
-
-        if (preparedKeyRef.current === queueKey) {
-            return;
-        }
-
-        let isActive = true;
-        preparedKeyRef.current = queueKey;
-        pendingPlayRef.current = true;
-
-        startTrackPlayback(tracks, sourceUri).catch((loadError: unknown) => {
-            if (!isActive) {
-                return;
-            }
-
-            setPlaybackError(
-                loadError instanceof Error
-                    ? loadError.message
-                    : "Unable to start playback.",
-            );
-        });
-
-        return () => {
-            isActive = false;
-        };
-    }, [sourceUri, tracks]);
-
-    useEffect(() => {
-        if (!pendingPlayRef.current) {
-            return;
-        }
-
-        if (playbackState !== PlaybackState.Ready) {
-            return;
-        }
-
-        pendingPlayRef.current = false;
-
-        TrackPlayer.play();
-    }, [playbackState]);
-
-    const activeTitle = activeItem?.title ?? selectedTrack?.title ?? fallbackTitle;
-    const activeArtist =
-        activeItem?.artist ?? selectedTrack?.artist ?? fallbackArtist;
+    const activeTitle = selectedTrack?.title ?? fallbackTitle;
+    const activeArtist = selectedTrack?.artist ?? fallbackArtist;
     const activeColor = selectedTrack?.color ?? fallbackColor;
-    const totalSeconds = progress.duration || selectedTrack?.duration || 0;
-    const playedSeconds = progress.position;
-    const bufferedSeconds = progress.buffered;
+    const totalSeconds = selectedTrack?.duration ?? 67;
+    const playedSeconds = 0;
+    const bufferedSeconds = 0;
     const playedWidth =
-        totalSeconds > 0 ? Math.min(100, (playedSeconds / totalSeconds) * 100) : 0;
+        totalSeconds > 0
+            ? Math.min(100, (playedSeconds / totalSeconds) * 100)
+            : 0;
     const bufferedWidth =
-        totalSeconds > 0 ? Math.min(100, (bufferedSeconds / totalSeconds) * 100) : 0;
-
-    async function handlePlayPausePress() {
-        try {
-            if (isPlaying) {
-                await TrackPlayer.pause();
-                return;
-            }
-
-            if (playbackState !== PlaybackState.Ready || !activeItem) {
-                pendingPlayRef.current = true;
-                await startTrackPlayback(tracks, sourceUri);
-                return;
-            }
-
-            TrackPlayer.play();
-        } catch (loadError: unknown) {
-            setPlaybackError(
-                loadError instanceof Error
-                    ? loadError.message
-                    : "Unable to toggle playback.",
-            );
-        }
-    }
+        totalSeconds > 0
+            ? Math.min(100, (bufferedSeconds / totalSeconds) * 100)
+            : 0;
 
     return (
         <AppScreen backgroundColor="#0b0d12" statusBarStyle="light">
@@ -170,7 +116,10 @@ export default function MusicListenScreen() {
                             Listening screen
                         </Text>
                     </View>
-                    <Pressable accessibilityRole="button" style={styles.iconButton}>
+                    <Pressable
+                        accessibilityRole="button"
+                        style={styles.iconButton}
+                    >
                         <MaterialCommunityIcons
                             name="playlist-music"
                             size={24}
@@ -236,74 +185,45 @@ export default function MusicListenScreen() {
                 </View>
 
                 <View style={styles.controlsRow}>
-                    <Pressable
-                        accessibilityRole="button"
-                        onPress={() => TrackPlayer.skipToPrevious()}
-                        style={styles.secondaryControl}
-                    >
-                        <MaterialCommunityIcons
-                            name="skip-previous"
-                            size={34}
-                            color="#f8fafc"
-                        />
-                    </Pressable>
-                    <Pressable
-                        accessibilityRole="button"
-                        onPress={() => TrackPlayer.seekBy(-15)}
-                        style={styles.secondaryControl}
-                    >
-                        <MaterialCommunityIcons
-                            name="rewind-15"
-                            size={30}
-                            color="#f8fafc"
-                        />
-                    </Pressable>
-                    <Pressable
-                        accessibilityRole="button"
-                        onPress={() => {
-                            console.log("Play/pause pressed, current state:", { isPlaying, activeItem });
-                            void handlePlayPausePress();
+                    <View
+                        style={{
+                            flexDirection: "row",
+                            justifyContent: "center",
+                            gap: 12,
                         }}
-                        style={styles.playButton}
                     >
-                        <MaterialCommunityIcons
-                            name={isPlaying ? "pause" : "play"}
-                            size={34}
-                            color="#0b0d12"
-                            style={isPlaying ? undefined : styles.playIconShift}
-                        />
-                    </Pressable>
-                    <Pressable
-                        accessibilityRole="button"
-                        onPress={() => TrackPlayer.seekBy(15)}
-                        style={styles.secondaryControl}
-                    >
-                        <MaterialCommunityIcons
-                            name="fast-forward-15"
-                            size={30}
-                            color="#f8fafc"
-                        />
-                    </Pressable>
-                    <Pressable
-                        accessibilityRole="button"
-                        onPress={() => TrackPlayer.skipToNext()}
-                        style={styles.secondaryControl}
-                    >
-                        <MaterialCommunityIcons
-                            name="skip-next"
-                            size={34}
-                            color="#f8fafc"
-                        />
-                    </Pressable>
+                        <Pressable
+                            accessibilityRole="button"
+                            onPress={() => {
+                                if (isPlaying) {
+                                    handlePause();
+                                } else {
+                                    handlePlay();
+                                }
+                            }}
+                            style={styles.playButton}
+                        >
+                            <MaterialCommunityIcons
+                                name={isPlaying ? "pause" : "play"}
+                                size={32}
+                                color={isPlaying ? "#000000" : "#0b0d12"}
+                                style={
+                                    isPlaying ? undefined : styles.playIconShift
+                                }
+                            />
+                        </Pressable>
+                    </View>
                 </View>
 
                 <View style={styles.footerCard}>
                     <View style={styles.footerChip} />
-                    <Text style={styles.footerTitle}>Local library playback</Text>
+                    <Text style={styles.footerTitle}>
+                        Local library playback
+                    </Text>
                     <Text style={styles.footerText} numberOfLines={2}>
                         {isLoading
                             ? "Preparing your audio library..."
-                            : playbackError || error || "Tap a track to start listening."}
+                            : error || "Tap a track to start listening."}
                     </Text>
                 </View>
             </View>
