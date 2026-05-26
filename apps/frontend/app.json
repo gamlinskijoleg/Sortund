@@ -4,7 +4,6 @@
         "slug": "sortund-frontend",
         "version": "1.0.0",
         "orientation": "portrait",
-
         "scheme": "sortundfrontend",
         "userInterfaceStyle": "automatic",
         "android": {
@@ -13,7 +12,7 @@
             "adaptiveIcon": {
                 "backgroundColor": "#E6F4FE",
                 "foregroundImage": "./assets/icon.png",
-                "backgroundImage": "./assets/icon.png",
+                "backgroundImage": "./assets/splash.png",
                 "monochromeImage": "./assets/icon.png"
             }
         },
@@ -39,6 +38,12 @@
         "experiments": {
             "typedRoutes": true,
             "reactCompiler": true
+        },
+        "extra": {
+            "router": {},
+            "eas": {
+                "projectId": "aaa03654-3fe4-4cfa-a1f8-e327ccf69009"
+            }
         }
     }
 }
