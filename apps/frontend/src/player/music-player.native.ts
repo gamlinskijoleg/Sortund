@@ -19,6 +19,8 @@ async function configurePlayer() {
             PlayerCommand.Previous,
             PlayerCommand.PlayPause,
             PlayerCommand.Stop,
+            PlayerCommand.SkipBackward,
+            PlayerCommand.SkipForward,
         ],
         handling: "native",
     });
@@ -38,13 +40,7 @@ export async function initPlayer() {
             console.log("Player: initializing TrackPlayer");
 
             try {
-                TrackPlayer.setupPlayer({
-                    contentType: "music",
-                    autoUpdateMetadataFromStream: true,
-                    android: {
-                        wakeMode: "none",
-                    },
-                });
+                TrackPlayer.setupPlayer();
             } catch (error) {
                 if (!isAlreadySetupError(error)) {
                     throw error;
@@ -68,28 +64,17 @@ export async function initPlayer() {
 export async function playTrack(track: MusicTrack) {
     await initPlayer();
 
-    const mediaItem: any = {
-        id: track.assetId ?? track.sourceUri,
+    const mediaItem = {
+        // id: track.assetId,
         url: track.sourceUri,
         title: track.title,
         artist: track.artist,
+        mimeType: "audio/mpeg",
     };
-
-    // Avoid sending potentially incorrect or null durations to native.
-    if (
-        typeof track.duration === "number" &&
-        Number.isFinite(track.duration) &&
-        track.duration > 0
-    ) {
-        // TrackPlayer expects duration in seconds. If the loader provides milliseconds,
-        // the caller can convert before assigning. We omit duration here to be safe.
-        // mediaItem.duration = track.duration / 1000;
-    }
-
     try {
+        console.log("Player: setting media item", mediaItem);
         TrackPlayer.setMediaItems([mediaItem]);
         TrackPlayer.play();
-        console.log("Player: playback started", mediaItem.id);
     } catch (error) {
         console.error("Player: failed to set media items / play", error);
     }

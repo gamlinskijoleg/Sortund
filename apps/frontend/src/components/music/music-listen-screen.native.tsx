@@ -2,8 +2,8 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { AppScreen } from "../app-screen";
 import { playTrack } from "../../player/music-player";
+import { AppScreen } from "../app-screen";
 
 function formatTime(miliseconds: number) {
     const safeSeconds = Math.max(0, Math.floor(miliseconds / 1000));
@@ -24,7 +24,7 @@ export default function MusicListenScreen() {
         artist: string;
         color: string;
     }>();
-    const sourceUri = decodeURIComponent(params.sourceUri);
+    const sourceUri = params.sourceUri;
 
     const assetId = params.assetId;
     const activeTrack = {

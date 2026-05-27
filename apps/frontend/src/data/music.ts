@@ -1,12 +1,7 @@
+import { File } from "expo-file-system";
+import { MediaType, requestPermissionsAsync } from "expo-media-library";
+import { getAssetsAsync } from "expo-media-library/legacy";
 import { useEffect, useState } from "react";
-import {
-    AssetField,
-    MediaType,
-    Query,
-    requestPermissionsAsync,
-    Asset,
-} from "expo-media-library";
-import { getMetadata } from "react-native-audio-metadata";
 
 export type MusicTrack = {
     title: string;
@@ -53,53 +48,79 @@ function colorFromName(value: string) {
     return `hsl(${hue} 52% 46%)`;
 }
 
+const checkAudioFile = async (rawPath: string) => {
+    const encodedUri = encodeURI(rawPath);
+
+    console.log("🔍 Перевіряємо файл через сучасні методи expo-file-system...");
+
+    const fileMetadata = new File(encodedUri).info();
+
+    if (fileMetadata && fileMetadata.exists) {
+        console.log("✅ Успіх! Файл знайдено.");
+        console.log("📊 Розмір файла:", fileMetadata.size, "байт");
+    } else {
+        console.log(
+            "❌ Файл НЕ знайдено або доступ заблоковано системою Scoped Storage."
+        );
+    }
+};
+
 export async function loadMusicTracks(limit = 2): Promise<MusicTrack[]> {
     const permission = await requestPermissionsAsync(false, ["audio"]);
 
     if (!permission.granted) {
         return [];
     }
+    const media = await getAssetsAsync({
+        mediaType: MediaType.AUDIO,
+        first: limit,
+    });
 
-    const assets = await new Query()
-        .eq(AssetField.MEDIA_TYPE, MediaType.AUDIO)
-        .orderBy(AssetField.CREATION_TIME)
-        .limit(limit)
-        .exe();
+    const tracks = media.assets.map((asset) => {
+        return {
+            assetId: asset.id,
+            // ТУТ БУДЕ КРИТИЧНО ПРАВИЛЬНИЙ ШЛЯХ типу content://media/external/audio/media/123
+            sourceUri: `content://media/external/audio/media/${asset.id}`,
+            title: asset.filename,
+            artist: "Unknown Artist",
+            duration: asset.duration,
+            color: colorFromName(asset.filename),
+        };
+    });
 
-    console.log("Loaded music assets:", assets.length);
+    // const assets = await new Query()
+    //     .eq(AssetField.MEDIA_TYPE, MediaType.AUDIO)
+    //     .orderBy(AssetField.CREATION_TIME)
+    //     .limit(limit)
+    //     .exe();
 
-    const tracks = await Promise.all(
-        assets.map(async (asset: Asset, index: number) => {
-            const uri = await asset.getUri();
+    // const tracks = await Promise.all(
+    //     assets.map(async (asset: Asset, index: number) => {
+    //         const uri = await asset.getUri();
 
-            const cleanPath = decodeURIComponent(uri).replace(/^file:\/\//, "");
-            const metadata = await getMetadata(decodeURI(cleanPath)).catch(
-                (error) => {
-                    console.error("Error reading metadata for", {
-                        uri,
-                        error,
-                    });
-                    return null;
-                }
-            );
+    //         const cleanPath = decodeURIComponent(uri).replace(/^file:\/\//, "");
+    //         const metadata = await getMetadata(decodeURI(cleanPath)).catch(
+    //             (error) => {
+    //                 console.error("Error reading metadata for", {
+    //                     uri,
+    //                     error,
+    //                 });
+    //                 return null;
+    //             }
+    //         );
 
-            if (!metadata?.title) {
-                console.warn("Missing title metadata for", {
-                    uri,
-                    metadata,
-                });
-            }
+    //         return {
+    //             sourceUri: uri,
+    //             assetId: asset.id,
+    //             title: metadata?.title ?? decodeURI(uri).split("/").pop()!,
+    //             artist: metadata?.artist ?? "Unknown artist",
+    //             duration: metadata?.duration ?? null,
+    //             color: colorFromName(metadata?.title ?? `Track ${index + 1}`),
+    //         } satisfies MusicTrack;
+    //     })
+    // );
 
-            return {
-                sourceUri: uri,
-                assetId: asset.id,
-                title: metadata?.title ?? decodeURI(uri).split("/").pop()!,
-                artist: metadata?.artist ?? "Unknown artist",
-                duration: metadata?.duration ?? null,
-                color: colorFromName(metadata?.title ?? `Track ${index + 1}`),
-            } satisfies MusicTrack;
-        })
-    );
+    tracks.forEach((track) => checkAudioFile(track.sourceUri));
 
     return tracks;
 }
@@ -113,6 +134,13 @@ export function useMusicTracks(limit = 2) {
         let isActive = true;
 
         loadMusicTracks(limit)
+            .then((tracks) => {
+                console.log(
+                    "✅ Треки успішно завантажені:",
+                    JSON.stringify(tracks, null, 2)
+                );
+                return tracks;
+            })
             .then((nextTracks) => {
                 if (!isActive) {
                     return;
@@ -121,7 +149,7 @@ export function useMusicTracks(limit = 2) {
                 setTracks(nextTracks);
                 setError(null);
             })
-            .catch((loadError: unknown) => {
+            .catch((loadError) => {
                 if (!isActive) {
                     return;
                 }
