@@ -53,7 +53,7 @@ function colorFromName(value: string) {
     return `hsl(${hue} 52% 46%)`;
 }
 
-export async function loadMusicTracks(limit = 50): Promise<MusicTrack[]> {
+export async function loadMusicTracks(limit = 2): Promise<MusicTrack[]> {
     const permission = await requestPermissionsAsync(false, ["audio"]);
 
     if (!permission.granted) {
@@ -84,7 +84,10 @@ export async function loadMusicTracks(limit = 50): Promise<MusicTrack[]> {
             );
 
             if (!metadata?.title) {
-                console.warn("Missing title metadata for", { uri, metadata });
+                console.warn("Missing title metadata for", {
+                    uri,
+                    metadata,
+                });
             }
 
             return {
@@ -101,7 +104,7 @@ export async function loadMusicTracks(limit = 50): Promise<MusicTrack[]> {
     return tracks;
 }
 
-export function useMusicTracks(limit = 50) {
+export function useMusicTracks(limit = 2) {
     const [tracks, setTracks] = useState<MusicTrack[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);

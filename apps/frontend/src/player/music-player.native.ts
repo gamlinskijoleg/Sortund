@@ -38,7 +38,13 @@ export async function initPlayer() {
             console.log("Player: initializing TrackPlayer");
 
             try {
-                TrackPlayer.setupPlayer();
+                TrackPlayer.setupPlayer({
+                    contentType: "music",
+                    autoUpdateMetadataFromStream: true,
+                    android: {
+                        wakeMode: "none",
+                    },
+                });
             } catch (error) {
                 if (!isAlreadySetupError(error)) {
                     throw error;

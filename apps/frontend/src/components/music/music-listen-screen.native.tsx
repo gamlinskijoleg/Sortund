@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { AppScreen } from "../app-screen";
-import { useMusicTracks } from "../../data/music";
+import { playTrack } from "../../player/music-player";
 
 function formatTime(miliseconds: number) {
     const safeSeconds = Math.max(0, Math.floor(miliseconds / 1000));
@@ -27,19 +27,20 @@ export default function MusicListenScreen() {
     const sourceUri = decodeURIComponent(params.sourceUri);
 
     const assetId = params.assetId;
-    const fallbackTitle = params.title;
-    const fallbackArtist = params.artist;
-    const fallbackColor = params.color;
-
-    const { tracks, isLoading, error } = useMusicTracks();
+    const activeTrack = {
+        assetId,
+        sourceUri,
+        title: params.title ?? "Unknown track",
+        artist: params.artist ?? "Unknown artist",
+        color: params.color ?? "#3d748d",
+        duration: null,
+    };
 
     const [isPlaying, setIsPlaying] = useState(false);
 
     async function handlePlay() {
-        if (!selectedTrack) return;
         try {
-            const player = await import("../../player/music-player.native");
-            await player.playTrack(selectedTrack);
+            await playTrack(activeTrack);
             setIsPlaying(true);
         } catch (err) {
             console.warn("Play failed", err);
@@ -56,34 +57,10 @@ export default function MusicListenScreen() {
         }
     }
 
-    const selectedTrack = (() => {
-        if (!tracks.length) {
-            return null;
-        }
-
-        if (assetId) {
-            const match = tracks.find((track) => track.assetId === assetId);
-            if (match) {
-                return match;
-            }
-        }
-
-        if (sourceUri) {
-            const match = tracks.find((track) => track.sourceUri === sourceUri);
-            if (match) {
-                return match;
-            }
-        }
-
-        return tracks[0] ?? null;
-    })();
-
-    // Playback logic removed: this screen only displays metadata from `useMusicTracks()`.
-
-    const activeTitle = selectedTrack?.title ?? fallbackTitle;
-    const activeArtist = selectedTrack?.artist ?? fallbackArtist;
-    const activeColor = selectedTrack?.color ?? fallbackColor;
-    const totalSeconds = selectedTrack?.duration ?? 67;
+    const activeTitle = activeTrack.title;
+    const activeArtist = activeTrack.artist;
+    const activeColor = activeTrack.color;
+    const totalSeconds = activeTrack.duration ?? 0;
     const playedSeconds = 0;
     const bufferedSeconds = 0;
     const playedWidth =
@@ -221,9 +198,7 @@ export default function MusicListenScreen() {
                         Local library playback
                     </Text>
                     <Text style={styles.footerText} numberOfLines={2}>
-                        {isLoading
-                            ? "Preparing your audio library..."
-                            : error || "Tap a track to start listening."}
+                        Tap play to start listening.
                     </Text>
                 </View>
             </View>
