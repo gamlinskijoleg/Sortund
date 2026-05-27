@@ -10,7 +10,13 @@ import { initPlayer } from "../player/music-player";
 
 export default function RootLayout() {
     useEffect(() => {
-        void initPlayer();
+        initPlayer()
+            .then(() =>
+                console.log("🚀 Аудіо-сервіс успішно готовий до роботи")
+            )
+            .catch((err) =>
+                console.error("Не вдалося ініціалізувати аудіо-режим:", err)
+            );
     }, []);
 
     return (

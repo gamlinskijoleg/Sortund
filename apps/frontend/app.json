@@ -7,6 +7,10 @@
         "scheme": "sortundfrontend",
         "userInterfaceStyle": "automatic",
         "android": {
+            "permissions": [
+                "FOREGROUND_SERVICE",
+                "FOREGROUND_SERVICE_MEDIA_PLAYBACK"
+            ],
             "package": "com.sortund.frontend",
             "predictiveBackGestureEnabled": false,
             "adaptiveIcon": {
@@ -24,6 +28,21 @@
         },
         "plugins": [
             "expo-router",
+            [
+                "expo-file-system",
+                {
+                    "supportsOpeningDocumentsInPlace": true,
+                    "enableFileSharing": true
+                }
+            ],
+            [
+                "expo-audio",
+                {
+                    "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone.",
+                    "enableBackgroundPlayback": true,
+                    "enableBackgroundRecording": false
+                }
+            ],
             [
                 "expo-splash-screen",
                 {

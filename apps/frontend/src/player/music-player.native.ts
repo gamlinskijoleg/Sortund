@@ -1,108 +1,111 @@
-import TrackPlayer, { PlayerCommand } from "@rntp/player";
+import { AudioPlayer, createAudioPlayer, AudioModule } from "expo-audio";
 import type { MusicTrack } from "../data/music";
 
+// Global player instance
+let globalPlayer: AudioPlayer | null = null;
 let initialized = false;
-let initializationPromise: Promise<void> | null = null;
 
-function isAlreadySetupError(error: unknown) {
-    return (
-        error instanceof Error &&
-        error.message.toLowerCase().includes("already set up")
-    );
-}
-
-async function configurePlayer() {
-    TrackPlayer.setCommands({
-        capabilities: [
-            PlayerCommand.Seek,
-            PlayerCommand.Next,
-            PlayerCommand.Previous,
-            PlayerCommand.PlayPause,
-            PlayerCommand.Stop,
-            PlayerCommand.SkipBackward,
-            PlayerCommand.SkipForward,
-        ],
-        handling: "native",
-    });
-}
-
-export async function initPlayer() {
-    if (initialized) {
-        return;
-    }
-
-    if (initializationPromise) {
-        return initializationPromise;
-    }
-
-    initializationPromise = (async () => {
-        try {
-            console.log("Player: initializing TrackPlayer");
-
-            try {
-                TrackPlayer.setupPlayer();
-            } catch (error) {
-                if (!isAlreadySetupError(error)) {
-                    throw error;
-                }
-            }
-
-            await configurePlayer();
-
-            initialized = true;
-            console.log("Player: TrackPlayer initialized");
-        } catch (error) {
-            console.warn("Player: failed to initialize TrackPlayer", error);
-        } finally {
-            initializationPromise = null;
-        }
-    })();
-
-    return initializationPromise;
-}
-
-export async function playTrack(track: MusicTrack) {
-    await initPlayer();
-
-    const mediaItem = {
-        // id: track.assetId,
-        url: track.sourceUri,
-        title: track.title,
-        artist: track.artist,
-        mimeType: "audio/mpeg",
-    };
+/**
+ * Configure audio mode for background playback and lock-screen controls.
+ */
+async function configureAudioMode() {
+    if (initialized) return;
     try {
-        console.log("Player: setting media item", mediaItem);
-        TrackPlayer.setMediaItems([mediaItem]);
-        TrackPlayer.play();
+        await AudioModule.setAudioModeAsync({
+            playsInSilentMode: true,
+            shouldPlayInBackground: true,
+            interruptionMode: "doNotMix",
+            shouldRouteThroughEarpiece: false,
+        });
+        initialized = true;
+        console.log("Player: AudioMode configured successfully");
     } catch (error) {
-        console.error("Player: failed to set media items / play", error);
+        console.warn("Player: Failed to configure AudioMode", error);
     }
 }
 
+/**
+ * Play a track and show metadata on the lock screen.
+ */
+export async function playTrack(track: MusicTrack) {
+    await configureAudioMode();
+
+    const decodedUrl = decodeURIComponent(track.sourceUri);
+
+    const trackMetadata = {
+        title: track.title,
+        artist: track.artist || "Unknown Artist",
+        // optional: album, artwork
+    };
+
+    try {
+        if (globalPlayer) {
+            // Replace source and update lock-screen metadata
+            globalPlayer.replace({ uri: decodedUrl });
+            globalPlayer.setActiveForLockScreen(true, trackMetadata);
+            globalPlayer.play();
+        } else {
+            // Create player instance and enable lock-screen metadata
+            globalPlayer = createAudioPlayer(
+                { uri: decodedUrl },
+                { updateInterval: 500 }
+            );
+            globalPlayer.setActiveForLockScreen(true, trackMetadata);
+            globalPlayer.play();
+        }
+        console.log(
+            `Player: Now playing "${track.title}" in foreground system service`
+        );
+    } catch (error) {
+        console.error("Player: Failed to play track via expo-audio", error);
+    }
+}
+
+/**
+ * Pause playback.
+ */
 export async function pausePlayback() {
     try {
-        TrackPlayer.pause();
+        if (globalPlayer) {
+            globalPlayer.pause();
+        }
     } catch (error) {
-        console.warn("Player: pause failed", error);
+        console.warn("Player: Pause failed", error);
     }
 }
 
+/**
+ * Toggle play/pause.
+ */
 export async function togglePlayback() {
     try {
-        if (TrackPlayer.isPlaying()) {
-            TrackPlayer.pause();
+        if (!globalPlayer) return;
+
+        if (globalPlayer.playing) {
+            globalPlayer.pause();
         } else {
-            TrackPlayer.play();
+            globalPlayer.play();
         }
     } catch (error) {
-        console.warn("Player: toggle failed", error);
+        console.warn("Player: Toggle failed", error);
     }
+}
+
+/**
+ * Return the current player instance (useful for UI subscriptions).
+ */
+export function getPlayerInstance(): AudioPlayer {
+    return globalPlayer || createAudioPlayer({ uri: "", name: "" });
 }
 
 export default {
-    initPlayer,
     playTrack,
     pausePlayback,
     togglePlayback,
+    getPlayerInstance,
+    initPlayer,
 };
+
+export async function initPlayer() {
+    await configureAudioMode();
+}

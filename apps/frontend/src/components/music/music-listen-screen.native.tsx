@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { playTrack } from "../../player/music-player";
 import { AppScreen } from "../app-screen";
+import { useAudioPlayerStatus } from "expo-audio";
+import { getPlayerInstance } from "../../player/music-player.native";
 
 function formatTime(miliseconds: number) {
     const safeSeconds = Math.max(0, Math.floor(miliseconds / 1000));
@@ -72,6 +74,10 @@ export default function MusicListenScreen() {
             ? Math.min(100, (bufferedSeconds / totalSeconds) * 100)
             : 0;
 
+    const player = getPlayerInstance();
+    // Хук підпишеться на зміни та поверне { playing, duration, currentTime ... }
+    const status = useAudioPlayerStatus(player);
+
     return (
         <AppScreen backgroundColor="#0b0d12" statusBarStyle="light">
             <View style={styles.screen}>
@@ -81,6 +87,7 @@ export default function MusicListenScreen() {
                         onPress={() => router.back()}
                         style={styles.iconButton}
                     >
+                        <Text>Зараз грає: {status.playing}</Text>
                         <MaterialCommunityIcons
                             name="chevron-left"
                             size={30}
