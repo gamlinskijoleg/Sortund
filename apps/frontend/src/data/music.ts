@@ -3,6 +3,7 @@ import { MediaType, requestPermissionsAsync } from "expo-media-library";
 import { getAssetsAsync } from "expo-media-library/legacy";
 import { useEffect, useState } from "react";
 import { getArtwork, getMetadata } from "react-native-audio-metadata";
+import { getCachedTracks, initDatabase, saveTracksToDb } from "./db";
 
 export type MusicTrack = {
     title: string;
@@ -59,26 +60,20 @@ export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
 
     const cacheDir = new Directory(Paths.cache, "subdirName");
 
-    // Оскільки .info() та .create() тепер синхронні/асинхронні в експо,
-    // краще зробити безпечну перевірку
     try {
         const dirInfo = cacheDir.info();
         if (!dirInfo.exists) {
             cacheDir.create();
         }
-    } catch (e) {
-        // Якщо раптом нова лібка капризує на синхронному виклику
+    } catch {
+        // ESLint Фікс: Просто прибрали (e), бо помилка не використовується
         console.log("Папка кешу вже існує або ініційована");
     }
 
     const tracks: MusicTrack[] = [];
 
-    // Використовуємо звичайний цикл замість Promise.all для безпечного логування
-    // та захисту від "впав один — впали всі"
     for (const asset of media.assets) {
         try {
-            // БЕЗПЕЧНА НАЗВА: використовуємо id треку + розширення
-            // Це повністю вирішує проблему з "Illegal character in path" через [ ], %20 або кирилицю
             const fileExtension = asset.filename.split(".").pop() || "mp3";
             const safeFileName = `${asset.id}.${fileExtension}`;
             const cachedFile = new File(cacheDir, safeFileName);
@@ -89,13 +84,11 @@ export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
             let artworkUrl: string | undefined;
             let duration = asset.duration ?? 0;
 
-            // Очищаємо URI для зчитування метаданих
             const cleanMetadataUri = decodeURIComponent(asset.uri).replace(
                 "file://",
                 ""
             );
 
-            // Зчитуємо метадані
             try {
                 const [metadata, artwork] = await Promise.all([
                     getMetadata(cleanMetadataUri),
@@ -107,13 +100,13 @@ export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
                 albumTitle = metadata.album?.trim() || undefined;
                 if (metadata.duration) duration = metadata.duration;
                 artworkUrl = artwork || undefined;
-            } catch (metadataError) {
+            } catch {
+                // ESLint Фікс: Прибрали (metadataError)
                 console.log(
                     `⚠️ Не вдалося зчитати теги для ${asset.filename}, беремо дефолтні`
                 );
             }
 
-            // Перевіряємо кеш за безпечним ім'ям
             const checkCache = cachedFile.info();
 
             if (!checkCache.exists) {
@@ -121,17 +114,12 @@ export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
                     `⏳ Кешуємо файл: ${safeFileName} (${asset.filename})...`
                 );
 
-                // 1. Повністю декодуємо оригінальний URI до чистого тексту,
-                // щоб прибрати кашу, якщо якісь символи вже були частково закодовані
                 const cleanRawPath = decodeURIComponent(asset.uri);
 
-                // 2. Кодуємо шлях за стандартами URI, але повертаємо слеші '/' та двокрапку ':',
-                // щоб операційна система розуміла структуру папок
                 const androidSafeUri = encodeURIComponent(cleanRawPath)
                     .replace(/%2F/g, "/")
                     .replace(/%3A/g, ":");
 
-                // Тепер цей URI на 100% валідний для Java під капотом Expo!
                 const sourceFile = new File(androidSafeUri);
 
                 await sourceFile.copy(cachedFile);
@@ -149,7 +137,6 @@ export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
                 color: colorFromName(asset.filename),
             });
         } catch (trackError) {
-            // Якщо один трек зламався — ми його просто пропускаємо, додаток працює далі!
             console.error(
                 `❌ Помилка обробки треку ${asset.filename}:`,
                 trackError
@@ -168,31 +155,50 @@ export function useMusicTracks(limit = Infinity) {
     useEffect(() => {
         let isActive = true;
 
-        loadMusicTracks(limit)
-            .then((tracks) => {
-                console.log("✅ Треки успішно підготовлені під file:// ");
-                return tracks;
-            })
-            .then((nextTracks) => {
-                if (!isActive) return;
-                setTracks(nextTracks);
-                setError(null);
-            })
-            .catch((loadError) => {
-                if (!isActive) return;
-                setTracks([]);
-                console.error("Error loading music tracks:", loadError);
-                setError(
-                    loadError instanceof Error
-                        ? loadError.message
-                        : "Unable to load local music files."
-                );
-            })
-            .finally(() => {
-                if (isActive) {
+        async function syncTracks() {
+            // TS Фікс: Оголошуємо змінну тут, щоб вона була доступна і в try, і в catch
+            let cached: MusicTrack[] = [];
+
+            try {
+                // 1. Ініціалізуємо БД
+                initDatabase();
+
+                // 2. Миттєво беремо локальний кеш з SQLite
+                cached = getCachedTracks();
+                if (cached.length > 0 && isActive) {
+                    setTracks(cached);
                     setIsLoading(false);
                 }
-            });
+
+                // 3. Запускаємо фоновий важкий скан файлів
+                const freshTracks = await loadMusicTracks(limit);
+
+                if (!isActive) return;
+
+                // 4. Оновлюємо UI та БД тільки якщо щось змінилося
+                if (freshTracks.length !== cached.length) {
+                    console.log(
+                        "🔄 Змінилася кількість треків. Оновлюємо базу даних..."
+                    );
+                    saveTracksToDb(freshTracks);
+                    setTracks(freshTracks);
+                } else {
+                    console.log(
+                        "⚡️ Кількість треків не змінилася. Скан пропущено, взято кеш SQLite."
+                    );
+                }
+            } catch (err) {
+                console.error("Помилка синхронізації треків:", err);
+                // Тепер тут cached доступна і помилки не буде!
+                if (cached.length === 0) {
+                    setError("Не вдалося завантажити музику.");
+                }
+            } finally {
+                if (isActive) setIsLoading(false);
+            }
+        }
+
+        syncTracks();
 
         return () => {
             isActive = false;
