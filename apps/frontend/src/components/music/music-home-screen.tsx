@@ -407,10 +407,23 @@ export default function MusicHomeScreen() {
     const theme = useAppTheme();
     const { tracks, isLoading, error } = useMusicTracks();
 
+    // Отримуємо поточний трек із глобального стору!
+    const activeTrack = usePlayerStore((state) => state.activeTrack);
+
     const handleTrackPress = (selectedTrack: MusicTrack, index: number) => {
-        usePlayerStore.getState().setQueue(tracks, index);
+        const store = usePlayerStore.getState();
+
+        // 1. Оновлюємо чергу та активний трек
+        store.setQueue(tracks, index);
+
+        // 2. Якщо у твоєму music-player або сторі немає автоплей-логіки,
+        // обов'язково викликай функцію запуску плеєра тут! Наприклад:
+        // getPlayerInstance().play(); або супутню функцію, яку ти написав.
+
         router.push(createListenRoute(selectedTrack));
     };
+
+    const displayTrack = activeTrack || tracks[0];
 
     // Виносимо рендер шапки в окрему функцію, щоб FlatList міг її відрендерити зверху списку
     const renderHeader = () => (
@@ -518,14 +531,14 @@ export default function MusicHomeScreen() {
                 />
 
                 {/* Міні-плеєр зафіксований поверх списку в самому низу */}
-                <MiniPlayer
-                    track={tracks[0]}
-                    onPress={
-                        tracks[0]
-                            ? () => router.push(createListenRoute(tracks[0]))
-                            : undefined
-                    }
-                />
+                {displayTrack && (
+                    <MiniPlayer
+                        track={displayTrack}
+                        onPress={() =>
+                            router.push(createListenRoute(displayTrack))
+                        }
+                    />
+                )}
             </YStack>
         </AppScreen>
     );

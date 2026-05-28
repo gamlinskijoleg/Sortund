@@ -20,8 +20,14 @@ export function initDatabase() {
 }
 
 export function getCachedTracks(): any[] {
-    // Швидке витягування всіх збережених треків
-    return db.getAllSync("SELECT * FROM tracks");
+    // time
+    const startTime = Date.now();
+    const tracks = db.getAllSync("SELECT * FROM tracks");
+    const endTime = Date.now();
+    console.log(
+        `SQLite: Витягування ${tracks.length} треків зайняло ${endTime - startTime} ms`
+    );
+    return tracks;
 }
 
 export function saveTracksToDb(tracks: any[]) {

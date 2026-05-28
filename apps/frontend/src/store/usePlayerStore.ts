@@ -1,14 +1,20 @@
 import { create } from "zustand";
 import type { MusicTrack } from "../data/music";
-import { playTrack, setTrackNavigationCallbacks } from "../player/music-player";
+import { AudioPlayer } from "expo-audio";
 
 interface PlayerState {
-    tracks: MusicTrack[]; // Уся активна черга треків
-    currentIndex: number; // Індекс поточного треку
-    activeTrack: MusicTrack | null; // Об'єкт активного треку
+    tracks: MusicTrack[];
+    currentIndex: number;
+    activeTrack: MusicTrack | null;
+    playerInstance: AudioPlayer | null;
 
     // Екшени
-    setQueue: (tracks: MusicTrack[], startIndex: number) => void;
+    setPlayerInstance: (player: AudioPlayer) => void;
+    setQueue: (
+        tracks: MusicTrack[],
+        startIndex: number,
+        shouldPlay?: boolean
+    ) => void;
     playNext: () => void;
     playPrevious: () => void;
     selectTrackById: (assetId: string) => void;
@@ -17,20 +23,16 @@ interface PlayerState {
 export const usePlayerStore = create<PlayerState>((set, get) => {
     const triggerNativePlay = (track: MusicTrack) => {
         if (!track) return;
-        playTrack(track);
     };
-
-    setTrackNavigationCallbacks(
-        () => get().playNext(),
-        () => get().playPrevious()
-    );
 
     return {
         tracks: [],
         currentIndex: -1,
         activeTrack: null,
+        playerInstance: null,
 
-        // Додали параметр shouldPlay, щоб контролювати автостарт
+        setPlayerInstance: (playerInstance) => set({ playerInstance }),
+
         setQueue: (tracks, startIndex, shouldPlay = true) => {
             const track = tracks[startIndex] || null;
             set({ tracks, currentIndex: startIndex, activeTrack: track });
@@ -63,14 +65,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
             triggerNativePlay(prevTrack);
         },
 
-        // ВИПРАВЛЕНО: тепер цей метод запускає відтворення нового вибраного треку
         selectTrackById: (assetId) => {
             const { tracks } = get();
             const index = tracks.findIndex((t) => t.assetId === assetId);
             if (index !== -1) {
                 const track = tracks[index];
                 set({ currentIndex: index, activeTrack: track });
-                triggerNativePlay(track); // Запускаємо нативний плеєр!
+                triggerNativePlay(track);
             }
         },
     };

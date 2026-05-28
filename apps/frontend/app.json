@@ -16,7 +16,7 @@
             "adaptiveIcon": {
                 "backgroundColor": "#E6F4FE",
                 "foregroundImage": "./assets/icon.png",
-                "backgroundImage": "./assets/splash.png",
+                "backgroundImage": "./assets/icon.png",
                 "monochromeImage": "./assets/icon.png"
             }
         },
@@ -45,7 +45,6 @@
                 {
                     "backgroundColor": "#0b0d12",
                     "image": "./assets/splash.png",
-                    "imageWidth": 200,
                     "android": {
                         "resizeMode": "contain"
                     }

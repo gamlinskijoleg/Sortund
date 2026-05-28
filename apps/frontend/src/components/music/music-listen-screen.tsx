@@ -1,12 +1,13 @@
+import React, { useState, useCallback } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useEvent } from "expo";
 import { YStack, XStack, Text, Image, Button, View, Slider } from "tamagui";
 
 import { AppScreen } from "../app-screen";
 import { getPlayerInstance, togglePlayback } from "../../player/music-player";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { useAppTheme } from "@/theme/app-theme";
+import { AudioPlayer, useAudioPlayerStatus } from "expo-audio";
 
 function formatTime(milliseconds: number) {
     const safeSeconds = Math.max(0, Math.floor(milliseconds / 1000));
@@ -19,48 +20,203 @@ function formatTime(milliseconds: number) {
     return `${String(minutes % 60).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
 }
 
+interface SliderProps {
+    player: AudioPlayer;
+    fallbackDuration: number;
+    theme: any;
+}
+
+// Ізольований компонент трекера для максимальної плавності (60+ FPS)
+const PlaybackSlider = React.memo(
+    ({ player, fallbackDuration, theme }: SliderProps) => {
+        const { currentTime, duration } = useAudioPlayerStatus(player);
+
+        // Локальний стейт для трекінгу пальця
+        const [isSliding, setIsSliding] = useState(false);
+        const [slidingValue, setSlidingValue] = useState(0);
+
+        const playedMs = currentTime ? currentTime * 1000 : 0;
+        const totalMs =
+            duration && duration > 0 ? duration * 1000 : fallbackDuration;
+
+        // Справжній прогрес треку від плеєра
+        const currentProgressPercent =
+            totalMs > 0 ? (playedMs / totalMs) * 100 : 0;
+
+        // ВИПРАВЛЕННЯ БЛИМАННЯ: Показуємо АБО значення пальця, АБО прогрес плеєра
+        const activeProgress = isSliding
+            ? slidingValue
+            : currentProgressPercent;
+
+        // Визначаємо час для лічильника
+        const displayPlayedMs = isSliding
+            ? (slidingValue / 100) * totalMs
+            : playedMs;
+
+        // Спрацьовує при кожному русі пальця
+        const handleValueChange = useCallback((values: number[]) => {
+            if (values[0] !== undefined) {
+                // Вмикаємо режим "ігнорування плеєра" і фіксуємо координату пальця
+                setIsSliding(true);
+                setSlidingValue(values[0]);
+            }
+        }, []);
+
+        // Спрацьовує ТІЛЬКИ коли відпустили палець
+        const handleSlidingComplete = useCallback(
+            (event: any, value: number) => {
+                if (totalMs <= 0 || value === undefined) {
+                    setIsSliding(false);
+                    return;
+                }
+
+                const newPositionSec = (value / 100) * (totalMs / 1000);
+
+                if (player && typeof player.seekTo === "function") {
+                    player.seekTo(newPositionSec);
+                }
+
+                // Маленький хак: залишаємо локальне значення пальця активним ще на 100мс,
+                // щоб плеєр встиг зробити seek і не повернув старий час на один кадр
+                setTimeout(() => {
+                    setIsSliding(false);
+                }, 1);
+            },
+            [player, totalMs]
+        );
+
+        return (
+            <YStack marginBottom={20}>
+                {/* Час треку */}
+                <XStack justifyContent="space-between" marginBottom={8}>
+                    <Text
+                        color={isSliding ? theme.accent : theme.textMuted}
+                        fontSize={13}
+                        fontWeight="600"
+                    >
+                        {formatTime(displayPlayedMs)}
+                    </Text>
+                    <Text
+                        color={theme.textMuted}
+                        fontSize={13}
+                        fontWeight="600"
+                    >
+                        {formatTime(totalMs)}
+                    </Text>
+                </XStack>
+
+                <View height={20} justifyContent="center">
+                    {/* 1. ФОНОВИЙ ФАНТОМНИЙ ТРЕК */}
+                    {isSliding && (
+                        <View
+                            position="absolute"
+                            left={0}
+                            right={0}
+                            height={8}
+                            borderRadius={999}
+                            backgroundColor="transparent"
+                            pointerEvents="none"
+                            zIndex={1}
+                        >
+                            <View
+                                width={`${slidingValue}%`}
+                                height="100%"
+                                backgroundColor={theme.accent}
+                                borderRadius={999}
+                                opacity={0.3}
+                            />
+                        </View>
+                    )}
+
+                    {/* 2. ОСНОВНИЙ СЛАЙДЕР */}
+                    <Slider
+                        value={[activeProgress]} // Використовуємо очищене від блимань значення
+                        onValueChange={handleValueChange}
+                        onSlideEnd={handleSlidingComplete}
+                        max={100}
+                        step={0.5}
+                        width="100%"
+                        size="$2"
+                    >
+                        <Slider.Track
+                            backgroundColor={theme.surfaceStrong}
+                            height={8}
+                            borderRadius={999}
+                        >
+                            <Slider.TrackActive
+                                backgroundColor={
+                                    isSliding ? theme.textMuted : theme.accent
+                                }
+                            />
+                        </Slider.Track>
+                        <Slider.Thumb
+                            index={0}
+                            circular
+                            size={16}
+                            backgroundColor={theme.accent}
+                            elevate
+                            borderColor={theme.background}
+                            borderWidth={2}
+                        />
+                    </Slider>
+                </View>
+            </YStack>
+        );
+    }
+);
+
+PlaybackSlider.displayName = "PlaybackSlider";
+
+const PlayPauseButton = ({
+    player,
+    theme,
+}: {
+    player: AudioPlayer;
+    theme: any;
+}) => {
+    const { playing } = useAudioPlayerStatus(player);
+    return (
+        <Button
+            onPress={() => togglePlayback()}
+            width={84}
+            height={84}
+            borderRadius={42}
+            backgroundColor={theme.accent}
+            pressStyle={{ backgroundColor: theme.accentStrong }}
+            justifyContent="center"
+            alignItems="center"
+            padding={0}
+            elevation={12}
+            shadowColor={theme.shadow}
+        >
+            <MaterialCommunityIcons
+                name={playing ? "pause" : "play"}
+                size={36}
+                color={theme.inverseText}
+                style={playing ? undefined : { marginLeft: 4 }}
+            />
+        </Button>
+    );
+};
+
 export default function MusicListenScreen() {
     const theme = useAppTheme();
     const player = getPlayerInstance();
-    const playerEvent = useEvent(player, "playbackStatusUpdate");
-
     const activeTrack = usePlayerStore((state) => state.activeTrack);
     const { playNext, playPrevious } = usePlayerStore();
 
-    if (!activeTrack) {
+    // ВИПРАВЛЕНО: Якщо немає треку АБО плеєр ще не створився в initPlayer
+    if (!activeTrack || !player) {
         return (
             <AppScreen backgroundColor={theme.background} statusBarStyle="dark">
                 <YStack flex={1} justifyContent="center" alignItems="center">
                     <Text color={theme.textMuted} fontSize={16}>
-                        Плеєр порожній...
+                        Плеєр порожній або завантажується...
                     </Text>
                 </YStack>
             </AppScreen>
         );
     }
-
-    const isStatus = playerEvent && "currentTime" in playerEvent;
-    const status = isStatus ? (playerEvent as any) : null;
-
-    const playedMs = status?.currentTime ? status.currentTime * 1000 : 0;
-    const totalMs =
-        activeTrack.duration || (status?.duration ? status.duration * 1000 : 0);
-
-    const currentProgressPercent = totalMs > 0 ? (playedMs / totalMs) * 100 : 0;
-    const isPlaying = status ? status.playing : player.playing;
-
-    // Оновлена логіка перемотування для expo-audio з урахуванням React Compiler
-    const handleSeek = (values: number[]) => {
-        if (totalMs <= 0 || values[0] === undefined) return;
-
-        // Обчислюємо нову позицію в секундах
-        const newPositionSec = (values[0] / 100) * (totalMs / 1000);
-
-        // Використовуємо метод seekTo замість прямої мутації властивості
-        if (player && typeof player.seekTo === "function") {
-            player.seekTo(newPositionSec);
-        }
-    };
 
     return (
         <AppScreen backgroundColor={theme.background} statusBarStyle="dark">
@@ -184,7 +340,6 @@ export default function MusicListenScreen() {
                             backgroundColor="rgba(255,255,255,0.04)"
                             zIndex={2}
                         />
-
                         {activeTrack.artworkUrl ? (
                             <Image
                                 source={{ uri: activeTrack.artworkUrl }}
@@ -226,56 +381,12 @@ export default function MusicListenScreen() {
                     </Text>
                 </YStack>
 
-                {/* Блок прогресу */}
-                <YStack marginBottom={20}>
-                    <XStack justifyContent="space-between" marginBottom={8}>
-                        <Text
-                            color={theme.textMuted}
-                            fontSize={13}
-                            fontWeight="600"
-                        >
-                            {formatTime(playedMs)}
-                        </Text>
-                        <Text
-                            color={theme.textMuted}
-                            fontSize={13}
-                            fontWeight="600"
-                        >
-                            {formatTime(totalMs)}
-                        </Text>
-                    </XStack>
-
-                    {/* Виправлений повзунок Tamagui */}
-                    <Slider
-                        value={[currentProgressPercent]}
-                        onValueChange={handleSeek}
-                        max={100}
-                        step={1}
-                        width="100%"
-                        size="$2"
-                    >
-                        <Slider.Track
-                            backgroundColor={theme.surfaceStrong}
-                            height={8}
-                            borderRadius={999}
-                        >
-                            {/* Ось тут була головна помилка імпорту! */}
-                            <Slider.TrackActive
-                                backgroundColor={theme.accent}
-                            />
-                        </Slider.Track>
-                        {/* Ручка слайдера (можна прибрати, якщо хочеш просто лінію) */}
-                        <Slider.Thumb
-                            index={0}
-                            circular
-                            size={16}
-                            backgroundColor={theme.accent}
-                            elevate
-                            borderColor={theme.background}
-                            borderWidth={2}
-                        />
-                    </Slider>
-                </YStack>
+                {/* ВИПРАВЛЕНО: Сюди йде 100% солідний інстанс плеєра */}
+                <PlaybackSlider
+                    player={player}
+                    fallbackDuration={activeTrack.duration || 0}
+                    theme={theme}
+                />
 
                 {/* Елементи керування плеєром */}
                 <XStack
@@ -303,26 +414,8 @@ export default function MusicListenScreen() {
                         />
                     </Button>
 
-                    <Button
-                        onPress={() => togglePlayback()}
-                        width={84}
-                        height={84}
-                        borderRadius={42}
-                        backgroundColor={theme.accent}
-                        pressStyle={{ backgroundColor: theme.accentStrong }}
-                        justifyContent="center"
-                        alignItems="center"
-                        padding={0}
-                        elevation={12}
-                        shadowColor={theme.shadow}
-                    >
-                        <MaterialCommunityIcons
-                            name={isPlaying ? "pause" : "play"}
-                            size={36}
-                            color={theme.inverseText}
-                            style={isPlaying ? undefined : { marginLeft: 4 }}
-                        />
-                    </Button>
+                    {/* ВИПРАВЛЕНО: Винесено кнопку для безпечного виклику хука */}
+                    <PlayPauseButton player={player} theme={theme} />
 
                     <Button
                         onPress={playNext}
@@ -343,42 +436,6 @@ export default function MusicListenScreen() {
                         />
                     </Button>
                 </XStack>
-
-                {/* Картка знизу */}
-                <YStack
-                    borderRadius={24}
-                    padding={16}
-                    backgroundColor={theme.surface}
-                    borderWidth={1}
-                    borderColor={theme.border}
-                >
-                    <View
-                        width={52}
-                        height={5}
-                        borderRadius={999}
-                        backgroundColor={theme.border}
-                        marginBottom={12}
-                        alignSelf="center"
-                    />
-                    <Text
-                        color={theme.text}
-                        fontSize={16}
-                        fontWeight="700"
-                        marginBottom={4}
-                    >
-                        Local library playback
-                    </Text>
-                    <Text
-                        color={theme.textMuted}
-                        fontSize={14}
-                        lineHeight={20}
-                        numberOfLines={2}
-                    >
-                        {isPlaying
-                            ? "Enjoying your music tracks."
-                            : "Tap play to start listening."}
-                    </Text>
-                </YStack>
             </YStack>
         </AppScreen>
     );
