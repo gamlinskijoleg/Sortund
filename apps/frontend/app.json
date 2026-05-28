@@ -23,9 +23,6 @@
         "ios": {
             "bundleIdentifier": "com.sortund.frontend"
         },
-        "web": {
-            "output": "static"
-        },
         "plugins": [
             "expo-router",
             [
@@ -46,10 +43,11 @@
             [
                 "expo-splash-screen",
                 {
-                    "backgroundColor": "#208AEF",
+                    "backgroundColor": "#0b0d12",
                     "image": "./assets/splash.png",
+                    "imageWidth": 200,
                     "android": {
-                        "image": "./assets/icon.png"
+                        "resizeMode": "contain"
                     }
                 }
             ]
