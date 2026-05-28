@@ -4,7 +4,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { TamaguiProvider, Theme } from "tamagui";
 
-import appTamaguiConfig from "../../tamagui.config";
+import appTamaguiConfig from "../tamagui.config";
 import { MusicBottomNav } from "../components/music/music-bottom-nav";
 import { initPlayer } from "../player/music-player";
 

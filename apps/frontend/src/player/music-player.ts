@@ -6,26 +6,24 @@ import {
     AudioLockScreenOptions,
 } from "expo-audio";
 import { Image } from "react-native";
+import { Directory, File, Paths } from "expo-file-system";
 import { getArtwork } from "react-native-audio-metadata";
 import type { MusicTrack } from "../data/music";
 
-// Глобальний інстанс плеєра
 let globalPlayer: AudioPlayer | null = null;
 let initialized = false;
 let playbackToken = 0;
 
-// Нативні колбеки для керування чергою треків з UI
 let onNextTrackHandler: (() => void) | null = null;
 let onPreviousTrackHandler: (() => void) | null = null;
 
-// Дефолтна обкладинка, якщо у треку немає своєї
-const fallbackArtworkUrl = Image.resolveAssetSource(
+const resolvedAsset = Image.resolveAssetSource(
     require("../../assets/icon.png")
-).uri;
+);
+const fallbackArtworkUrl = resolvedAsset?.uri?.startsWith("data:")
+    ? undefined
+    : resolvedAsset?.uri;
 
-/**
- * Налаштування аудіорежиму для фонового відтворення та інтеграції з ОС
- */
 async function configureAudioMode() {
     if (initialized) return;
     try {
@@ -42,9 +40,6 @@ async function configureAudioMode() {
     }
 }
 
-/**
- * Реєстрація функцій перемикання треків (викликається у твоєму React-компоненті/хуці)
- */
 export function setTrackNavigationCallbacks(
     onNext: () => void,
     onPrev: () => void
@@ -54,19 +49,75 @@ export function setTrackNavigationCallbacks(
 }
 
 /**
- * Запуск треку та виведення його у системну шторку
+ * Очищає URI для бібліотеки метаданих, роблячи його зрозумілим для нативної частини Android
  */
+function preparePathForMetadata(uri: string): string {
+    let clean = uri;
+    if (clean.startsWith("file://")) {
+        clean = clean.replace("file://", "");
+    }
+    return decodeURIComponent(clean);
+}
+
+/**
+ * Допоміжна функція: зберігає base64 стрінгу у локальний файл
+ */
+async function saveBase64ToCacheFile(
+    base64WithPrefix: string,
+    assetId?: string
+): Promise<string | null> {
+    try {
+        const regex = /^data:image\/\w+;base64,/;
+        const base64Data = base64WithPrefix.replace(regex, "");
+
+        const cacheDir = new Directory(Paths.cache, "subdirName");
+        const filename = `cover_${assetId || Date.now()}.png`;
+        const targetFile = new File(cacheDir, filename);
+
+        targetFile.write(base64Data, { encoding: "base64" });
+        return targetFile.uri;
+    } catch (error) {
+        console.warn(
+            "Player: Failed to save base64 artwork string to file",
+            error
+        );
+        return null;
+    }
+}
+
 export async function playTrack(track: MusicTrack) {
     await configureAudioMode();
 
-    const decodedUrl = decodeURI(track.sourceUri);
+    const playerUri = track.sourceUri.includes("%")
+        ? track.sourceUri
+        : encodeURI(track.sourceUri);
     const currentToken = ++playbackToken;
+
+    // Перевіряємо, чи нам випадково не підсунули сирий data: URL в об'єкті треку
+    if (track.artworkUrl && track.artworkUrl.startsWith("data:")) {
+        console.log(
+            `⏳ Плеєр: Виявлено сирий base64 в треку "${track.title}". Перетворюємо у файл...`
+        );
+        const cachedFileUri = await saveBase64ToCacheFile(
+            track.artworkUrl,
+            track.assetId
+        );
+        if (cachedFileUri) {
+            track.artworkUrl = cachedFileUri;
+        } else {
+            track.artworkUrl = undefined; // Скидаємо, щоб не крашити натів
+        }
+    }
 
     const trackMetadata: AudioMetadata = {
         title: track.title,
         artist: track.artist || "Unknown Artist",
         albumTitle: track.albumTitle,
-        artworkUrl: track.artworkUrl || fallbackArtworkUrl,
+        ...(track.artworkUrl
+            ? { artworkUrl: track.artworkUrl }
+            : fallbackArtworkUrl
+              ? { artworkUrl: fallbackArtworkUrl }
+              : {}),
     };
 
     const lockScreenOptions: AudioLockScreenOptions = {
@@ -78,39 +129,28 @@ export async function playTrack(track: MusicTrack) {
     try {
         const activePlayer =
             globalPlayer ||
-            createAudioPlayer({ uri: decodedUrl }, { updateInterval: 500 });
+            createAudioPlayer({ uri: playerUri }, { updateInterval: 500 });
 
         if (globalPlayer) {
-            // Якщо плеєр уже створений, просто змінюємо аудіо-сорц
-            globalPlayer.replace({ uri: decodedUrl });
+            globalPlayer.replace({ uri: playerUri });
         } else {
             globalPlayer = activePlayer;
 
-            // Кастимо AudioModule в any, щоб обійти суворий TEventsMap компілятора,
-            // оскільки нативна подія "notificationCommandReceived" летить безпосередньо з системи.
             (AudioModule as any).addListener(
                 "notificationCommandReceived",
                 (event: { command: string }) => {
-                    console.log(
-                        "Отримано нативну команду зі шторки:",
-                        event.command
-                    );
-
                     if (event.command === "skipToNext" && onNextTrackHandler) {
-                        console.log("Шторка ОС: клік Next");
                         onNextTrackHandler();
                     } else if (
                         event.command === "skipToPrevious" &&
                         onPreviousTrackHandler
                     ) {
-                        console.log("Шторка ОС: клік Previous");
                         onPreviousTrackHandler();
                     }
                 }
             );
         }
 
-        // Оновлюємо шторку актуальними кнопками та інфою
         activePlayer.setActiveForLockScreen(
             true,
             trackMetadata,
@@ -118,84 +158,89 @@ export async function playTrack(track: MusicTrack) {
         );
         activePlayer.play();
 
-        // Якщо у треку немає готової обкладинки, витягуємо її асинхронно з файлу
+        // Якщо кавера немає взагалі, запускаємо фонове сканування
         if (!track.artworkUrl) {
-            void getArtwork(decodedUrl)
-                .then((artworkUrl) => {
+            const cleanMetadataUri = preparePathForMetadata(track.sourceUri);
+
+            void getArtwork(cleanMetadataUri)
+                .then(async (artworkResult) => {
                     if (
-                        !artworkUrl ||
+                        !artworkResult ||
                         playbackToken !== currentToken ||
                         globalPlayer !== activePlayer
                     ) {
                         return;
                     }
 
-                    activePlayer.updateLockScreenMetadata({
-                        ...trackMetadata,
-                        artworkUrl,
-                    });
+                    let finalArtworkUri: string | null = null;
+
+                    if (artworkResult.startsWith("data:")) {
+                        finalArtworkUri = await saveBase64ToCacheFile(
+                            artworkResult,
+                            track.assetId
+                        );
+                    } else if (
+                        artworkResult.startsWith("file://") ||
+                        artworkResult.startsWith("http")
+                    ) {
+                        finalArtworkUri = artworkResult;
+                    }
+
+                    // Важливо: Робимо update лише якщо отримали легітимний шлях (НЕ data:)
+                    if (
+                        finalArtworkUri &&
+                        !finalArtworkUri.startsWith("data:")
+                    ) {
+                        activePlayer.updateLockScreenMetadata({
+                            ...trackMetadata,
+                            artworkUrl: finalArtworkUri,
+                        });
+                        track.artworkUrl = finalArtworkUri;
+                        console.log(
+                            `✅ Плеєр: Обкладинку успішно встановлено для "${track.title}"`
+                        );
+                    }
                 })
                 .catch((error) => {
                     console.warn(
-                        "Player: Failed to load lock-screen artwork",
-                        error
+                        `Player: Artwork extraction failed for "${track.title}":`,
+                        error.message
                     );
                 });
         }
 
-        console.log(
-            `Player: Now playing "${track.title}" in foreground system service`
-        );
+        console.log(`Player: Now playing "${track.title}"`);
     } catch (error) {
         console.error("Player: Failed to play track via expo-audio", error);
     }
 }
 
-/**
- * Пауза
- */
 export async function pausePlayback() {
     try {
-        if (globalPlayer) {
-            globalPlayer.pause();
-        }
+        if (globalPlayer) globalPlayer.pause();
     } catch (error) {
-        console.warn("Player: Pause failed", error);
+        console.warn(error);
     }
 }
 
-/**
- * Перемикач Play / Pause
- */
 export async function togglePlayback() {
     try {
         if (!globalPlayer) return;
-
-        if (globalPlayer.playing) {
-            globalPlayer.pause();
-        } else {
-            globalPlayer.play();
-        }
+        if (globalPlayer.playing) globalPlayer.pause();
+        else globalPlayer.play();
     } catch (error) {
-        console.warn("Player: Toggle failed", error);
+        console.warn(error);
     }
 }
 
-/**
- * Отримання поточного інстансу плеєра для підписки на прогрес-бар (UI)
- */
 export function getPlayerInstance(): AudioPlayer {
     return globalPlayer || createAudioPlayer({ uri: "", name: "" });
 }
 
-/**
- * Ініціалізація плеєра (можна викликати при старті додатка)
- */
 export async function initPlayer() {
     await configureAudioMode();
 }
 
-// Експорт за замовчуванням усього модуля
 export default {
     initPlayer,
     playTrack,

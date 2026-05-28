@@ -23,18 +23,10 @@ export type MusicSection = {
 export type LibrarySectionKey = "favourites" | "playlists" | "recent";
 
 export function createListenRoute(track: MusicTrack) {
-    const encodedUri = encodeURIComponent(track.sourceUri);
-
     return {
         pathname: "/listen" as const,
         params: {
             assetId: track.assetId,
-            sourceUri: encodedUri,
-            title: track.title,
-            artist: track.artist,
-            albumTitle: track.albumTitle,
-            duration: track.duration?.toString(),
-            color: track.color,
         },
     };
 }
@@ -67,50 +59,86 @@ export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
 
     const cacheDir = new Directory(Paths.cache, "subdirName");
 
-    const dirInfo = await cacheDir.info();
-    if (!dirInfo.exists) {
-        await cacheDir.create();
+    // Оскільки .info() та .create() тепер синхронні/асинхронні в експо,
+    // краще зробити безпечну перевірку
+    try {
+        const dirInfo = cacheDir.info();
+        if (!dirInfo.exists) {
+            cacheDir.create();
+        }
+    } catch (e) {
+        // Якщо раптом нова лібка капризує на синхронному виклику
+        console.log("Папка кешу вже існує або ініційована");
     }
 
-    const filesToDiagnostic: File[] = [];
+    const tracks: MusicTrack[] = [];
 
-    const tracks = await Promise.all(
-        media.assets.map(async (asset) => {
-            const fileName = decodeURI(asset.filename);
-            const cachedFile = new File(cacheDir, fileName);
+    // Використовуємо звичайний цикл замість Promise.all для безпечного логування
+    // та захисту від "впав один — впали всі"
+    for (const asset of media.assets) {
+        try {
+            // БЕЗПЕЧНА НАЗВА: використовуємо id треку + розширення
+            // Це повністю вирішує проблему з "Illegal character in path" через [ ], %20 або кирилицю
+            const fileExtension = asset.filename.split(".").pop() || "mp3";
+            const safeFileName = `${asset.id}.${fileExtension}`;
+            const cachedFile = new File(cacheDir, safeFileName);
 
-            let title = asset.filename;
+            let title = asset.filename.replace(`.${fileExtension}`, "");
             let artist = "Unknown Artist";
             let albumTitle: string | undefined;
             let artworkUrl: string | undefined;
-            let duration: number;
+            let duration = asset.duration ?? 0;
 
-            const cleanMetadataUri = asset.uri.replace("file://", "");
+            // Очищаємо URI для зчитування метаданих
+            const cleanMetadataUri = decodeURIComponent(asset.uri).replace(
+                "file://",
+                ""
+            );
 
-            const [metadata, artwork] = await Promise.all([
-                getMetadata(cleanMetadataUri),
-                getArtwork(cleanMetadataUri),
-            ]);
+            // Зчитуємо метадані
+            try {
+                const [metadata, artwork] = await Promise.all([
+                    getMetadata(cleanMetadataUri),
+                    getArtwork(cleanMetadataUri),
+                ]);
 
-            title = metadata.title?.trim() || title;
-            artist = metadata.artist?.trim() || artist;
-            albumTitle = metadata.album?.trim() || undefined;
-            duration = metadata.duration ?? 0;
-            artworkUrl = artwork || undefined;
+                title = metadata.title?.trim() || title;
+                artist = metadata.artist?.trim() || artist;
+                albumTitle = metadata.album?.trim() || undefined;
+                if (metadata.duration) duration = metadata.duration;
+                artworkUrl = artwork || undefined;
+            } catch (metadataError) {
+                console.log(
+                    `⚠️ Не вдалося зчитати теги для ${asset.filename}, беремо дефолтні`
+                );
+            }
 
-            // 2. Тепер розбираємось із кешуванням для безперебійного плеєра
+            // Перевіряємо кеш за безпечним ім'ям
             const checkCache = cachedFile.info();
 
             if (!checkCache.exists) {
-                console.log(`⏳ Нове API: Кешуємо файл ${asset.filename}...`);
-                const sourceFile = new File(asset.uri);
+                console.log(
+                    `⏳ Кешуємо файл: ${safeFileName} (${asset.filename})...`
+                );
+
+                // 1. Повністю декодуємо оригінальний URI до чистого тексту,
+                // щоб прибрати кашу, якщо якісь символи вже були частково закодовані
+                const cleanRawPath = decodeURIComponent(asset.uri);
+
+                // 2. Кодуємо шлях за стандартами URI, але повертаємо слеші '/' та двокрапку ':',
+                // щоб операційна система розуміла структуру папок
+                const androidSafeUri = encodeURIComponent(cleanRawPath)
+                    .replace(/%2F/g, "/")
+                    .replace(/%3A/g, ":");
+
+                // Тепер цей URI на 100% валідний для Java під капотом Expo!
+                const sourceFile = new File(androidSafeUri);
+
                 await sourceFile.copy(cachedFile);
                 console.log(`✅ Скопійовано трек ${asset.id}`);
             }
 
-            filesToDiagnostic.push(cachedFile);
-
-            return {
+            tracks.push({
                 assetId: asset.id,
                 sourceUri: cachedFile.uri,
                 title,
@@ -119,14 +147,20 @@ export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
                 artworkUrl,
                 duration,
                 color: colorFromName(asset.filename),
-            };
-        })
-    );
+            });
+        } catch (trackError) {
+            // Якщо один трек зламався — ми його просто пропускаємо, додаток працює далі!
+            console.error(
+                `❌ Помилка обробки треку ${asset.filename}:`,
+                trackError
+            );
+        }
+    }
 
     return tracks;
 }
 
-export function useMusicTracks(limit = 5) {
+export function useMusicTracks(limit = Infinity) {
     const [tracks, setTracks] = useState<MusicTrack[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -136,9 +170,7 @@ export function useMusicTracks(limit = 5) {
 
         loadMusicTracks(limit)
             .then((tracks) => {
-                console.log(
-                    "✅ Треки успішно підготовлені під file:// через New API"
-                );
+                console.log("✅ Треки успішно підготовлені під file:// ");
                 return tracks;
             })
             .then((nextTracks) => {

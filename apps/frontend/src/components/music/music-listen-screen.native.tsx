@@ -1,13 +1,15 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router, useLocalSearchParams } from "expo-router";
-import { useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { AppScreen } from "../app-screen";
-import { getPlayerInstance, playTrack } from "../../player/music-player";
-import { MusicTrack } from "@/data/music";
+import { router } from "expo-router";
+import { useEvent } from "expo";
+import { YStack, XStack, Text, Image, Button, View } from "tamagui";
 
-function formatTime(miliseconds: number) {
-    const safeSeconds = Math.max(0, Math.floor(miliseconds / 1000));
+import { AppScreen } from "../app-screen";
+import { getPlayerInstance, togglePlayback } from "../../player/music-player";
+import { usePlayerStore } from "@/store/usePlayerStore";
+import { useAppTheme } from "@/theme/app-theme";
+
+function formatTime(milliseconds: number) {
+    const safeSeconds = Math.max(0, Math.floor(milliseconds / 1000));
     const minutes = Math.floor(safeSeconds / 60);
     const hours = Math.floor(minutes / 60);
     const remainder = safeSeconds % 60;
@@ -18,374 +20,353 @@ function formatTime(miliseconds: number) {
 }
 
 export default function MusicListenScreen() {
-    const params = useLocalSearchParams<{
-        assetId: string;
-        sourceUri: string;
-        title: string;
-        artist: string;
-        albumTitle?: string;
-        duration: string;
-        color: string;
-    }>();
-    const sourceUri = params.sourceUri;
-
-    const assetId = params.assetId;
-    const activeTrack: MusicTrack = {
-        assetId,
-        sourceUri,
-        title: params.title ?? "Unknown track",
-        artist: params.artist ?? "Unknown artist",
-        albumTitle: params.albumTitle,
-        color: params.color ?? "#3d748d",
-        duration: Number(params.duration),
-    };
-
-    const [isPlaying, setIsPlaying] = useState(false);
-
-    async function handlePlay() {
-        try {
-            await playTrack(activeTrack);
-            setIsPlaying(true);
-        } catch (err) {
-            console.warn("Play failed", err);
-        }
-    }
-
-    async function handlePause() {
-        try {
-            player.pause();
-            setIsPlaying(false);
-        } catch (err) {
-            console.warn("Pause failed", err);
-        }
-    }
-
-    const activeTitle = activeTrack.title;
-    const activeArtist = activeTrack.artist;
-    const activeColor = activeTrack.color;
-    const totalSeconds = activeTrack.duration ?? 0;
-    const playedSeconds = 0;
-    const bufferedSeconds = 0;
-    const playedWidth =
-        totalSeconds > 0
-            ? Math.min(100, (playedSeconds / totalSeconds) * 100)
-            : 0;
-    const bufferedWidth =
-        totalSeconds > 0
-            ? Math.min(100, (bufferedSeconds / totalSeconds) * 100)
-            : 0;
-
+    const theme = useAppTheme();
     const player = getPlayerInstance();
+    const playerEvent = useEvent(player, "playbackStatusUpdate");
+
+    const activeTrack = usePlayerStore((state) => state.activeTrack);
+    const { playNext, playPrevious } = usePlayerStore();
+
+    if (!activeTrack) {
+        return (
+            <AppScreen backgroundColor={theme.background} statusBarStyle="dark">
+                <YStack flex={1} justifyContent="center" alignItems="center">
+                    <Text color={theme.textMuted} fontSize={16}>
+                        Плеєр порожній...
+                    </Text>
+                </YStack>
+            </AppScreen>
+        );
+    }
+
+    const isStatus = playerEvent && "currentTime" in playerEvent;
+    const status = isStatus ? (playerEvent as any) : null;
+
+    const playedMs = status?.currentTime ? status.currentTime * 1000 : 0;
+    const totalMs =
+        activeTrack.duration || (status?.duration ? status.duration * 1000 : 0);
+
+    const playedWidth = totalMs > 0 ? (playedMs / totalMs) * 100 : 0;
+    const bufferedWidth =
+        status?.bufferedPosition && status?.duration
+            ? (status.bufferedPosition / status.duration) * 100
+            : 0;
+
+    const isPlaying = status ? status.playing : player.playing;
 
     return (
-        <AppScreen backgroundColor="#0b0d12" statusBarStyle="light">
-            <View style={styles.screen}>
-                <View style={styles.topRow}>
-                    <Pressable
-                        accessibilityRole="button"
+        <AppScreen backgroundColor={theme.background} statusBarStyle="dark">
+            <YStack
+                flex={1}
+                paddingHorizontal={16}
+                paddingTop={8}
+                paddingBottom={16}
+            >
+                {/* Верхня панель */}
+                <XStack
+                    alignItems="center"
+                    justifyContent="space-between"
+                    gap="$3"
+                    marginBottom={20}
+                >
+                    <Button
                         onPress={() => router.back()}
-                        style={styles.iconButton}
+                        width={42}
+                        height={42}
+                        borderRadius={21}
+                        backgroundColor={theme.surface}
+                        pressStyle={{ backgroundColor: theme.surfaceStrong }}
+                        justifyContent="center"
+                        alignItems="center"
+                        padding={0}
+                        chromeless
                     >
                         <MaterialCommunityIcons
                             name="chevron-left"
                             size={30}
-                            color="#f8fafc"
+                            color={theme.text}
                         />
-                    </Pressable>
-                    <View style={styles.topCopy}>
-                        <Text style={styles.kicker}>Now playing</Text>
-                        <Text style={styles.headerTitle} numberOfLines={1}>
+                    </Button>
+
+                    <YStack
+                        flex={1}
+                        alignItems="center"
+                        justifyContent="center"
+                    >
+                        <Text
+                            color={theme.textMuted}
+                            fontSize={12}
+                            fontWeight="700"
+                            textTransform="uppercase"
+                            letterSpacing={1.2}
+                        >
+                            Now playing
+                        </Text>
+                        <Text
+                            color={theme.text}
+                            fontSize={16}
+                            fontWeight="700"
+                            marginTop={2}
+                            numberOfLines={1}
+                        >
                             Listening screen
                         </Text>
-                    </View>
-                    <Pressable
-                        accessibilityRole="button"
-                        style={styles.iconButton}
+                    </YStack>
+
+                    <Button
+                        width={42}
+                        height={42}
+                        borderRadius={21}
+                        backgroundColor={theme.surface}
+                        pressStyle={{ backgroundColor: theme.surfaceStrong }}
+                        justifyContent="center"
+                        alignItems="center"
+                        padding={0}
+                        chromeless
                     >
                         <MaterialCommunityIcons
                             name="playlist-music"
                             size={24}
-                            color="#f8fafc"
+                            color={theme.text}
                         />
-                    </Pressable>
-                </View>
+                    </Button>
+                </XStack>
 
-                <View style={styles.visualWrap}>
+                {/* Візуалізація обкладинки треку */}
+                <YStack
+                    alignItems="center"
+                    justifyContent="center"
+                    marginTop={8}
+                    marginBottom={16}
+                    minHeight={300}
+                >
                     <View
-                        style={[
-                            styles.glow,
-                            { backgroundColor: activeColor, opacity: 0.34 },
-                        ]}
+                        position="absolute"
+                        width={280}
+                        height={280}
+                        borderRadius={140}
+                        backgroundColor={activeTrack.color || theme.accentSoft}
+                        opacity={0.2}
+                        transform={[{ scale: 1.2 }]}
+                        style={{ filter: "blur(40px)" }}
                     />
-                    <View
-                        style={[
-                            styles.albumArt,
-                            { backgroundColor: activeColor },
-                        ]}
+
+                    <YStack
+                        width={254}
+                        height={254}
+                        borderRadius={42}
+                        backgroundColor={
+                            activeTrack.color || theme.surfaceStrong
+                        }
+                        justifyContent="center"
+                        alignItems="center"
+                        overflow="hidden"
+                        elevation={18}
+                        shadowColor={theme.shadow}
+                        shadowOpacity={0.2}
+                        shadowRadius={24}
+                        shadowOffset={{ width: 0, height: 16 }}
                     >
-                        <View style={styles.albumArtOverlay} />
-                        <MaterialCommunityIcons
-                            name="music-note"
-                            size={58}
-                            color="#ffffff"
-                        />
-                    </View>
-                </View>
-
-                <View style={styles.trackMeta}>
-                    <Text style={styles.trackTitle} numberOfLines={2}>
-                        {activeTitle}
-                    </Text>
-                    <Text style={styles.trackArtist} numberOfLines={1}>
-                        {activeArtist}
-                    </Text>
-                </View>
-
-                <View style={styles.progressBlock}>
-                    <View style={styles.progressLabels}>
-                        <Text style={styles.progressTime}>
-                            {formatTime(playedSeconds)}
-                        </Text>
-                        <Text style={styles.progressTime}>
-                            {formatTime(totalSeconds)}
-                        </Text>
-                    </View>
-                    <View style={styles.progressRail}>
                         <View
-                            style={[
-                                styles.progressBuffered,
-                                { width: `${bufferedWidth}%` },
-                            ]}
+                            position="absolute"
+                            top={0}
+                            left={0}
+                            right={0}
+                            bottom={0}
+                            backgroundColor="rgba(255,255,255,0.04)"
+                            zIndex={2}
                         />
-                        <View
-                            style={[
-                                styles.progressPlayed,
-                                { width: `${playedWidth}%` },
-                            ]}
-                        />
-                    </View>
-                </View>
 
-                <View style={styles.controlsRow}>
-                    <View
-                        style={{
-                            flexDirection: "row",
-                            justifyContent: "center",
-                            gap: 12,
-                        }}
-                    >
-                        <Pressable
-                            accessibilityRole="button"
-                            onPress={() => {
-                                if (isPlaying) {
-                                    handlePause();
-                                } else {
-                                    handlePlay();
-                                }
-                            }}
-                            style={styles.playButton}
-                        >
-                            <MaterialCommunityIcons
-                                name={isPlaying ? "pause" : "play"}
-                                size={32}
-                                color={isPlaying ? "#000000" : "#0b0d12"}
-                                style={
-                                    isPlaying ? undefined : styles.playIconShift
-                                }
+                        {activeTrack.artworkUrl ? (
+                            <Image
+                                source={{ uri: activeTrack.artworkUrl }}
+                                width="100%"
+                                height="100%"
+                                resizeMode="cover"
                             />
-                        </Pressable>
-                    </View>
-                </View>
+                        ) : (
+                            <MaterialCommunityIcons
+                                name="music-note"
+                                size={58}
+                                color={theme.inverseText}
+                            />
+                        )}
+                    </YStack>
+                </YStack>
 
-                <View style={styles.footerCard}>
-                    <View style={styles.footerChip} />
-                    <Text style={styles.footerTitle}>
+                {/* Метадані треку */}
+                <YStack alignItems="center" marginBottom={16}>
+                    <Text
+                        color={theme.text}
+                        fontSize={24}
+                        lineHeight={30}
+                        fontWeight="800"
+                        textAlign="center"
+                        numberOfLines={2}
+                    >
+                        {activeTrack.title}
+                    </Text>
+                    <Text
+                        color={theme.textMuted}
+                        fontSize={16}
+                        fontWeight="500"
+                        marginTop={8}
+                        textAlign="center"
+                        numberOfLines={1}
+                    >
+                        {activeTrack.artist}
+                    </Text>
+                </YStack>
+
+                {/* Блок прогресу */}
+                <YStack marginBottom={20}>
+                    <XStack justifyContent="space-between" marginBottom={8}>
+                        <Text
+                            color={theme.textMuted}
+                            fontSize={13}
+                            fontWeight="600"
+                        >
+                            {formatTime(playedMs)}
+                        </Text>
+                        <Text
+                            color={theme.textMuted}
+                            fontSize={13}
+                            fontWeight="600"
+                        >
+                            {formatTime(totalMs)}
+                        </Text>
+                    </XStack>
+
+                    {/* Progress Rail */}
+                    <View
+                        height={8}
+                        borderRadius={999}
+                        overflow="hidden"
+                        backgroundColor={theme.surfaceStrong}
+                        position="relative"
+                    >
+                        <View
+                            position="absolute"
+                            left={0}
+                            top={0}
+                            bottom={0}
+                            backgroundColor={theme.border}
+                            width={`${bufferedWidth}%`}
+                        />
+                        <View
+                            position="absolute"
+                            left={0}
+                            top={0}
+                            bottom={0}
+                            backgroundColor={theme.accent}
+                            width={`${playedWidth}%`}
+                        />
+                    </View>
+                </YStack>
+
+                {/* Елементи керування плеєром */}
+                <XStack
+                    alignItems="center"
+                    justifyContent="space-between"
+                    paddingHorizontal={24}
+                    marginBottom={16}
+                >
+                    <Button
+                        onPress={playPrevious}
+                        width={56}
+                        height={56}
+                        borderRadius={28}
+                        backgroundColor={theme.surface}
+                        pressStyle={{ backgroundColor: theme.surfaceStrong }}
+                        justifyContent="center"
+                        alignItems="center"
+                        padding={0}
+                        chromeless
+                    >
+                        <MaterialCommunityIcons
+                            name="skip-previous"
+                            size={28}
+                            color={theme.text}
+                        />
+                    </Button>
+
+                    <Button
+                        onPress={() => togglePlayback()}
+                        width={84}
+                        height={84}
+                        borderRadius={42}
+                        backgroundColor={theme.accent}
+                        pressStyle={{ backgroundColor: theme.accentStrong }}
+                        justifyContent="center"
+                        alignItems="center"
+                        padding={0}
+                        elevation={12}
+                        shadowColor={theme.shadow}
+                    >
+                        <MaterialCommunityIcons
+                            name={isPlaying ? "pause" : "play"}
+                            size={36}
+                            color={theme.inverseText}
+                            style={isPlaying ? undefined : { marginLeft: 4 }}
+                        />
+                    </Button>
+
+                    <Button
+                        onPress={playNext}
+                        width={56}
+                        height={56}
+                        borderRadius={28}
+                        backgroundColor={theme.surface}
+                        pressStyle={{ backgroundColor: theme.surfaceStrong }}
+                        justifyContent="center"
+                        alignItems="center"
+                        padding={0}
+                        chromeless
+                    >
+                        <MaterialCommunityIcons
+                            name="skip-next"
+                            size={28}
+                            color={theme.text}
+                        />
+                    </Button>
+                </XStack>
+
+                {/* Картка знизу */}
+                <YStack
+                    borderRadius={24}
+                    padding={16}
+                    backgroundColor={theme.surface}
+                    borderWidth={1}
+                    borderColor={theme.border}
+                >
+                    <View
+                        width={52}
+                        height={5}
+                        borderRadius={999}
+                        backgroundColor={theme.border}
+                        marginBottom={12}
+                        alignSelf="center"
+                    />
+                    <Text
+                        color={theme.text}
+                        fontSize={16}
+                        fontWeight="700"
+                        marginBottom={4}
+                    >
                         Local library playback
                     </Text>
-                    <Text style={styles.footerText} numberOfLines={2}>
-                        Tap play to start listening.
+                    <Text
+                        color={theme.textMuted}
+                        fontSize={14}
+                        lineHeight={20}
+                        numberOfLines={2}
+                    >
+                        {isPlaying
+                            ? "Enjoying your music tracks."
+                            : "Tap play to start listening."}
                     </Text>
-                </View>
-            </View>
+                </YStack>
+            </YStack>
         </AppScreen>
     );
 }
-
-const styles = StyleSheet.create({
-    screen: {
-        flex: 1,
-        paddingHorizontal: 16,
-        paddingTop: 8,
-        paddingBottom: 16,
-    },
-    topRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 12,
-        marginBottom: 28,
-    },
-    iconButton: {
-        width: 42,
-        height: 42,
-        borderRadius: 21,
-        backgroundColor: "rgba(255,255,255,0.08)",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    topCopy: {
-        flex: 1,
-        alignItems: "center",
-        justifyContent: "center",
-    },
-    kicker: {
-        color: "rgba(248,250,252,0.68)",
-        fontSize: 12,
-        fontWeight: "700",
-        textTransform: "uppercase",
-        letterSpacing: 1.2,
-    },
-    headerTitle: {
-        color: "#f8fafc",
-        fontSize: 16,
-        fontWeight: "700",
-        marginTop: 2,
-    },
-    visualWrap: {
-        alignItems: "center",
-        justifyContent: "center",
-        marginTop: 12,
-        marginBottom: 24,
-        minHeight: 300,
-    },
-    glow: {
-        position: "absolute",
-        width: 280,
-        height: 280,
-        borderRadius: 140,
-        opacity: 0.28,
-        transform: [{ scale: 1.2 }],
-    },
-    albumArt: {
-        width: 254,
-        height: 254,
-        borderRadius: 42,
-        justifyContent: "center",
-        alignItems: "center",
-        overflow: "hidden",
-        shadowColor: "#000000",
-        shadowOpacity: 0.3,
-        shadowRadius: 24,
-        shadowOffset: { width: 0, height: 16 },
-        elevation: 18,
-    },
-    albumArtOverlay: {
-        backgroundColor: "rgba(255,255,255,0.08)",
-    },
-    trackMeta: {
-        alignItems: "center",
-        marginBottom: 22,
-    },
-    trackTitle: {
-        color: "#f8fafc",
-        fontSize: 28,
-        lineHeight: 34,
-        fontWeight: "800",
-        textAlign: "center",
-    },
-    trackArtist: {
-        color: "rgba(248,250,252,0.72)",
-        fontSize: 16,
-        fontWeight: "500",
-        marginTop: 10,
-        textAlign: "center",
-    },
-    progressBlock: {
-        marginBottom: 28,
-    },
-    progressLabels: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        marginBottom: 10,
-    },
-    progressTime: {
-        color: "rgba(248,250,252,0.7)",
-        fontSize: 13,
-        fontWeight: "600",
-    },
-    progressRail: {
-        height: 10,
-        borderRadius: 999,
-        overflow: "hidden",
-        backgroundColor: "rgba(255,255,255,0.12)",
-    },
-    progressBuffered: {
-        position: "absolute",
-        left: 0,
-        top: 0,
-        bottom: 0,
-        backgroundColor: "rgba(255,255,255,0.22)",
-    },
-    progressPlayed: {
-        position: "absolute",
-        left: 0,
-        top: 0,
-        bottom: 0,
-        backgroundColor: "#ffffff",
-    },
-    controlsRow: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        marginBottom: 24,
-    },
-    secondaryControl: {
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        backgroundColor: "rgba(255,255,255,0.08)",
-        justifyContent: "center",
-        alignItems: "center",
-    },
-    playButton: {
-        width: 84,
-        height: 84,
-        borderRadius: 42,
-        backgroundColor: "#ffffff",
-        justifyContent: "center",
-        alignItems: "center",
-        shadowColor: "#000000",
-        shadowOpacity: 0.24,
-        shadowRadius: 18,
-        shadowOffset: { width: 0, height: 12 },
-        elevation: 16,
-    },
-    playIconShift: {
-        marginLeft: 4,
-    },
-    footerCard: {
-        borderRadius: 24,
-        padding: 18,
-        backgroundColor: "rgba(255,255,255,0.08)",
-        borderWidth: 1,
-        borderColor: "rgba(255,255,255,0.12)",
-    },
-    footerChip: {
-        width: 52,
-        height: 5,
-        borderRadius: 999,
-        backgroundColor: "rgba(255,255,255,0.32)",
-        marginBottom: 14,
-    },
-    footerTitle: {
-        color: "#f8fafc",
-        fontSize: 18,
-        fontWeight: "700",
-        marginBottom: 8,
-    },
-    footerText: {
-        color: "rgba(248,250,252,0.76)",
-        fontSize: 14,
-        lineHeight: 20,
-    },
-});
