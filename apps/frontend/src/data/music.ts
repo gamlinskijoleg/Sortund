@@ -2,13 +2,16 @@ import { Directory, File, Paths } from "expo-file-system";
 import { MediaType, requestPermissionsAsync } from "expo-media-library";
 import { getAssetsAsync } from "expo-media-library/legacy";
 import { useEffect, useState } from "react";
+import { getArtwork, getMetadata } from "react-native-audio-metadata";
 
 export type MusicTrack = {
     title: string;
     artist: string;
+    albumTitle?: string;
+    artworkUrl?: string;
     color: string;
     sourceUri: string;
-    duration: number | null;
+    duration: number;
     assetId?: string;
 };
 
@@ -22,11 +25,6 @@ export type LibrarySectionKey = "favourites" | "playlists" | "recent";
 export function createListenRoute(track: MusicTrack) {
     const encodedUri = encodeURIComponent(track.sourceUri);
 
-    console.log("=== ДІАГНОСТИКА МАРШРУТУ ===");
-    console.log("Оригінальний URI для передачі:", track.sourceUri);
-    console.log("Закодований URI (encoded):", encodedUri);
-    console.log("============================");
-
     return {
         pathname: "/listen" as const,
         params: {
@@ -34,46 +32,25 @@ export function createListenRoute(track: MusicTrack) {
             sourceUri: encodedUri,
             title: track.title,
             artist: track.artist,
+            albumTitle: track.albumTitle,
+            duration: track.duration?.toString(),
             color: track.color,
         },
     };
 }
 
-function hashString(value: string) {
+function colorFromName(value: string) {
     let hash = 0;
 
     for (let index = 0; index < value.length; index += 1) {
         hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
     }
 
-    return hash;
-}
-
-function colorFromName(value: string) {
-    const hue = hashString(value) % 360;
+    const hue = hash % 360;
     return `hsl(${hue} 52% 46%)`;
 }
 
-// 1. Змінюємо функцію діагностики: тепер вона приймає безпосередньо об'єкт File
-const checkAudioFile = async (fileTarget: File) => {
-    try {
-        console.log(`🔍 Перевіряємо через New API: ${fileTarget.uri}`);
-
-        // Метод .info() викликається прямо на готовому об'єкті
-        const fileMetadata = await fileTarget.info();
-
-        if (fileMetadata && fileMetadata.exists) {
-            console.log("✅ Успіх! Файл знайдено в кеші додатка.");
-            console.log("📊 Розмір файла:", fileMetadata.size, "байт");
-        } else {
-            console.log("❌ Файл не знайдено в локальному кеші.");
-        }
-    } catch (e) {
-        console.error("Помилка під час перевірки файла:", e);
-    }
-};
-
-export async function loadMusicTracks(limit = 2): Promise<MusicTrack[]> {
+export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
     const permission = await requestPermissionsAsync(false, ["audio"]);
 
     if (!permission.granted) {
@@ -95,63 +72,61 @@ export async function loadMusicTracks(limit = 2): Promise<MusicTrack[]> {
         await cacheDir.create();
     }
 
-    // Створимо масив для збереження посилань на файли для діагностики
     const filesToDiagnostic: File[] = [];
 
     const tracks = await Promise.all(
         media.assets.map(async (asset) => {
-            const fileName = `track_${asset.id}.mp3`;
+            const fileName = decodeURI(asset.filename);
             const cachedFile = new File(cacheDir, fileName);
 
-            try {
-                const checkCache = await cachedFile.info();
+            let title = asset.filename;
+            let artist = "Unknown Artist";
+            let albumTitle: string | undefined;
+            let artworkUrl: string | undefined;
+            let duration: number;
 
-                if (!checkCache.exists) {
-                    console.log(
-                        `⏳ Нове API: Кешуємо файл ${asset.filename}...`
-                    );
-                    const sourceFile = new File(asset.uri);
-                    await sourceFile.copy(cachedFile);
-                    console.log(`✅ Скопійовано трек ${asset.id}`);
-                }
+            const cleanMetadataUri = asset.uri.replace("file://", "");
 
-                // Додаємо об'єкт у масив для подальшої перевірки
-                filesToDiagnostic.push(cachedFile);
-            } catch (copyError) {
-                console.error(
-                    `💥 Не вдалося скопіювати файл ${asset.filename}:`,
-                    copyError
-                );
+            const [metadata, artwork] = await Promise.all([
+                getMetadata(cleanMetadataUri),
+                getArtwork(cleanMetadataUri),
+            ]);
+
+            title = metadata.title?.trim() || title;
+            artist = metadata.artist?.trim() || artist;
+            albumTitle = metadata.album?.trim() || undefined;
+            duration = metadata.duration ?? 0;
+            artworkUrl = artwork || undefined;
+
+            // 2. Тепер розбираємось із кешуванням для безперебійного плеєра
+            const checkCache = cachedFile.info();
+
+            if (!checkCache.exists) {
+                console.log(`⏳ Нове API: Кешуємо файл ${asset.filename}...`);
+                const sourceFile = new File(asset.uri);
+                await sourceFile.copy(cachedFile);
+                console.log(`✅ Скопійовано трек ${asset.id}`);
             }
 
-            // 1. ДІАГНОСТИКА: Що насправді лежить в cachedFile та asset.uri
-            console.log("=== ДІАГНОСТИКА EXPO FILE-SYSTEM ===");
-            console.log("Тип cachedFile:", typeof cachedFile);
-            console.log("Значення cachedFile.uri:", cachedFile.uri);
-            console.log("Тип cachedFile.uri:", typeof cachedFile.uri);
-            console.log("Оригінальний asset.uri:", asset.uri);
-            console.log("====================================");
+            filesToDiagnostic.push(cachedFile);
 
             return {
                 assetId: asset.id,
-                sourceUri: cachedFile.uri, // Тут залишається правильний file:// шлях для TrackPlayer
-                title: asset.filename,
-                artist: "Unknown Artist",
-                duration: asset.duration,
+                sourceUri: cachedFile.uri,
+                title,
+                artist,
+                albumTitle,
+                artworkUrl,
+                duration,
                 color: colorFromName(asset.filename),
             };
         })
     );
 
-    // 2. Викликаємо діагностику, передаючи інстанс класу File
-    for (const fileInstance of filesToDiagnostic) {
-        await checkAudioFile(fileInstance);
-    }
-
     return tracks;
 }
 
-export function useMusicTracks(limit = 2) {
+export function useMusicTracks(limit = 5) {
     const [tracks, setTracks] = useState<MusicTrack[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);

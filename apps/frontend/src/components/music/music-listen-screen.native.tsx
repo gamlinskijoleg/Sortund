@@ -2,10 +2,9 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { playTrack } from "../../player/music-player";
 import { AppScreen } from "../app-screen";
-import { useAudioPlayerStatus } from "expo-audio";
-import { getPlayerInstance } from "../../player/music-player.native";
+import { getPlayerInstance, playTrack } from "../../player/music-player";
+import { MusicTrack } from "@/data/music";
 
 function formatTime(miliseconds: number) {
     const safeSeconds = Math.max(0, Math.floor(miliseconds / 1000));
@@ -24,18 +23,21 @@ export default function MusicListenScreen() {
         sourceUri: string;
         title: string;
         artist: string;
+        albumTitle?: string;
+        duration: string;
         color: string;
     }>();
     const sourceUri = params.sourceUri;
 
     const assetId = params.assetId;
-    const activeTrack = {
+    const activeTrack: MusicTrack = {
         assetId,
         sourceUri,
         title: params.title ?? "Unknown track",
         artist: params.artist ?? "Unknown artist",
+        albumTitle: params.albumTitle,
         color: params.color ?? "#3d748d",
-        duration: null,
+        duration: Number(params.duration),
     };
 
     const [isPlaying, setIsPlaying] = useState(false);
@@ -51,8 +53,7 @@ export default function MusicListenScreen() {
 
     async function handlePause() {
         try {
-            const player = await import("../../player/music-player.native");
-            await player.pausePlayback();
+            player.pause();
             setIsPlaying(false);
         } catch (err) {
             console.warn("Pause failed", err);
@@ -75,8 +76,6 @@ export default function MusicListenScreen() {
             : 0;
 
     const player = getPlayerInstance();
-    // Хук підпишеться на зміни та поверне { playing, duration, currentTime ... }
-    const status = useAudioPlayerStatus(player);
 
     return (
         <AppScreen backgroundColor="#0b0d12" statusBarStyle="light">
@@ -87,7 +86,6 @@ export default function MusicListenScreen() {
                         onPress={() => router.back()}
                         style={styles.iconButton}
                     >
-                        <Text>Зараз грає: {status.playing}</Text>
                         <MaterialCommunityIcons
                             name="chevron-left"
                             size={30}
