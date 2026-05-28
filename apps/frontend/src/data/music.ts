@@ -1,6 +1,11 @@
 import { Directory, File, Paths } from "expo-file-system";
-import { MediaType, requestPermissionsAsync } from "expo-media-library";
-import { getAssetsAsync } from "expo-media-library/legacy";
+import {
+    Album,
+    AssetField,
+    MediaType,
+    Query,
+    requestPermissionsAsync,
+} from "expo-media-library";
 import { useEffect, useState } from "react";
 import { getArtwork, getMetadata } from "react-native-audio-metadata";
 import { getCachedTracks, initDatabase, saveTracksToDb } from "./db";
@@ -51,96 +56,85 @@ export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
         return [];
     }
 
-    const media = await getAssetsAsync({
-        mediaType: MediaType.AUDIO,
-        first: limit,
-    });
+    const album = await Album.get("Music");
 
-    console.log(`🎵 Знайдено треків у системі: ${media.assets.length}`);
+    if (!album) {
+        console.log("❌ Альбом 'Music' не знайдено.");
+        return [];
+    }
+
+    const queryMedia = await new Query()
+        .album(album)
+        .eq(AssetField.MEDIA_TYPE, MediaType.AUDIO)
+        .limit(limit)
+        .exe();
+
+    console.log(
+        `🎵 Знайдено треків в альбомі ${await album.getTitle()}: ${queryMedia.length}`
+    );
 
     const cacheDir = new Directory(Paths.cache, "subdirName");
 
-    try {
-        const dirInfo = cacheDir.info();
-        if (!dirInfo.exists) {
-            cacheDir.create();
-        }
-    } catch {
-        // ESLint Фікс: Просто прибрали (e), бо помилка не використовується
-        console.log("Папка кешу вже існує або ініційована");
-    }
+    const dirInfo = cacheDir.info();
+    if (!dirInfo.exists) cacheDir.create();
 
     const tracks: MusicTrack[] = [];
 
-    for (const asset of media.assets) {
+    for (const asset of queryMedia) {
         try {
-            const fileExtension = asset.filename.split(".").pop() || "mp3";
-            const safeFileName = `${asset.id}.${fileExtension}`;
+            const uri = await asset.getUri();
+            const filename = await asset.getFilename();
+
+            const rawId = asset.id;
+            const cleanId = rawId.includes("/")
+                ? rawId.split("/").pop()
+                : rawId;
+
+            const fileExtension = filename.split(".").pop() || "mp3";
+            const safeFileName = `${cleanId}.${fileExtension}`;
             const cachedFile = new File(cacheDir, safeFileName);
 
-            let title = asset.filename.replace(`.${fileExtension}`, "");
+            let title = filename.replace(`.${fileExtension}`, "");
             let artist = "Unknown Artist";
             let albumTitle: string | undefined;
             let artworkUrl: string | undefined;
-            let duration = asset.duration ?? 0;
+            let duration = (await asset.getDuration()) ?? 0;
 
-            const cleanMetadataUri = decodeURIComponent(asset.uri).replace(
+            const cleanMetadataUri = decodeURIComponent(uri).replace(
                 "file://",
                 ""
             );
 
-            try {
-                const [metadata, artwork] = await Promise.all([
-                    getMetadata(cleanMetadataUri),
-                    getArtwork(cleanMetadataUri),
-                ]);
+            const [metadata, artwork] = await Promise.all([
+                getMetadata(cleanMetadataUri),
+                getArtwork(cleanMetadataUri),
+            ]);
 
-                title = metadata.title?.trim() || title;
-                artist = metadata.artist?.trim() || artist;
-                albumTitle = metadata.album?.trim() || undefined;
-                if (metadata.duration) duration = metadata.duration;
-                artworkUrl = artwork || undefined;
-            } catch {
-                // ESLint Фікс: Прибрали (metadataError)
-                console.log(
-                    `⚠️ Не вдалося зчитати теги для ${asset.filename}, беремо дефолтні`
-                );
-            }
+            title = metadata.title?.trim() || title;
+            artist = metadata.artist?.trim() || artist;
+            albumTitle = metadata.album?.trim();
+            artworkUrl = artwork || undefined;
 
             const checkCache = cachedFile.info();
 
             if (!checkCache.exists) {
-                console.log(
-                    `⏳ Кешуємо файл: ${safeFileName} (${asset.filename})...`
-                );
-
-                const cleanRawPath = decodeURIComponent(asset.uri);
-
-                const androidSafeUri = encodeURIComponent(cleanRawPath)
-                    .replace(/%2F/g, "/")
-                    .replace(/%3A/g, ":");
-
-                const sourceFile = new File(androidSafeUri);
-
+                console.log(`Кешування треку до кешу: ${filename}`);
+                const sourceFile = new File(uri);
                 await sourceFile.copy(cachedFile);
-                console.log(`✅ Скопійовано трек ${asset.id}`);
             }
 
             tracks.push({
-                assetId: asset.id,
+                assetId: cleanId,
                 sourceUri: cachedFile.uri,
                 title,
                 artist,
                 albumTitle,
                 artworkUrl,
                 duration,
-                color: colorFromName(asset.filename),
+                color: colorFromName(filename),
             });
         } catch (trackError) {
-            console.error(
-                `❌ Помилка обробки треку ${asset.filename}:`,
-                trackError
-            );
+            console.error(`❌ Помилка обробки треку:`, trackError);
         }
     }
 
@@ -156,7 +150,6 @@ export function useMusicTracks(limit = Infinity) {
         let isActive = true;
 
         async function syncTracks() {
-            // TS Фікс: Оголошуємо змінну тут, щоб вона була доступна і в try, і в catch
             let cached: MusicTrack[] = [];
 
             try {

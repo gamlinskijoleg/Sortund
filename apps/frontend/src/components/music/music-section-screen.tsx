@@ -109,6 +109,8 @@ export default function MusicSectionScreen() {
     const theme = useAppTheme();
     const { tracks, isLoading, error } = useMusicTracks();
 
+    console.log("🎵 MusicSectionScreen rendered with tracks:", tracks.length);
+
     return (
         <AppScreen>
             <View style={styles.screen}>

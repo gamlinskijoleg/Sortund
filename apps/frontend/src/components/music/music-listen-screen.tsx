@@ -1,7 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEvent } from "expo";
-import { YStack, XStack, Text, Image, Button, View } from "tamagui";
+import { YStack, XStack, Text, Image, Button, View, Slider } from "tamagui";
 
 import { AppScreen } from "../app-screen";
 import { getPlayerInstance, togglePlayback } from "../../player/music-player";
@@ -46,13 +46,21 @@ export default function MusicListenScreen() {
     const totalMs =
         activeTrack.duration || (status?.duration ? status.duration * 1000 : 0);
 
-    const playedWidth = totalMs > 0 ? (playedMs / totalMs) * 100 : 0;
-    const bufferedWidth =
-        status?.bufferedPosition && status?.duration
-            ? (status.bufferedPosition / status.duration) * 100
-            : 0;
-
+    const currentProgressPercent = totalMs > 0 ? (playedMs / totalMs) * 100 : 0;
     const isPlaying = status ? status.playing : player.playing;
+
+    // Оновлена логіка перемотування для expo-audio з урахуванням React Compiler
+    const handleSeek = (values: number[]) => {
+        if (totalMs <= 0 || values[0] === undefined) return;
+
+        // Обчислюємо нову позицію в секундах
+        const newPositionSec = (values[0] / 100) * (totalMs / 1000);
+
+        // Використовуємо метод seekTo замість прямої мутації властивості
+        if (player && typeof player.seekTo === "function") {
+            player.seekTo(newPositionSec);
+        }
+    };
 
     return (
         <AppScreen backgroundColor={theme.background} statusBarStyle="dark">
@@ -237,31 +245,36 @@ export default function MusicListenScreen() {
                         </Text>
                     </XStack>
 
-                    {/* Progress Rail */}
-                    <View
-                        height={8}
-                        borderRadius={999}
-                        overflow="hidden"
-                        backgroundColor={theme.surfaceStrong}
-                        position="relative"
+                    {/* Виправлений повзунок Tamagui */}
+                    <Slider
+                        value={[currentProgressPercent]}
+                        onValueChange={handleSeek}
+                        max={100}
+                        step={1}
+                        width="100%"
+                        size="$2"
                     >
-                        <View
-                            position="absolute"
-                            left={0}
-                            top={0}
-                            bottom={0}
-                            backgroundColor={theme.border}
-                            width={`${bufferedWidth}%`}
-                        />
-                        <View
-                            position="absolute"
-                            left={0}
-                            top={0}
-                            bottom={0}
+                        <Slider.Track
+                            backgroundColor={theme.surfaceStrong}
+                            height={8}
+                            borderRadius={999}
+                        >
+                            {/* Ось тут була головна помилка імпорту! */}
+                            <Slider.TrackActive
+                                backgroundColor={theme.accent}
+                            />
+                        </Slider.Track>
+                        {/* Ручка слайдера (можна прибрати, якщо хочеш просто лінію) */}
+                        <Slider.Thumb
+                            index={0}
+                            circular
+                            size={16}
                             backgroundColor={theme.accent}
-                            width={`${playedWidth}%`}
+                            elevate
+                            borderColor={theme.background}
+                            borderWidth={2}
                         />
-                    </View>
+                    </Slider>
                 </YStack>
 
                 {/* Елементи керування плеєром */}

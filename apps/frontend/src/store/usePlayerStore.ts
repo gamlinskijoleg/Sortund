@@ -15,13 +15,11 @@ interface PlayerState {
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => {
-    // Приватна функція для запуску нативного плеєра
     const triggerNativePlay = (track: MusicTrack) => {
         if (!track) return;
         playTrack(track);
     };
 
-    // Одразу зв'язуємо шторку ОС із цим стором (робимо це один раз)
     setTrackNavigationCallbacks(
         () => get().playNext(),
         () => get().playPrevious()
@@ -32,10 +30,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         currentIndex: -1,
         activeTrack: null,
 
-        setQueue: (tracks, startIndex) => {
+        // Додали параметр shouldPlay, щоб контролювати автостарт
+        setQueue: (tracks, startIndex, shouldPlay = true) => {
             const track = tracks[startIndex] || null;
             set({ tracks, currentIndex: startIndex, activeTrack: track });
-            if (track) triggerNativePlay(track);
+
+            if (track && shouldPlay) {
+                triggerNativePlay(track);
+            }
         },
 
         playNext: () => {
@@ -61,13 +63,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
             triggerNativePlay(prevTrack);
         },
 
+        // ВИПРАВЛЕНО: тепер цей метод запускає відтворення нового вибраного треку
         selectTrackById: (assetId) => {
             const { tracks } = get();
             const index = tracks.findIndex((t) => t.assetId === assetId);
             if (index !== -1) {
                 const track = tracks[index];
                 set({ currentIndex: index, activeTrack: track });
-                triggerNativePlay(track);
+                triggerNativePlay(track); // Запускаємо нативний плеєр!
             }
         },
     };
