@@ -10,6 +10,7 @@ import { Directory, File, Paths } from "expo-file-system";
 import { getArtwork } from "react-native-audio-metadata";
 import type { MusicTrack } from "../data/music";
 import { usePlayerStore } from "@/store/usePlayerStore";
+import { log } from "@/utils/logger";
 
 let initialized = false;
 let playbackToken = 0;
@@ -37,9 +38,9 @@ async function configureAudioMode() {
             shouldRouteThroughEarpiece: false,
         });
         initialized = true;
-        console.log("Player: AudioMode configured successfully");
+        log.debug("Player: AudioMode configured successfully");
     } catch (error) {
-        console.warn("Player: Failed to configure AudioMode", error);
+        log.warn("Player: Failed to configure AudioMode", error);
     }
 }
 
@@ -80,10 +81,7 @@ async function saveBase64ToCacheFile(
         targetFile.write(base64Data, { encoding: "base64" });
         return targetFile.uri;
     } catch (error) {
-        console.warn(
-            "Player: Failed to save base64 artwork string to file",
-            error
-        );
+        log.warn("Player: Failed to save base64 artwork string to file", error);
         return null;
     }
 }
@@ -126,9 +124,7 @@ export async function playTrack(track: MusicTrack) {
 
     try {
         if (!activePlayer) {
-            console.log(
-                "Player: Creating player instance on-demand (fallback)"
-            );
+            log.debug("Player: Creating player instance on-demand (fallback)");
             activePlayer = createAudioPlayer(
                 { uri: playerUri },
                 { updateInterval: 500 }
@@ -193,16 +189,16 @@ export async function playTrack(track: MusicTrack) {
                     }
                 })
                 .catch((error) => {
-                    console.warn(
+                    log.warn(
                         `Player: Artwork extraction failed:`,
                         error.message
                     );
                 });
         }
 
-        console.log(`Player: Now playing "${track.title}"`);
+        log.debug(`Player: Now playing "${track.title}"`);
     } catch (error) {
-        console.error("Player: Failed to play track via expo-audio", error);
+        log.error("Player: Failed to play track via expo-audio", error);
     }
 }
 
@@ -227,7 +223,7 @@ export async function pausePlayback() {
         const player = usePlayerStore.getState().playerInstance;
         if (player) player.pause();
     } catch (error) {
-        console.warn(error);
+        log.warn("Player: Failed to pause playback", error);
     }
 }
 
@@ -238,7 +234,7 @@ export async function togglePlayback() {
         if (player.playing) player.pause();
         else player.play();
     } catch (error) {
-        console.warn(error);
+        log.warn("Player: Failed to toggle playback", error);
     }
 }
 
@@ -252,7 +248,7 @@ export async function initPlayer() {
 
     let activePlayer = usePlayerStore.getState().playerInstance;
     if (!activePlayer) {
-        console.log("⚙️ Player: Pre-initializing global audio player...");
+        log.debug("⚙️ Player: Pre-initializing global audio player...");
         activePlayer = createAudioPlayer({ uri: "" }, { updateInterval: 500 });
         usePlayerStore.getState().setPlayerInstance(activePlayer);
         setupNotificationListeners();

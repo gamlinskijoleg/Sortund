@@ -9,6 +9,7 @@ import {
 import { useEffect, useState } from "react";
 import { getArtwork, getMetadata } from "react-native-audio-metadata";
 import { getCachedTracks, initDatabase, saveTracksToDb } from "./db";
+import { log } from "@/utils/logger";
 
 export type MusicTrack = {
     title: string;
@@ -52,14 +53,14 @@ export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
     const permission = await requestPermissionsAsync(false, ["audio"]);
 
     if (!permission.granted) {
-        console.log("❌ Доступ до аудіо файлів відхилено.");
+        log.error("❌ Доступ до аудіо файлів відхилено.");
         return [];
     }
 
     const album = await Album.get("Music");
 
     if (!album) {
-        console.log("❌ Альбом 'Music' не знайдено.");
+        log.error("❌ Альбом 'Music' не знайдено.");
         return [];
     }
 
@@ -69,7 +70,7 @@ export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
         .limit(limit)
         .exe();
 
-    console.log(
+    log.debug(
         `🎵 Знайдено треків в альбомі ${await album.getTitle()}: ${queryMedia.length}`
     );
 
@@ -118,7 +119,7 @@ export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
             const checkCache = cachedFile.info();
 
             if (!checkCache.exists) {
-                console.log(`Кешування треку до кешу: ${filename}`);
+                log.debug(`Кешування треку до кешу: ${filename}`);
                 const sourceFile = new File(uri);
                 await sourceFile.copy(cachedFile);
             }
@@ -134,7 +135,7 @@ export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
                 color: colorFromName(filename),
             });
         } catch (trackError) {
-            console.error(`❌ Помилка обробки треку:`, trackError);
+            log.error(`❌ Помилка обробки треку:`, trackError);
         }
     }
 
@@ -170,18 +171,19 @@ export function useMusicTracks(limit = 5) {
 
                 // 4. Оновлюємо UI та БД тільки якщо щось змінилося
                 if (freshTracks.length !== cached.length) {
-                    console.log(
+                    log.debug(
                         "🔄 Змінилася кількість треків. Оновлюємо базу даних..."
                     );
                     saveTracksToDb(freshTracks);
+                    log.debug("✅ База даних оновлена, оновлюємо UI.");
                     setTracks(freshTracks);
                 } else {
-                    console.log(
+                    log.debug(
                         "⚡️ Кількість треків не змінилася. Скан пропущено, взято кеш SQLite."
                     );
                 }
             } catch (err) {
-                console.error("Помилка синхронізації треків:", err);
+                log.error("Помилка синхронізації треків:", err);
                 // Тепер тут cached доступна і помилки не буде!
                 if (cached.length === 0) {
                     setError("Не вдалося завантажити музику.");

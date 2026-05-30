@@ -10,6 +10,7 @@ import {
     useMusicTracks,
 } from "../../data/music";
 import { useAppTheme } from "../../theme/app-theme";
+import { log } from "@/utils/logger";
 
 function SectionTabs() {
     const pathname = usePathname();
@@ -109,7 +110,7 @@ export default function MusicSectionScreen() {
     const theme = useAppTheme();
     const { tracks, isLoading, error } = useMusicTracks();
 
-    console.log("🎵 MusicSectionScreen rendered with tracks:", tracks.length);
+    log.debug("🎵 MusicSectionScreen rendered with tracks:", tracks.length);
 
     return (
         <AppScreen>

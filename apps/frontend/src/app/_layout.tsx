@@ -7,15 +7,20 @@ import { TamaguiProvider, Theme } from "tamagui";
 import appTamaguiConfig from "../tamagui.config";
 import { MusicBottomNav } from "../components/music/music-bottom-nav";
 import { initPlayer } from "../player/music-player";
+import * as SplashScreen from "expo-splash-screen";
+import { log } from "@/utils/logger";
+
+SplashScreen.setOptions({
+    duration: 1000,
+    fade: true,
+});
 
 export default function RootLayout() {
     useEffect(() => {
         initPlayer()
-            .then(() =>
-                console.log("🚀 Аудіо-сервіс успішно готовий до роботи")
-            )
+            .then(() => log.debug("🚀 Аудіо-сервіс успішно готовий до роботи"))
             .catch((err) =>
-                console.error("Не вдалося ініціалізувати аудіо-режим:", err)
+                log.error("Не вдалося ініціалізувати аудіо-режим:", err)
             );
     }, []);
 

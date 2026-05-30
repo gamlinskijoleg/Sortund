@@ -1,6 +1,6 @@
 {
     "expo": {
-        "name": "sortund-frontend",
+        "name": "Sortund",
         "slug": "sortund-frontend",
         "version": "1.0.0",
         "orientation": "portrait",
@@ -43,11 +43,10 @@
             [
                 "expo-splash-screen",
                 {
-                    "backgroundColor": "#0b0d12",
+                    "backgroundColor": "#ffffff",
                     "image": "./assets/splash.png",
-                    "android": {
-                        "resizeMode": "contain"
-                    }
+                    "resizeMode": "cover",
+                    "enableFullScreenImage_legacy": true
                 }
             ]
         ],

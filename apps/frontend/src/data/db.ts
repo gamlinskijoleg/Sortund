@@ -1,3 +1,4 @@
+import { log } from "@/utils/logger";
 import * as SQLite from "expo-sqlite";
 
 // Відкриваємо (або створюємо) базу даних
@@ -24,7 +25,7 @@ export function getCachedTracks(): any[] {
     const startTime = Date.now();
     const tracks = db.getAllSync("SELECT * FROM tracks");
     const endTime = Date.now();
-    console.log(
+    log.debug(
         `SQLite: Витягування ${tracks.length} треків зайняло ${endTime - startTime} ms`
     );
     return tracks;
