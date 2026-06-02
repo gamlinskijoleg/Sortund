@@ -1,48 +1,52 @@
 [
     {
         "index": 1,
-        "filename": "Сусіди_Стерплять_Дівчинка_панк_УКРАЇНІЗАЦІЯ_РЕВОРК.mp3",
+        "filename": "I Got You - Bebe Rexha (Lyrics + Vietsub).mp3",
         "status": "success",
-        "duration_sec": 6.92,
+        "duration_sec": 4.64,
         "api_response": {
-            "title": "Дівчинка панк",
-            "artist": "Сусіди Стерплять",
-            "album": "Дівчинка панк",
-            "year": 2022,
-            "analysis_source": "Shazam Core Engine",
-            "tags": ["Early 2020s"]
-        }
-    },
-    {
-        "index": 2,
-        "filename": "Darling_in_the_FranXX_OPOpening_Full「KISS_OF_DEATH_Mika_Nakashima.mp3",
-        "status": "success",
-        "duration_sec": 3.64,
-        "api_response": {
-            "title": "Kiss of Death",
-            "artist": "Mika Nakashima",
-            "album": "Joker",
-            "year": 2018,
+            "title": "I Got You",
+            "artist": "Bebe Rexha",
+            "album": "All Your Fault: Pt. 1",
+            "year": 2016,
             "analysis_source": "Shazam Core Engine",
             "tags": [
-                "electronic music (96.8%)",
-                "sad mood (99.6%)",
-                "Late 2010s"
+                "pop music (99.6%)",
+                "Mid 2010s",
+                "electronic dance music (98.8%)"
             ]
         }
     },
     {
-        "index": 3,
-        "filename": "Жадан_і_Собаки_–_Мальви_Офіційне_відео.mp3",
+        "index": 2,
+        "filename": "Колишня.mp3",
         "status": "success",
-        "duration_sec": 3.72,
+        "duration_sec": 3.92,
         "api_response": {
-            "title": "Мальви",
-            "artist": "Жадан і собаки",
-            "album": "Мадонна",
-            "year": 2019,
+            "title": "Колишня",
+            "artist": "БумБокс",
+            "album": "Колишня",
+            "year": null,
+            "analysis_source": "YouTube Music Search Engine",
+            "tags": []
+        }
+    },
+    {
+        "index": 3,
+        "filename": "Ніч упаде.mp3",
+        "status": "success",
+        "duration_sec": 3.54,
+        "api_response": {
+            "title": "Ніч упаде",
+            "artist": "Zwyntar",
+            "album": "На іншому боці ріки",
+            "year": 2025,
             "analysis_source": "Shazam Core Engine",
-            "tags": ["Late 2010s"]
+            "tags": [
+                "electronic music (87.4%)",
+                "electronic dance music (92.6%)",
+                "Mid 2020s"
+            ]
         }
     }
 ]
