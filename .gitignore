@@ -28,6 +28,9 @@ out/
 build
 dist
 
+# AI worker models
+apps/ai-worker/app/ml/model/
+
 
 # Debug
 npm-debug.log*

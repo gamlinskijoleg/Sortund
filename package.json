@@ -1,5 +1,5 @@
 {
-    "name": "Sortund",
+    "name": "sortund",
     "private": true,
     "scripts": {
         "build": "turbo run build",
