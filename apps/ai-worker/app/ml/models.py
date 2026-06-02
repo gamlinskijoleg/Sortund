@@ -15,20 +15,14 @@ logger = logging.getLogger("sortund-ai-pipeline")
 BASE_MODEL_DIR = os.path.join(os.path.dirname(__file__), "model")
 TEXT_MODEL_PATH = os.path.join(BASE_MODEL_DIR, "text_zero_shot", "model.onnx")
 AUDIO_MODEL_PATH = os.path.join(BASE_MODEL_DIR, "audio_tagger", "model.onnx")
-MOOD_MODEL_PATH = os.path.join(BASE_MODEL_DIR, "audio_mood", "model.onnx")
-
 text_session: Optional[ort.InferenceSession] = None
 text_tokenizer: Optional[PreTrainedTokenizerBase] = None
 audio_session: Optional[ort.InferenceSession] = None
-mood_session: Optional[ort.InferenceSession] = None  # 🔥 Сесія для 3-ї моделі
-
-# Словник класів, які повертає твоя нова модель настрою (класичний таргет-набір)
-MOOD_CLASSES = ["Energetic", "Calm", "Sad", "Neutral"]
 
 
 def load_onnx_models():
-    """Завантажує три ONNX моделі в пам'ять та налаштовує їхні сесії."""
-    global text_session, text_tokenizer, audio_session, mood_session
+    """Завантажує ONNX моделі в пам'ять та налаштовує їхні сесії."""
+    global text_session, text_tokenizer, audio_session
     opts = ort.SessionOptions()
     opts.intra_op_num_threads = 2
     opts.inter_op_num_threads = 2
@@ -57,25 +51,7 @@ def load_onnx_models():
         except Exception as e:
             logger.error(f"❌ Помилка ініціалізації аудіо моделі: {e}", exc_info=True)
 
-    # 🔥 ЗАВАНТАЖЕННЯ ТА ПРАВИЛЬНИЙ ПРОГРІВ 3-Ї МОДЕЛІ (MERT)
-    if os.path.exists(MOOD_MODEL_PATH):
-        try:
-            mood_session = ort.InferenceSession(
-                MOOD_MODEL_PATH, sess_options=opts, providers=["CPUExecutionProvider"]
-            )
 
-            # 🔥 ФІКС РЕЙНКУ: MERT очікує 2D тензор (Batch, Samples) -> [1, 240000]
-            # 10 секунд аудіо на частоті 24kHz = 240000 сэмплів
-            dummy_input = np.zeros((1, 240000), dtype=np.float32)
-
-            # Прогріваємо модель
-            mood_session.run(None, {"input_values": dummy_input})
-
-            logger.info(
-                "✅ 3-ю модель (Музичний MERT Mood Classifier) успішно завантажено та прогріто."
-            )
-        except Exception as e:
-            logger.error(f"❌ Помилка ініціалізації моделі настрою: {e}", exc_info=True)
 
 
 def _sync_predict_text_zero_shot(text: str) -> List[Dict[str, Union[str, float]]]:
@@ -185,80 +161,6 @@ def _sync_predict_audio_tags(file_path: str) -> Tuple[List[str], str]:
         return [], "Unknown"
 
 
-def _sync_predict_audio_mood_dedicated(file_path: str) -> str:
-    """Обсвіт моделі MERT-v1 через математично точну Косинусну схожість (Zero-Shot)"""
-    if mood_session is None:
-        return "Neutral"
-
-    try:
-        duration = librosa.get_duration(path=file_path)
-        offset_value = 30.0 if duration > 40.0 else 0.0
-
-        y, sr = librosa.load(file_path, sr=24000, offset=offset_value, duration=10)
-
-        if np.max(np.abs(y)) < 1e-4:
-            return "Calm"
-
-        y = librosa.util.fix_length(y, size=240000)
-        input_data = np.expand_dims(y, axis=0).astype(np.float32)
-
-        mood_outs = mood_session.run(None, {"input_values": input_data})
-
-        if isinstance(mood_outs, list) and len(mood_outs) > 0:
-            last_hidden_state = mood_outs[0]
-            # Робимо Mean Pooling: отримуємо чистий вектор треку (768 чисел)
-            track_emb = np.mean(last_hidden_state, axis=1)[0]
-
-            # Нормалізуємо вектор треку для косинусної схожості
-            track_norm = np.linalg.norm(track_emb) + 1e-8
-            track_emb_unit = track_emb / track_norm
-
-            # --- 🎯 ЕТАЛОННІ МАТЕМАТИЧНІ ПРОФІЛІ (ЦЕНТРОЇДИ MERT-v1) ---
-            # Ці сигнатури відображають патерни розподілу енергії в архітектурі Hubert/MERT
-
-            # Енергетика: акцент на перших шарах (ритм) та висока амплітуда дисперсії
-            energetic_ref = np.sin(np.linspace(0.5, 2.5, 768)) * 0.15
-            energetic_ref[::2] += 0.1  # Додаємо перкусійну сітку
-
-            # Спокій: плавний, низькочастотний, згладжений профіль (акустика, ембієнт)
-            calm_ref = np.cos(np.linspace(0.0, 1.0, 768)) * 0.18
-            calm_ref[::3] -= 0.05  # Фільтруємо різкі піки
-
-            # Сум: мінорна гармоніка, зміщена в глибокі середні шари
-            sad_ref = np.sin(np.linspace(-1.0, 1.5, 768)) * 0.12
-            sad_ref[128:512] += 0.08  # Акцент на вокально-драматичному діапазоні
-
-            # --- 📊 ОБЧИСЛЕННЯ COSINUS SIMILARITY ---
-            def get_cosine_sim(ref_vector):
-                ref_norm = np.linalg.norm(ref_vector) + 1e-8
-                ref_unit = ref_vector / ref_norm
-                return float(np.dot(track_emb_unit, ref_unit))
-
-            sim_energetic = get_cosine_sim(energetic_ref)
-            sim_calm = get_cosine_sim(calm_ref)
-            sim_sad = get_cosine_sim(sad_ref)
-
-            # Масштабуємо результати під твої класи
-            scores = {
-                "Energetic": sim_energetic * 1.35,
-                "Calm": sim_calm * 1.15,
-                "Sad": sim_sad * 1.10,
-            }
-
-            predicted_mood = max(scores, key=scores.get)
-
-            # Якщо розрив між лідерами мізерний — трек дійсно нейтральний за настроєм
-            sorted_scores = sorted(scores.values(), reverse=True)
-            if sorted_scores[0] - sorted_scores[1] < 0.02:
-                return "Neutral"
-
-            return predicted_mood
-
-        return "Neutral"
-    except Exception as e:
-        logger.error(f"❌ Збій обчислень MERT Mood Classifier: {e}", exc_info=True)
-        return "Neutral"
-
 
 # --- Асинхронні обгортки для роботи в пулі потоків FastAPI ---
 
@@ -271,6 +173,4 @@ async def predict_audio_tags(file_path: str) -> Tuple[List[str], str]:
     return await asyncio.to_thread(_sync_predict_audio_tags, file_path)
 
 
-async def predict_audio_mood_dedicated(file_path: str) -> str:
-    """🔥 Асинхронний виклик для третьої моделі настрою"""
-    return await asyncio.to_thread(_sync_predict_audio_mood_dedicated, file_path)
+

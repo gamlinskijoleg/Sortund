@@ -1,47 +1,48 @@
 [
     {
         "index": 1,
-        "filename": "【MV】鈴木雅之_feat_高城れに『Love_is_Show』特別上映版「かぐや様は告らせたい_ファーストキッスは終わらない.mp3",
+        "filename": "Сусіди_Стерплять_Дівчинка_панк_УКРАЇНІЗАЦІЯ_РЕВОРК.mp3",
         "status": "success",
-        "duration_sec": 6.08,
+        "duration_sec": 6.92,
         "api_response": {
-            "title": "Love is Show (feat. Reni Takagi)",
-            "artist": "Masayuki Suzuki",
-            "album": "SOUL NAVIGATION",
+            "title": "Дівчинка панк",
+            "artist": "Сусіди Стерплять",
+            "album": "Дівчинка панк",
             "year": 2022,
             "analysis_source": "Shazam Core Engine",
-            "tags": ["Early 2020s", "pop music (94.6%)"],
-            "mood": "Calm"
+            "tags": ["Early 2020s"]
         }
     },
     {
         "index": 2,
-        "filename": "＂Bury My Mother Pale and Slight＂ ｜ Myla's Song.mp3",
+        "filename": "Darling_in_the_FranXX_OPOpening_Full「KISS_OF_DEATH_Mika_Nakashima.mp3",
         "status": "success",
-        "duration_sec": 4.03,
+        "duration_sec": 3.64,
         "api_response": {
-            "title": "Myla's Song",
-            "artist": "Lazy Moonkin",
-            "album": "Hiraeth",
-            "year": null,
-            "analysis_source": "YouTube Music Search Engine",
-            "tags": ["calm chillout (98.9%)"],
-            "mood": "Calm"
+            "title": "Kiss of Death",
+            "artist": "Mika Nakashima",
+            "album": "Joker",
+            "year": 2018,
+            "analysis_source": "Shazam Core Engine",
+            "tags": [
+                "electronic music (96.8%)",
+                "sad mood (99.6%)",
+                "Late 2010s"
+            ]
         }
     },
     {
         "index": 3,
-        "filename": "Baby_Lasagna_Rim_Tim_Tagi_Dim_LIVE_Croatia_🇭🇷_Grand_Final_Eurovision.mp3",
+        "filename": "Жадан_і_Собаки_–_Мальви_Офіційне_відео.mp3",
         "status": "success",
-        "duration_sec": 3.69,
+        "duration_sec": 3.72,
         "api_response": {
-            "title": "Rim Tim Tagi Dim",
-            "artist": "Baby Lasagna",
-            "album": "Rim Tim Tagi Dim",
-            "year": null,
-            "analysis_source": "YouTube Music Search Engine",
-            "tags": [],
-            "mood": "Calm"
+            "title": "Мальви",
+            "artist": "Жадан і собаки",
+            "album": "Мадонна",
+            "year": 2019,
+            "analysis_source": "Shazam Core Engine",
+            "tags": ["Late 2010s"]
         }
     }
 ]

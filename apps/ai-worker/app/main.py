@@ -9,10 +9,9 @@ from typing import Dict, Union, List, Optional
 from typing_extensions import TypedDict
 
 # Імпорт модулів архітектури
-from app.core.config import setup_logging, GENRE_LABELS, MOOD_LABELS
+from app.core.config import setup_logging, GENRE_LABELS
 from app.ml.models import (
     load_onnx_models,
-    predict_audio_mood_dedicated,
     predict_text_zero_shot,
     predict_audio_tags,
 )
@@ -28,7 +27,6 @@ class AnalyzeResult(TypedDict):
     year: Optional[int]
     analysis_source: str
     tags: List[str]
-    mood: str
 
 
 load_dotenv()
@@ -94,18 +92,15 @@ async def analyze_track(
                 artist, title = parse_filename_fallback(filename)
                 source_analysis = "Filename Local Parser"
 
-            # Етап 3: Паралельний запуск ВСІХ процесів (Пошук, Теги інструментів, Модель настрою MERT)
+            # Етап 3: Паралельний запуск ВСІХ процесів (Пошук, Теги інструментів)
             metadata_task = fetch_and_validate_youtube_metadata(
                 artist, title, source_analysis, filename
             )
             audio_ai_task = predict_audio_tags(temp_file_path)
 
-            # Додаємо MERT-v1 у загальний паралельний пул
-            audio_mood_task = predict_audio_mood_dedicated(temp_file_path)
-
             # Чекаємо на виконання всього разом. Процесор завантажується паралельно на 100%
-            yt_data, (audio_tags, fallback_mood), dedicated_mood = await asyncio.gather(
-                metadata_task, audio_ai_task, audio_mood_task, return_exceptions=False
+            yt_data, (audio_tags, fallback_mood) = await asyncio.gather(
+                metadata_task, audio_ai_task, return_exceptions=False
             )
 
             # Перезаписуємо дані з YouTube тільки якщо це не чистий Shazam трек
@@ -134,63 +129,6 @@ async def analyze_track(
                 f"{ng['label']} ({ng['prob']:.1f}%)" for ng in non_genres
             ]
 
-            # --- 🔥 Етап 6: Фінальне рішення щодо настрою (Голосування 3-х моделей) ---
-            mood_scores = {"Energetic": 0.0, "Calm": 0.0, "Sad": 0.0, "Neutral": 0.0}
-
-            # 1. Голос від моделі AST (Fallback Audio Tags) — чудово бачить макро-динаміку
-            if fallback_mood in mood_scores:
-                mood_scores[fallback_mood] += 1.0
-
-            # 2. Голос від спеціалізованої моделі MERT-v1 — оцінює глибинну структуру гармоніки
-            if dedicated_mood in mood_scores:
-                mood_scores[dedicated_mood] += 0.8
-
-            # 3. Голос від текстового Zero-Shot аналізу назви та виконавця
-            text_mood_mapping = {
-                "sad mood": "Sad",
-                "energetic gym workout": "Energetic",
-                "calm chillout": "Calm",
-                "night drive vibe": "Calm",
-            }
-            for t in raw_text_tags:
-                label = t["label"]
-                prob = float(t["prob"]) / 100.0
-                if label in text_mood_mapping:
-                    mood_scores[text_mood_mapping[label]] += prob * 0.7
-
-            # 4. Додатковий захисний шар для відомих динамічних жанрів
-            lower_tags_str = str([t.lower() for t in filtered_text_results])
-            if any(
-                rock_word in lower_tags_str
-                for rock_word in ["rock", "metal", "heavy", "electro"]
-            ):
-                mood_scores["Energetic"] += 0.6
-            if any(
-                pop_word in lower_tags_str for pop_word in ["disco", "pop", "dance"]
-            ):
-                mood_scores["Energetic"] += 0.4
-            if any(
-                calm_word in lower_tags_str
-                for calm_word in ["acoustic", "lofi", "ambient", "blues"]
-            ):
-                mood_scores["Calm"] += 0.5
-
-            # Визначаємо абсолютного лідера за сумою балів усіх ШІ-шарів
-            final_mood = max(mood_scores, key=mood_scores.get)
-
-            # Якщо лідер не набрав критичної маси впевненості — ставимо стабільний Neutral
-            if mood_scores[final_mood] < 0.5:
-                final_mood = "Neutral"
-
-            # Точкове мікро-коригування під рідкісні пресетні теги (наприклад, Night Drive)
-            high_confidence_text = [
-                t["label"]
-                for t in raw_text_tags
-                if t["label"] in MOOD_LABELS and float(t["prob"]) >= 85.0
-            ]
-            if high_confidence_text and high_confidence_text[0] == "night drive vibe":
-                final_mood = "Night Drive"
-
             # --- ФОРМУЄМО ОЧИЩЕНІ ТЕГИ ---
             if "Music" in audio_tags:
                 audio_tags.remove("Music")
@@ -218,7 +156,6 @@ async def analyze_track(
                 "year": final_year,
                 "analysis_source": source_analysis,
                 "tags": final_tags,
-                "mood": final_mood,
             }
 
         except Exception as general_error:

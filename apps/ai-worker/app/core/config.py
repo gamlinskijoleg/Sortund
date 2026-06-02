@@ -35,12 +35,7 @@ CANDIDATE_LABELS: List[str] = [
     "night drive vibe",
 ]
 
-MOOD_LABELS: Set[str] = {
-    "sad mood",
-    "energetic gym workout",
-    "calm chillout",
-    "night drive vibe",
-}
+
 GENRE_LABELS: Set[str] = {
     "rock music",
     "pop music",
