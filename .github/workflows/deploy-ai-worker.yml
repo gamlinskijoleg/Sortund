@@ -1,0 +1,42 @@
+name: Deploy AI Worker to Hugging Face
+
+on:
+    push:
+        branches:
+            - main
+        paths:
+            - "apps/ai-worker/**"
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Push to Hugging Face Spaces
+              env:
+                  HF_TOKEN: ${{ secrets.HF_TOKEN }}
+              run: |
+                  git config --global user.email "actions@github.com"
+                  git config --global user.name "GitHub Actions"
+
+                  # 1. Клонуємо Спейс
+                  git clone https://gamlinskijoleg:$HF_TOKEN@huggingface.co/spaces/gamlinskijoleg/Sortund hf_repo
+
+                  # 2. Повністю очищаємо його корінь (бо моделей там більше немає)
+                  find hf_repo -maxdepth 1 ! -name '.git' ! -name 'hf_repo' -exec rm -rf {} +
+
+                  # 3. Копіюємо чистий код аппки
+                  cp -r apps/ai-worker/* hf_repo/
+
+                  cd hf_repo
+
+                  # 4. Пушимо
+                  git add .
+                  if [ -n "$(git status --porcelain)" ]; then
+                    git commit -m "Clean deploy from GitHub Actions: ${{ github.sha }}"
+                    git push origin main --force
+                  else
+                    echo "No changes to deploy"
+                  fi

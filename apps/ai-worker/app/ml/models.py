@@ -7,6 +7,7 @@ import librosa
 import onnxruntime as ort
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
 from typing import Tuple, List, Dict, Union, Optional, Any
+from huggingface_hub import snapshot_download  # <--- Додали імпорт
 
 from app.core.config import CANDIDATE_LABELS, AUDIO_LABELS, ENERGETIC_TRIGGERS
 
@@ -15,14 +16,46 @@ logger = logging.getLogger("sortund-ai-pipeline")
 BASE_MODEL_DIR = os.path.join(os.path.dirname(__file__), "model")
 TEXT_MODEL_PATH = os.path.join(BASE_MODEL_DIR, "text_zero_shot", "model.onnx")
 AUDIO_MODEL_PATH = os.path.join(BASE_MODEL_DIR, "audio_tagger", "model.onnx")
+
 text_session: Optional[ort.InferenceSession] = None
 text_tokenizer: Optional[PreTrainedTokenizerBase] = None
 audio_session: Optional[ort.InferenceSession] = None
 
 
 def load_onnx_models():
-    """Завантажує ONNX моделі в пам'ять та налаштовує їхні сесії."""
-    global text_session, text_tokenizer, audio_session
+    """Завантажує ONNX моделі в пам'ять. Якщо файлів немає, стягує їх з HF Model Hub."""
+    global text_session, text_tokenizer, audio_session, TEXT_MODEL_PATH, AUDIO_MODEL_PATH
+
+    # 1. ПЕРЕВІРКА: Якщо локальних файлів немає, качаємо з Hugging Face
+    if not os.path.exists(TEXT_MODEL_PATH) or not os.path.exists(AUDIO_MODEL_PATH):
+        logger.info(
+            "⚠️ Локальних моделей не знайдено. Починаю завантаження з Hugging Face Model Hub..."
+        )
+        try:
+            # Стягуємо токен із секретів (на HF Spaces він підтягнеться автоматично, якщо доданий в Settings)
+            hf_token = os.getenv("HF_TOKEN")
+
+            # Завантажуємо весь репозиторій моделей у системний кеш
+            downloaded_dir = snapshot_download(
+                repo_id="gamlinskijoleg/sortund-models", token=hf_token
+            )
+
+            # Перепризначаємо шляхи на завантажені файли
+            TEXT_MODEL_PATH = os.path.join(
+                downloaded_dir, "text_zero_shot", "model.onnx"
+            )
+            AUDIO_MODEL_PATH = os.path.join(
+                downloaded_dir, "audio_tagger", "model.onnx"
+            )
+            logger.info(f"✅ Моделі успішно завантажено у кеш: {downloaded_dir}")
+        except Exception as e:
+            logger.error(
+                f"❌ Не вдалося завантажити моделі з Hugging Face Hub: {e}",
+                exc_info=True,
+            )
+            return
+
+    # 2. ІНІЦІАЛІЗАЦІЯ СЕСІЙ (Твій оригінальний код, але з новими шляхами)
     opts = ort.SessionOptions()
     opts.intra_op_num_threads = 2
     opts.inter_op_num_threads = 2
@@ -33,6 +66,7 @@ def load_onnx_models():
             text_session = ort.InferenceSession(
                 TEXT_MODEL_PATH, sess_options=opts, providers=["CPUExecutionProvider"]
             )
+            # Токенізер шукаємо в тій же папці, де лежить ONNX модель
             text_tokenizer = AutoTokenizer.from_pretrained(
                 os.path.dirname(TEXT_MODEL_PATH)
             )
@@ -50,8 +84,6 @@ def load_onnx_models():
             logger.info("✅ Аудіо AST ONNX завантажено успішно.")
         except Exception as e:
             logger.error(f"❌ Помилка ініціалізації аудіо моделі: {e}", exc_info=True)
-
-
 
 
 def _sync_predict_text_zero_shot(text: str) -> List[Dict[str, Union[str, float]]]:
@@ -161,16 +193,9 @@ def _sync_predict_audio_tags(file_path: str) -> Tuple[List[str], str]:
         return [], "Unknown"
 
 
-
-# --- Асинхронні обгортки для роботи в пулі потоків FastAPI ---
-
-
 async def predict_text_zero_shot(text: str) -> List[Dict[str, Union[str, float]]]:
     return await asyncio.to_thread(_sync_predict_text_zero_shot, text)
 
 
 async def predict_audio_tags(file_path: str) -> Tuple[List[str], str]:
     return await asyncio.to_thread(_sync_predict_audio_tags, file_path)
-
-
-
