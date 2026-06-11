@@ -12,14 +12,20 @@ jobs:
         steps:
             - uses: actions/checkout@v4
 
-            # 1. Логін в Docker Hub
+            # 1. Підключаємося до вашої мережі Tailscale
+            - name: Connect to Tailscale
+              uses: tailscale/github-action@v2
+              with:
+                  authkey: ${{ secrets.TS_API_KEY }}
+
+            # 2. Логін в Docker Hub
             - name: Login to Docker Hub
               uses: docker/login-action@v3
               with:
                   username: ${{ secrets.DOCKERHUB_USERNAME }}
                   password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-            # 2. Збірка і пуш образу
+            # 3. Збірка і пуш образу в Docker Hub
             - name: Build and push
               uses: docker/build-push-action@v5
               with:
@@ -27,16 +33,16 @@ jobs:
                   push: true
                   tags: ${{ secrets.DOCKERHUB_USERNAME }}/ai-worker:latest
 
-            # 3. Команда серверу оновитися
+            # 4. Деплой на сервер через SSH (всередині тунелю Tailscale)
             - name: Deploy via SSH
               uses: appleboy/ssh-action@master
               with:
                   host: ${{ secrets.SERVER_IP }}
                   username: ${{ secrets.SERVER_USER }}
                   key: ${{ secrets.SSH_PRIVATE_KEY }}
-                  # Використовуємо --strict-host-key-checking=no, щоб уникнути помилок SSH
+                  # Використовуємо -o StrictHostKeyChecking=no, щоб SSH не питав підтвердження
                   script: |
-                      echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+                      docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" -p "${{ secrets.DOCKERHUB_TOKEN }}"
                       docker pull ${{ secrets.DOCKERHUB_USERNAME }}/ai-worker:latest
                       docker stop ai-worker || true
                       docker rm ai-worker || true
