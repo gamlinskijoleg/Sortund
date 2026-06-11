@@ -12,13 +12,12 @@ jobs:
         steps:
             - uses: actions/checkout@v4
 
-            # 1. Логін в приватний реєстр GitHub
-            - name: Login to GHCR
+            # 1. Логін в Docker Hub
+            - name: Login to Docker Hub
               uses: docker/login-action@v3
               with:
-                  registry: ghcr.io
-                  username: ${{ github.actor }}
-                  password: ${{ secrets.GITHUB_TOKEN }}
+                  username: ${{ secrets.DOCKERHUB_USERNAME }}
+                  password: ${{ secrets.DOCKERHUB_TOKEN }}
 
             # 2. Збірка і пуш образу
             - name: Build and push
@@ -26,7 +25,7 @@ jobs:
               with:
                   context: ./apps/ai-worker
                   push: true
-                  tags: ghcr.io/gamlinskijoleg/ai-worker:latest
+                  tags: ${{ secrets.DOCKERHUB_USERNAME }}/ai-worker:latest
 
             # 3. Команда серверу оновитися
             - name: Deploy via SSH
@@ -35,9 +34,10 @@ jobs:
                   host: ${{ secrets.SERVER_IP }}
                   username: ${{ secrets.SERVER_USER }}
                   key: ${{ secrets.SSH_PRIVATE_KEY }}
+                  # Використовуємо --strict-host-key-checking=no, щоб уникнути помилок SSH
                   script: |
-                      echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-                      docker pull ghcr.io/${{ github.repository_owner }}/ai-worker:latest
+                      echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+                      docker pull ${{ secrets.DOCKERHUB_USERNAME }}/ai-worker:latest
                       docker stop ai-worker || true
                       docker rm ai-worker || true
-                      docker run -d --name ai-worker -p 8000:8000 --restart unless-stopped ghcr.io/${{ github.repository_owner }}/ai-worker:latest
+                      docker run -d --name ai-worker -p 8000:8000 --restart unless-stopped ${{ secrets.DOCKERHUB_USERNAME }}/ai-worker:latest
