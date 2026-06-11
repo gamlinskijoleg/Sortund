@@ -1,9 +1,8 @@
-name: Deploy AI Worker to Hugging Face
+name: Deploy to Server
 
 on:
     push:
-        branches:
-            - main
+        branches: [main]
         paths:
             - "apps/ai-worker/**"
 
@@ -11,32 +10,34 @@ jobs:
     deploy:
         runs-on: ubuntu-latest
         steps:
-            - name: Checkout code
-              uses: actions/checkout@v4
+            - uses: actions/checkout@v4
 
-            - name: Push to Hugging Face Spaces
-              env:
-                  HF_TOKEN: ${{ secrets.HF_TOKEN }}
-              run: |
-                  git config --global user.email "actions@github.com"
-                  git config --global user.name "GitHub Actions"
+            # 1. Логін в приватний реєстр GitHub
+            - name: Login to GHCR
+              uses: docker/login-action@v3
+              with:
+                  registry: ghcr.io
+                  username: ${{ github.actor }}
+                  password: ${{ secrets.GITHUB_TOKEN }}
 
-                  # 1. Клонуємо Спейс
-                  git clone https://gamlinskijoleg:$HF_TOKEN@huggingface.co/spaces/gamlinskijoleg/Sortund hf_repo
+            # 2. Збірка і пуш образу
+            - name: Build and push
+              uses: docker/build-push-action@v5
+              with:
+                  context: ./apps/ai-worker
+                  push: true
+                  tags: ghcr.io/${{ github.repository_owner }}/ai-worker:latest
 
-                  # 2. Повністю очищаємо його корінь (бо моделей там більше немає)
-                  find hf_repo -maxdepth 1 ! -name '.git' ! -name 'hf_repo' -exec rm -rf {} +
-
-                  # 3. Копіюємо чистий код аппки
-                  cp -r apps/ai-worker/* hf_repo/
-
-                  cd hf_repo
-
-                  # 4. Пушимо
-                  git add .
-                  if [ -n "$(git status --porcelain)" ]; then
-                    git commit -m "Clean deploy from GitHub Actions: ${{ github.sha }}"
-                    git push origin main --force
-                  else
-                    echo "No changes to deploy"
-                  fi
+            # 3. Команда серверу оновитися
+            - name: Deploy via SSH
+              uses: appleboy/ssh-action@master
+              with:
+                  host: ${{ secrets.SERVER_IP }}
+                  username: ${{ secrets.SERVER_USER }}
+                  key: ${{ secrets.SSH_PRIVATE_KEY }}
+                  script: |
+                      echo ${{ secrets.GITHUB_TOKEN }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+                      docker pull ghcr.io/${{ github.repository_owner }}/ai-worker:latest
+                      docker stop ai-worker || true
+                      docker rm ai-worker || true
+                      docker run -d --name ai-worker -p 8000:8000 --restart unless-stopped ghcr.io/${{ github.repository_owner }}/ai-worker:latest

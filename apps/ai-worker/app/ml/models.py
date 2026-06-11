@@ -7,7 +7,7 @@ import librosa
 import onnxruntime as ort
 from transformers import AutoTokenizer, PreTrainedTokenizerBase
 from typing import Tuple, List, Dict, Union, Optional, Any
-from huggingface_hub import snapshot_download  # <--- Додали імпорт
+from huggingface_hub import snapshot_download
 
 from app.core.config import CANDIDATE_LABELS, AUDIO_LABELS, ENERGETIC_TRIGGERS
 

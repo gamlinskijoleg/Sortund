@@ -206,3 +206,9 @@ async def analyze_track(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=str(general_error),
             )
+
+
+@app.get("/health", status_code=status.HTTP_200_OK)
+async def health_check() -> Dict[str, str]:
+    """Проста перевірка здоров'я сервісу."""
+    return {"status": "ok", "message": "Sortund AI Worker is healthy."}
