@@ -26,7 +26,7 @@ jobs:
               with:
                   context: ./apps/ai-worker
                   push: true
-                  tags: ghcr.io/${{ github.repository_owner }}/ai-worker:latest
+                  tags: ghcr.io/gamlinskijoleg/ai-worker:latest
 
             # 3. Команда серверу оновитися
             - name: Deploy via SSH
