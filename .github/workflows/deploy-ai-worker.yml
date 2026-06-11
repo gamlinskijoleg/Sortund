@@ -33,6 +33,9 @@ jobs:
                   push: true
                   tags: ${{ secrets.DOCKERHUB_USERNAME }}/ai-worker:latest
 
+            - name: Test Ping to Server
+              run: ping -c 4 ${{ secrets.SERVER_IP }}
+
             # 4. Деплой на сервер через SSH (всередині тунелю Tailscale)
             - name: Deploy via SSH
               uses: appleboy/ssh-action@master
