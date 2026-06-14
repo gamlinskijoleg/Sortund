@@ -171,6 +171,7 @@ async def analyze_track(
 ) -> AnalyzeResult:
     """Обробляє завантажений аудіофайл, витягує теги та метадані з різних джерел."""
     filename = file.filename or "unknown.mp3"
+    logger.info(f"📥 Отримано файл для аналізу: {filename}")
     if not filename.endswith((".mp3", ".wav", ".m4a", ".ogg", ".flac")):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported audio format."
