@@ -1,6 +1,7 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, usePathname } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppTheme } from "../../theme/app-theme";
 
@@ -9,6 +10,7 @@ const musicRoutes = new Set(["/", "/videos", "/artists", "/albums"]);
 export function MusicBottomNav() {
     const theme = useAppTheme();
     const pathname = usePathname();
+    const insets = useSafeAreaInsets();
 
     if (!musicRoutes.has(pathname) && pathname !== "/watch") {
         return null;
@@ -21,6 +23,8 @@ export function MusicBottomNav() {
                 {
                     backgroundColor: theme.background,
                     borderTopColor: theme.border,
+                    paddingBottom: insets.bottom,
+                    height: 82 + insets.bottom,
                 },
             ]}
         >

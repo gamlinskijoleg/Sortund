@@ -5,24 +5,6 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { AppScreen } from "../app-screen";
 import { useAppTheme } from "../../theme/app-theme";
 
-const watchItems = [
-    {
-        title: "Live session clips",
-        subtitle: "Highlights from recent plays and streams.",
-        color: "#111111",
-    },
-    {
-        title: "Lyric videos",
-        subtitle: "Open the videos section for clips and visualizers.",
-        color: "#3d748d",
-    },
-    {
-        title: "Saved watches",
-        subtitle: "Keep a short queue of things to return to later.",
-        color: "#5b4db3",
-    },
-];
-
 export default function WatchScreen() {
     const theme = useAppTheme();
 
@@ -55,47 +37,10 @@ export default function WatchScreen() {
                         </Text>
                     </View>
                 </View>
-
                 <ScrollView
                     contentContainerStyle={styles.scrollContent}
                     showsVerticalScrollIndicator={false}
-                >
-                    {watchItems.map((item) => (
-                        <View
-                            key={item.title}
-                            style={[
-                                styles.card,
-                                {
-                                    borderColor: item.color,
-                                    backgroundColor: "rgba(255,255,255,0.04)",
-                                },
-                            ]}
-                        >
-                            <View
-                                style={[
-                                    styles.cardAccent,
-                                    { backgroundColor: item.color },
-                                ]}
-                            />
-                            <Text
-                                style={[
-                                    styles.cardTitle,
-                                    { color: theme.text },
-                                ]}
-                            >
-                                {item.title}
-                            </Text>
-                            <Text
-                                style={[
-                                    styles.cardSubtitle,
-                                    { color: theme.text, opacity: 0.72 },
-                                ]}
-                            >
-                                {item.subtitle}
-                            </Text>
-                        </View>
-                    ))}
-                </ScrollView>
+                ></ScrollView>
             </View>
         </AppScreen>
     );
