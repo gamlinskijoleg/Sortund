@@ -1,13 +1,16 @@
-import {
-    AudioPlayer,
-    createAudioPlayer,
-    AudioModule,
-    AudioMetadata,
-    AudioLockScreenOptions,
-} from "expo-audio";
+import { AudioPlayer, createAudioPlayer, AudioModule } from "expo-audio";
 import { Image } from "react-native";
 import { Directory, File, Paths } from "expo-file-system";
 import { getArtwork } from "react-native-audio-metadata";
+import {
+    enableMediaControls,
+    Command,
+    updatePlaybackState,
+    PlaybackState,
+    addListener,
+    MediaControlEvent,
+    updateMetadata,
+} from "expo-media-control";
 import type { MusicTrack } from "../data/music";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { log } from "@/utils/logger";
@@ -18,7 +21,6 @@ let playbackToken = 0;
 let onNextTrackHandler: (() => void) | null = null;
 let onPreviousTrackHandler: (() => void) | null = null;
 
-// Зберігаємо посилання на попередній трек для запобігання зацикленню
 let lastTrack: MusicTrack | null = null;
 
 const resolvedAsset = Image.resolveAssetSource(
@@ -37,10 +39,25 @@ async function configureAudioMode() {
             interruptionMode: "doNotMix",
             shouldRouteThroughEarpiece: false,
         });
+
+        enableMediaControls({
+            capabilities: [
+                Command.PLAY,
+                Command.PAUSE,
+                Command.NEXT_TRACK,
+                Command.PREVIOUS_TRACK,
+            ],
+            compactCapabilities: [
+                Command.PREVIOUS_TRACK,
+                Command.PLAY,
+                Command.NEXT_TRACK,
+            ],
+        });
+
         initialized = true;
-        log.debug("Player: AudioMode configured successfully");
+        log.debug("Player: AudioMode & MediaControls configured successfully");
     } catch (error) {
-        log.warn("Player: Failed to configure AudioMode", error);
+        log.warn("Player: Failed to configure AudioMode/MediaControls", error);
     }
 }
 
@@ -52,9 +69,6 @@ export function setTrackNavigationCallbacks(
     onPreviousTrackHandler = onPrev;
 }
 
-/**
- * Очищає URI для бібліотеки метаданих, роблячи його зрозумілим для нативної частини Android
- */
 function preparePathForMetadata(uri: string): string {
     let clean = uri;
     if (clean.startsWith("file://")) {
@@ -63,9 +77,6 @@ function preparePathForMetadata(uri: string): string {
     return decodeURIComponent(clean);
 }
 
-/**
- * Допоміжна функція: зберігає base64 стрінгу у локальний файл
- */
 async function saveBase64ToCacheFile(
     base64WithPrefix: string,
     assetId?: string
@@ -103,22 +114,20 @@ export async function playTrack(track: MusicTrack) {
         else track.artworkUrl = undefined;
     }
 
-    const trackMetadata: AudioMetadata = {
+    const artworkUri = track.artworkUrl || fallbackArtworkUrl || "";
+
+    const mediaControlMetadata = {
         title: track.title,
         artist: track.artist || "Unknown Artist",
-        albumTitle: track.albumTitle,
-        ...(track.artworkUrl
-            ? { artworkUrl: track.artworkUrl }
-            : fallbackArtworkUrl
-              ? { artworkUrl: fallbackArtworkUrl }
-              : {}),
+        album: track.albumTitle || "",
+        artwork: artworkUri ? { uri: artworkUri } : undefined,
     };
 
-    const lockScreenOptions: AudioLockScreenOptions = {
-        showSeekBackward: true,
-        showSeekForward: true,
-        isLiveStream: false,
-    };
+    try {
+        updateMetadata(mediaControlMetadata);
+    } catch (metaError) {
+        log.warn("Player: Failed to update MediaControl metadata", metaError);
+    }
 
     let activePlayer = usePlayerStore.getState().playerInstance;
 
@@ -131,15 +140,10 @@ export async function playTrack(track: MusicTrack) {
             );
             usePlayerStore.getState().setPlayerInstance(activePlayer);
             setupNotificationListeners();
+            setupPlaybackStatusListener(activePlayer);
         } else {
             activePlayer.replace({ uri: playerUri });
         }
-
-        activePlayer.setActiveForLockScreen(
-            true,
-            trackMetadata,
-            lockScreenOptions
-        );
 
         setTimeout(() => {
             if (activePlayer) {
@@ -181,11 +185,26 @@ export async function playTrack(track: MusicTrack) {
                         finalArtworkUri &&
                         !finalArtworkUri.startsWith("data:")
                     ) {
-                        playerForArtwork.updateLockScreenMetadata({
-                            ...trackMetadata,
-                            artworkUrl: finalArtworkUri,
-                        });
                         track.artworkUrl = finalArtworkUri;
+
+                        const updatedMetadata = {
+                            title: track.title,
+                            artist: track.artist || "Unknown Artist",
+                            album: track.albumTitle || "",
+                            artwork: { uri: finalArtworkUri },
+                        };
+
+                        try {
+                            log.debug(
+                                "Player: Updating MediaControl with newly extracted artwork"
+                            );
+                            updateMetadata(updatedMetadata);
+                        } catch (e) {
+                            log.warn(
+                                "Player: Dynamic artwork update failed",
+                                e
+                            );
+                        }
                     }
                 })
                 .catch((error) => {
@@ -202,20 +221,77 @@ export async function playTrack(track: MusicTrack) {
     }
 }
 
+let mediaControlSubscription: (() => void) | null = null;
+
 function setupNotificationListeners() {
-    (AudioModule as any).addListener(
-        "notificationCommandReceived",
-        (event: { command: string }) => {
-            if (event.command === "skipToNext" && onNextTrackHandler) {
-                onNextTrackHandler();
-            } else if (
-                event.command === "skipToPrevious" &&
-                onPreviousTrackHandler
-            ) {
-                onPreviousTrackHandler();
-            }
+    if (mediaControlSubscription) {
+        mediaControlSubscription();
+    }
+
+    mediaControlSubscription = addListener((event: MediaControlEvent) => {
+        log.debug("MediaControl: Received event:", event);
+
+        switch (event.command) {
+            case Command.NEXT_TRACK:
+            case "nextTrack":
+                if (onNextTrackHandler) {
+                    log.debug("MediaControl: Hardware Next Track triggered");
+                    onNextTrackHandler();
+                } else {
+                    log.warn(
+                        "MediaControl: Next track triggered, but onNextTrackHandler is null"
+                    );
+                }
+                break;
+
+            case Command.PREVIOUS_TRACK:
+            case "previousTrack":
+                if (onPreviousTrackHandler) {
+                    log.debug(
+                        "MediaControl: Hardware Previous Track triggered"
+                    );
+                    onPreviousTrackHandler();
+                } else {
+                    log.warn(
+                        "MediaControl: Previous track triggered, but onPreviousTrackHandler is null"
+                    );
+                }
+                break;
+
+            case Command.PLAY:
+            case "play":
+                log.debug("MediaControl: Hardware Play triggered");
+                usePlayerStore.getState().playerInstance?.play();
+                break;
+
+            case Command.PAUSE:
+            case "pause":
+                log.debug("MediaControl: Hardware Pause triggered");
+                usePlayerStore.getState().playerInstance?.pause();
+                break;
+
+            default:
+                log.debug("MediaControl: Unhandled media action", event);
         }
-    );
+    });
+}
+
+function setupPlaybackStatusListener(player: AudioPlayer) {
+    player.addListener("playbackStatusUpdate", (status) => {
+        const positionInSeconds = (status.currentTime ?? 0) / 1000;
+        const durationInSeconds = (status.duration ?? 0) / 1000;
+
+        let state = PlaybackState.NONE;
+        if (status.isBuffering) {
+            state = PlaybackState.BUFFERING;
+        } else if (status.playing) {
+            state = PlaybackState.PLAYING;
+        } else {
+            state = PlaybackState.PAUSED;
+        }
+
+        updatePlaybackState(state, positionInSeconds, durationInSeconds);
+    });
 }
 
 export async function pausePlayback() {
@@ -242,7 +318,6 @@ export function getPlayerInstance(): AudioPlayer | null {
     return usePlayerStore.getState().playerInstance;
 }
 
-// ВИПРАВЛЕНО: Автоматичний запуск і робота без помилок сигнатур типів
 export async function initPlayer() {
     await configureAudioMode();
 
@@ -252,19 +327,17 @@ export async function initPlayer() {
         activePlayer = createAudioPlayer({ uri: "" }, { updateInterval: 500 });
         usePlayerStore.getState().setPlayerInstance(activePlayer);
         setupNotificationListeners();
+        setupPlaybackStatusListener(activePlayer);
 
-        // 1. Прив'язуємо залізні кнопки шторки/LockScreen до екшенів нашого Zustand-стору
         setTrackNavigationCallbacks(
             () => usePlayerStore.getState().playNext(),
             () => usePlayerStore.getState().playPrevious()
         );
 
-        // 2. ВИПРАВЛЕНО: Чиста підписка на весь стейт з ручним порівнянням по sourceUri
         usePlayerStore.subscribe((state) => {
             const newTrack = state.activeTrack;
 
             if (newTrack) {
-                // Перевіряємо за унікальним шляхом до аудіофайлу, оскільки ID немає
                 if (!lastTrack || lastTrack.sourceUri !== newTrack.sourceUri) {
                     lastTrack = newTrack;
                     playTrack(newTrack);

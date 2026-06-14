@@ -2,7 +2,7 @@
     "name": "sortund-ai-worker",
     "version": "1.0.0",
     "scripts": {
-        "dev": "uvicorn app.main:app --reload --port 8000",
+        "dev": "source ./venv/bin/activate && uvicorn app.main:app --reload --port 8000",
         "build": "echo 'Python project, build handled by Docker'"
     }
 }

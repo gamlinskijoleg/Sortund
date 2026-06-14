@@ -24,6 +24,13 @@
             "bundleIdentifier": "com.sortund.frontend"
         },
         "plugins": [
+            [
+                "expo-media-control",
+                {
+                    "enableBackgroundAudio": true,
+                    "notificationIcon": "./assets/icon.png"
+                }
+            ],
             "expo-router",
             [
                 "expo-file-system",
@@ -43,10 +50,9 @@
             [
                 "expo-splash-screen",
                 {
-                    "backgroundColor": "#ffffff",
-                    "image": "./assets/splash.png",
-                    "resizeMode": "cover",
-                    "enableFullScreenImage_legacy": true
+                    "backgroundColor": "#3a1c6e",
+                    "image": "./assets/icon.png",
+                    "resizeMode": "contain"
                 }
             ]
         ],
