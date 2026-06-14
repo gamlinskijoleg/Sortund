@@ -12,6 +12,7 @@ export type AppTheme = {
     accentSoft: string;
     accentStrong: string;
     inverseText: string;
+    inverseTextMuted: string;
     shadow: string;
 };
 
@@ -34,10 +35,11 @@ export function useAppTheme(): AppTheme {
         textMuted: readThemeValue(theme, "colorHover", "#6f6f6f"),
         textSubtle: readThemeValue(theme, "colorPress", "#8f8f8f"),
         border: readThemeValue(theme, "borderColor", "#d2d2d2"),
-        accent: readThemeValue(theme, "blue10", "#3d748d"),
-        accentSoft: readThemeValue(theme, "blue4", "#d9e6eb"),
-        accentStrong: readThemeValue(theme, "blue12", "#2f7bb4"),
+        accent: readThemeValue(theme, "CUSTOM", "#ad748d"),
+        accentSoft: readThemeValue(theme, "CUSTOM", "#d9e6eb"),
+        accentStrong: readThemeValue(theme, "CUSTOM", "#2f7bb4"),
         inverseText: readThemeValue(theme, "background", "#ffffff"),
+        inverseTextMuted: readThemeValue(theme, "CUSTOM", "#ffffff99"),
         shadow: readThemeValue(theme, "shadowColor", "rgba(0,0,0,0.12)"),
     };
 }

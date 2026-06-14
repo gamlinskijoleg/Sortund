@@ -23,7 +23,7 @@ export type MusicTrack = {
 };
 
 export type MusicSection = {
-    href: "/" | "/videos" | "/artists" | "/albums";
+    href: "/" | "/artists" | "/albums";
     label: string;
 };
 
@@ -205,7 +205,6 @@ export function useMusicTracks(limit = 5) {
 
 export const musicSections: MusicSection[] = [
     { href: "/", label: "Songs" },
-    { href: "/videos", label: "Videos" },
     { href: "/artists", label: "Artists" },
     { href: "/albums", label: "Albums" },
 ];
@@ -222,11 +221,6 @@ export const featureCards = [
         href: "/library/playlists" as const,
     },
     { title: "Recent", color: "#5b4db3", href: "/library/recent" as const },
-];
-
-export const searchSuggestions = [
-    "Search songs, playlists, and artists",
-    "Find albums, videos, and saved mixes",
 ];
 
 export const librarySectionCopy: Record<

@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppTheme } from "../../theme/app-theme";
 
-const musicRoutes = new Set(["/", "/videos", "/artists", "/albums"]);
+const musicRoutes = new Set(["/", "/artists", "/albums"]);
 
 export function MusicBottomNav() {
     const theme = useAppTheme();
@@ -21,10 +21,10 @@ export function MusicBottomNav() {
             style={[
                 styles.bottomNav,
                 {
-                    backgroundColor: theme.background,
+                    backgroundColor: "#fff",
                     borderTopColor: theme.border,
                     paddingBottom: insets.bottom,
-                    height: 82 + insets.bottom,
+                    height: 52 + insets.bottom,
                 },
             ]}
         >
@@ -35,7 +35,7 @@ export function MusicBottomNav() {
             >
                 <MaterialCommunityIcons
                     name="headphones"
-                    size={30}
+                    size={20}
                     color={theme.text}
                 />
                 <Text style={[styles.navLabel, { color: theme.text }]}>
@@ -49,8 +49,8 @@ export function MusicBottomNav() {
                 style={styles.navItem}
             >
                 <MaterialCommunityIcons
-                    name="watch-variant"
-                    size={34}
+                    name="television-classic"
+                    size={20}
                     color={theme.textSubtle}
                 />
                 <Text
@@ -74,9 +74,10 @@ const styles = StyleSheet.create({
         left: 0,
         right: 0,
         bottom: 0,
-        height: 82,
+        height: 52,
         flexDirection: "row",
-        justifyContent: "space-evenly",
+        justifyContent: "space-between",
+        paddingHorizontal: "20%",
         alignItems: "center",
         borderTopWidth: 1,
     },
@@ -86,7 +87,7 @@ const styles = StyleSheet.create({
         gap: 4,
     },
     navLabel: {
-        fontSize: 14,
+        fontSize: 12,
         fontWeight: "500",
     },
 });

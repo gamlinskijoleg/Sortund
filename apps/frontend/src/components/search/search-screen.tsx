@@ -3,7 +3,6 @@ import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AppScreen } from "../app-screen";
-import { searchSuggestions } from "../../data/music";
 import { useAppTheme } from "../../theme/app-theme";
 
 export default function SearchScreen() {
@@ -45,34 +44,6 @@ export default function SearchScreen() {
                     >
                         Search songs, albums, and people
                     </Text>
-                </View>
-
-                <View
-                    style={[
-                        styles.card,
-                        { backgroundColor: theme.surfaceStrong },
-                    ]}
-                >
-                    <Text style={[styles.cardTitle, { color: theme.text }]}>
-                        Quick prompts
-                    </Text>
-                    {searchSuggestions.map((suggestion) => (
-                        <View key={suggestion} style={styles.suggestionRow}>
-                            <MaterialCommunityIcons
-                                name="radio-tower"
-                                size={18}
-                                color={theme.accent}
-                            />
-                            <Text
-                                style={[
-                                    styles.suggestionText,
-                                    { color: theme.textMuted },
-                                ]}
-                            >
-                                {suggestion}
-                            </Text>
-                        </View>
-                    ))}
                 </View>
             </View>
         </AppScreen>

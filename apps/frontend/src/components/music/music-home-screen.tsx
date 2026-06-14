@@ -13,6 +13,8 @@ import {
 import { useAppTheme } from "../../theme/app-theme";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { FlatList } from "react-native";
+import { log } from "@/utils/logger";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 function MusicSearchBar() {
     const theme = useAppTheme();
@@ -71,9 +73,8 @@ function MusicFeatureCard({
     return (
         <YStack
             flex={1}
-            minHeight={84}
             borderRadius={20}
-            padding={12}
+            padding={8}
             backgroundColor={color}
             justifyContent="space-between"
             pressStyle={{ opacity: 0.92 }}
@@ -83,24 +84,17 @@ function MusicFeatureCard({
                 width={28}
                 height={28}
                 borderRadius={14}
-                backgroundColor="rgba(255,255,255,0.98)"
                 justifyContent="center"
                 alignItems="center"
             >
                 <MaterialCommunityIcons
                     name={iconName}
                     size={20}
-                    color={
-                        title === "Favourites"
-                            ? theme.accentStrong
-                            : title === "Playlists"
-                              ? theme.accent
-                              : theme.textMuted
-                    }
+                    color={theme.inverseText}
                 />
             </XStack>
             <Text
-                fontSize={20}
+                fontSize={16}
                 fontWeight="700"
                 lineHeight={24}
                 color={theme.inverseText}
@@ -119,7 +113,7 @@ function SectionTabs() {
             alignItems="center"
             paddingHorizontal={16}
             marginTop={18}
-            gap={12}
+            justifyContent="space-between"
         >
             {musicSections.map((section) => {
                 const isActive = section.href === "/";
@@ -162,10 +156,10 @@ function ActionBar() {
             alignItems="center"
             justifyContent="space-between"
         >
-            <XStack alignItems="center" gap={10}>
+            <XStack alignItems="center" gap={4}>
                 <XStack
-                    width={48}
-                    height={48}
+                    width={30}
+                    height={30}
                     borderRadius={24}
                     backgroundColor={theme.text}
                     justifyContent="center"
@@ -177,7 +171,7 @@ function ActionBar() {
                         color={theme.inverseText}
                     />
                 </XStack>
-                <Text fontSize={18} fontWeight="600" color={theme.text}>
+                <Text fontSize={16} color={theme.text}>
                     Shuffle playback
                 </Text>
             </XStack>
@@ -185,12 +179,12 @@ function ActionBar() {
             <XStack alignItems="center" gap={18}>
                 <MaterialCommunityIcons
                     name="swap-vertical"
-                    size={28}
+                    size={24}
                     color={theme.text}
                 />
                 <MaterialCommunityIcons
                     name="format-list-bulleted"
-                    size={28}
+                    size={24}
                     color={theme.text}
                 />
             </XStack>
@@ -285,121 +279,96 @@ function MiniPlayer({
 }) {
     const theme = useAppTheme();
 
+    log.debug(JSON.stringify(track, null, 2));
+
     return (
-        <XStack
-            position="absolute"
-            left={16}
-            right={16}
-            bottom={70}
-            height={72}
-            borderRadius={22}
-            backgroundColor={theme.surfaceStrong}
-            alignItems="center"
-            paddingLeft={58}
-            paddingRight={18}
-            pressStyle={{ opacity: 0.92 }}
-            onPress={onPress}
-        >
-            {/* Вініл та обкладинка накладені через абсолютне позиціонування */}
+        <SafeAreaView>
             <XStack
                 position="absolute"
-                left={-2}
-                top={-7}
-                width={82}
-                height={82}
+                left={16}
+                right={16}
+                bottom={70}
+                height={40}
+                borderRadius={22}
+                backgroundColor={theme.accent}
+                alignItems="center"
+                paddingLeft={58}
+                paddingRight={18}
+                paddingVertical={6}
+                pressStyle={{ opacity: 0.92 }}
+                onPress={onPress}
+            >
+                <YStack flex={1}>
+                    <Text
+                        fontSize={12}
+                        fontWeight="700"
+                        color={theme.inverseText}
+                        numberOfLines={1}
+                    >
+                        {track?.title ?? "Loading local music"}
+                    </Text>
+                    <Text
+                        fontSize={12}
+                        fontWeight="500"
+                        color={theme.inverseTextMuted}
+                        opacity={0.82}
+                        numberOfLines={1}
+                    >
+                        {track?.artist ?? "Scanning your music files"}
+                    </Text>
+                </YStack>
+
+                <XStack alignItems="center" gap={18} paddingLeft={10}>
+                    <XStack
+                        width={24}
+                        aspectRatio={1}
+                        borderRadius={17}
+                        borderWidth={2}
+                        borderColor="rgba(255,255,255,0.65)"
+                        justifyContent="center"
+                        alignItems="center"
+                    >
+                        <MaterialCommunityIcons
+                            name="play"
+                            size={16}
+                            color={theme.inverseText}
+                        />
+                    </XStack>
+                    <MaterialCommunityIcons
+                        name="skip-next"
+                        size={18}
+                        color={theme.inverseText}
+                    />
+                </XStack>
+            </XStack>
+            {/* Вініл */}
+            <View
+                position="absolute"
+                left={16}
+                bottom={70}
+                height={50}
+                aspectRatio={1}
+                borderRadius={28}
+                borderWidth={6}
+                borderColor="#4f465d"
                 justifyContent="center"
                 alignItems="center"
             >
-                <View
-                    position="absolute"
-                    left={0}
-                    top={4}
-                    width={56}
-                    height={56}
-                    borderRadius={28}
-                    backgroundColor="#2f2a3e"
-                    borderWidth={6}
-                    borderColor="#4f465d"
-                >
-                    <View
-                        position="absolute"
-                        left={16}
-                        top={16}
-                        width={12}
-                        height={12}
-                        borderRadius={6}
-                        backgroundColor="#6f6780"
-                    />
-                </View>
                 <XStack
-                    position="absolute"
-                    left={22}
-                    top={21}
-                    width={44}
-                    height={44}
+                    width={40}
+                    height={40}
                     borderRadius={22}
                     backgroundColor={track?.color ?? theme.accent}
                     justifyContent="center"
                     alignItems="center"
                     overflow="hidden"
                 >
-                    <Text
-                        color="rgba(255,255,255,0.18)"
-                        fontSize={40}
-                        lineHeight={42}
-                        fontWeight="800"
-                    >
+                    <Text color="rgba(255,255,255,0.18)" fontWeight="800">
                         M
                     </Text>
                 </XStack>
-            </XStack>
-
-            <YStack flex={1} paddingLeft={4}>
-                <Text
-                    fontSize={15}
-                    fontWeight="700"
-                    lineHeight={18}
-                    color={theme.inverseText}
-                    marginBottom={6}
-                    numberOfLines={1}
-                >
-                    {track?.title ?? "Loading local music"}
-                </Text>
-                <Text
-                    fontSize={14}
-                    lineHeight={17}
-                    fontWeight="500"
-                    color={theme.inverseText}
-                    opacity={0.82}
-                    numberOfLines={1}
-                >
-                    {track?.artist ?? "Scanning your music files"}
-                </Text>
-            </YStack>
-
-            <XStack alignItems="center" gap={18} paddingLeft={10}>
-                <XStack
-                    width={34}
-                    height={34}
-                    borderRadius={17}
-                    borderWidth={3}
-                    borderColor="rgba(255,255,255,0.65)"
-                    justifyContent="center"
-                    alignItems="center"
-                >
-                    <MaterialCommunityIcons
-                        name="play"
-                        size={16}
-                        color={theme.inverseText}
-                    />
-                </XStack>
-                <MaterialCommunityIcons
-                    name="skip-next"
-                    size={18}
-                    color={theme.inverseText}
-                />
-            </XStack>
-        </XStack>
+            </View>
+        </SafeAreaView>
     );
 }
 
