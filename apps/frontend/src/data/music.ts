@@ -90,11 +90,6 @@ export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
         `🎵 Знайдено треків в альбомі ${await album.getTitle()}: ${queryMedia.length}`
     );
 
-    const cacheDir = new Directory(Paths.cache, "subdirName");
-
-    const dirInfo = cacheDir.info();
-    if (!dirInfo.exists) cacheDir.create();
-
     const tracks: MusicTrack[] = [];
 
     for (const asset of queryMedia) {
@@ -108,7 +103,6 @@ export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
                 : rawId;
 
             const fileExtension = filename.split(".").pop() || "mp3";
-            const cachedFile = new File(cacheDir, filename);
 
             let title = filename.replace(`.${fileExtension}`, "");
             let artist = "Unknown Artist";
@@ -132,19 +126,9 @@ export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
             artworkUrl = artwork || undefined;
             duration = parseDurationToMs(metadata.duration)!;
 
-            console.log("metadata", duration);
-
-            const checkCache = cachedFile.info();
-
-            if (!checkCache.exists) {
-                log.debug(`Кешування треку до кешу: ${filename}`);
-                const sourceFile = new File(uri);
-                await sourceFile.copy(cachedFile);
-            }
-
             tracks.push({
                 assetId: cleanId,
-                sourceUri: cachedFile.uri,
+                sourceUri: uri,
                 title,
                 artist,
                 albumTitle,
@@ -160,7 +144,7 @@ export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
     return tracks;
 }
 
-export function useMusicTracks(limit = 5) {
+export function useMusicTracks(limit = 100) {
     const [tracks, setTracks] = useState<MusicTrack[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
