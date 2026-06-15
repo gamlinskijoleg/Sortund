@@ -119,8 +119,6 @@ export async function playTrack(track: MusicTrack) {
 
     const artworkUri = track.artworkUrl || fallbackArtworkUrl || "";
 
-    log.debug(`duration: ${JSON.stringify(track, null, 2)}`);
-
     const mediaControlMetadata: MediaMetadata = {
         title: track.title,
         artist: track.artist,
@@ -241,8 +239,6 @@ function setupNotificationListeners() {
     }
 
     mediaControlSubscription = addListener((event: MediaControlEvent) => {
-        log.debug("MediaControl: Received event:", event);
-
         switch (event.command) {
             case Command.NEXT_TRACK:
             case "nextTrack":

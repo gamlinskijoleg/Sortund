@@ -1,4 +1,3 @@
-import { Directory, File, Paths } from "expo-file-system";
 import {
     Album,
     AssetField,

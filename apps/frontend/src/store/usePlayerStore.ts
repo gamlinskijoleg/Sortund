@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import type { MusicTrack } from "../data/music";
 import { AudioPlayer } from "expo-audio";
-import { log } from "@/utils/logger";
 
 interface PlayerState {
     tracks: MusicTrack[];
@@ -95,11 +94,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
             if (playerInstance.playing) {
                 playerInstance.pause();
                 set({ isPlaying: false });
-                log.debug("Player paused");
             } else {
                 playerInstance.play();
                 set({ isPlaying: true });
-                log.debug("Player playing");
             }
         },
 
