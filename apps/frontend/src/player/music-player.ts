@@ -19,7 +19,6 @@ import { log } from "@/utils/logger";
 let initialized = false;
 let playbackToken = 0;
 let currentMediaMetadata: MediaMetadata | null = null;
-let lastElapsedMetadataSecond = -1;
 
 let onNextTrackHandler: (() => void) | null = null;
 let onPreviousTrackHandler: (() => void) | null = null;
@@ -126,13 +125,12 @@ export async function playTrack(track: MusicTrack) {
         title: track.title,
         artist: track.artist,
         album: track.albumTitle || "",
-        artwork: artworkUri ? { uri: artworkUri } : undefined,
+        artwork: { uri: artworkUri },
         duration: track.duration / 1000,
         elapsedTime: 0,
     };
 
     currentMediaMetadata = mediaControlMetadata;
-    lastElapsedMetadataSecond = 0;
 
     try {
         updateMetadata(mediaControlMetadata);
@@ -295,42 +293,10 @@ function setupNotificationListeners() {
                           : undefined;
 
                 if (player && typeof seekPositionSeconds === "number") {
-                    log.debug(
-                        `MediaControl: Hardware Seek to ${seekPositionSeconds}s`
-                    );
                     player.seekTo(seekPositionSeconds);
-
-                    updatePlaybackState(
-                        usePlayerStore.getState().isPlaying
-                            ? PlaybackState.PLAYING
-                            : PlaybackState.PAUSED,
-                        seekPositionSeconds,
-                        usePlayerStore.getState().isPlaying
-                            ? player.playbackRate
-                            : 0.0
-                    ).catch((error) => {
-                        log.warn(
-                            "MediaControl: Failed to refresh playback state after seek",
-                            error
-                        );
-                    });
-
-                    if (currentMediaMetadata) {
-                        currentMediaMetadata = {
-                            ...currentMediaMetadata,
-                            elapsedTime: seekPositionSeconds,
-                        };
-                        try {
-                            updateMetadata(currentMediaMetadata);
-                        } catch (metaError) {
-                            log.warn(
-                                "MediaControl: Failed to refresh metadata after seek",
-                                metaError
-                            );
-                        }
-                    }
+                    // Не потрібно викликати updateMetadata вручну, якщо ви
+                    // вже передали позицію в updatePlaybackState вище
                 }
-
                 break;
             }
 
@@ -342,50 +308,14 @@ function setupNotificationListeners() {
 
 function setupPlaybackStatusListener(player: AudioPlayer) {
     player.addListener("playbackStatusUpdate", (status) => {
-        const positionInSeconds = status.currentTime ?? 0;
-        const durationInSeconds = status.duration ?? 0;
+        let state = status.playing
+            ? PlaybackState.PLAYING
+            : PlaybackState.PAUSED;
+        if (status.isBuffering) state = PlaybackState.BUFFERING;
 
-        let state = PlaybackState.NONE;
-        if (status.isBuffering) {
-            state = PlaybackState.BUFFERING;
-        } else if (status.playing) {
-            state = PlaybackState.PLAYING;
-        } else {
-            state = PlaybackState.PAUSED;
-        }
-
-        updatePlaybackState(
-            state,
-            positionInSeconds,
-            status.playbackRate ?? (status.playing ? 1 : 0)
-        );
-
-        if (!currentMediaMetadata) return;
-
-        const elapsedSecond = Math.floor(positionInSeconds);
-        if (elapsedSecond === lastElapsedMetadataSecond) return;
-
-        lastElapsedMetadataSecond = elapsedSecond;
-
-        const nextMetadata: MediaMetadata = {
-            ...currentMediaMetadata,
-            elapsedTime: positionInSeconds,
-            duration:
-                durationInSeconds > 0
-                    ? durationInSeconds
-                    : currentMediaMetadata.duration,
-        };
-
-        currentMediaMetadata = nextMetadata;
-
-        try {
-            updateMetadata(nextMetadata);
-        } catch (metaError) {
-            log.warn("Player: Failed to refresh elapsed metadata", metaError);
-        }
+        updatePlaybackState(state, status.currentTime, status.playbackRate);
     });
 }
-
 export async function pausePlayback() {
     try {
         const player = usePlayerStore.getState().playerInstance;
@@ -416,7 +346,7 @@ export async function initPlayer() {
     let activePlayer = usePlayerStore.getState().playerInstance;
     if (!activePlayer) {
         log.debug("⚙️ Player: Pre-initializing global audio player...");
-        activePlayer = createAudioPlayer({ uri: "" }, { updateInterval: 500 });
+        activePlayer = createAudioPlayer({ uri: "" }, { updateInterval: 1000 });
         usePlayerStore.getState().setPlayerInstance(activePlayer);
         setupNotificationListeners();
         setupPlaybackStatusListener(activePlayer);
