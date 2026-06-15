@@ -1,12 +1,14 @@
 import { create } from "zustand";
 import type { MusicTrack } from "../data/music";
 import { AudioPlayer } from "expo-audio";
+import { log } from "@/utils/logger";
 
 interface PlayerState {
     tracks: MusicTrack[];
     currentIndex: number;
     activeTrack: MusicTrack | null;
     playerInstance: AudioPlayer | null;
+    isPlaying: boolean;
 
     // Екшени
     setPlayerInstance: (player: AudioPlayer) => void;
@@ -18,6 +20,7 @@ interface PlayerState {
     playNext: () => void;
     playPrevious: () => void;
     selectTrackById: (assetId: string) => void;
+    togglePlayPause: (track: MusicTrack) => void;
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => {
@@ -30,12 +33,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         currentIndex: -1,
         activeTrack: null,
         playerInstance: null,
+        isPlaying: false,
 
         setPlayerInstance: (playerInstance) => set({ playerInstance }),
 
         setQueue: (tracks, startIndex, shouldPlay = true) => {
             const track = tracks[startIndex] || null;
-            set({ tracks, currentIndex: startIndex, activeTrack: track });
+            set({
+                tracks,
+                currentIndex: startIndex,
+                activeTrack: track,
+                isPlaying: shouldPlay,
+            });
 
             if (track && shouldPlay) {
                 triggerNativePlay(track);
@@ -44,12 +53,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
         playNext: () => {
             const { tracks, currentIndex } = get();
-            if (tracks.length === 0) return;
+            if (tracks.length === 0) {
+                return;
+            }
 
             const nextIndex = (currentIndex + 1) % tracks.length;
             const nextTrack = tracks[nextIndex];
 
-            set({ currentIndex: nextIndex, activeTrack: nextTrack });
+            set({
+                currentIndex: nextIndex,
+                activeTrack: nextTrack,
+                isPlaying: true,
+            });
             triggerNativePlay(nextTrack);
         },
 
@@ -61,8 +76,31 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
                 (currentIndex - 1 + tracks.length) % tracks.length;
             const prevTrack = tracks[prevIndex];
 
-            set({ currentIndex: prevIndex, activeTrack: prevTrack });
+            set({
+                currentIndex: prevIndex,
+                activeTrack: prevTrack,
+                isPlaying: true,
+            });
             triggerNativePlay(prevTrack);
+        },
+
+        togglePlayPause: (track) => {
+            const { playerInstance, activeTrack } = get();
+            if (!playerInstance) return;
+
+            if (!activeTrack || activeTrack.assetId !== track.assetId) {
+                set({ activeTrack: track });
+            }
+
+            if (playerInstance.playing) {
+                playerInstance.pause();
+                set({ isPlaying: false });
+                log.debug("Player paused");
+            } else {
+                playerInstance.play();
+                set({ isPlaying: true });
+                log.debug("Player playing");
+            }
         },
 
         selectTrackById: (assetId) => {

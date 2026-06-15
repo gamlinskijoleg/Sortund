@@ -1,7 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { YStack, XStack, Text, View } from "tamagui";
-
 import { AppScreen } from "../app-screen";
 import {
     createListenRoute,
@@ -13,8 +12,8 @@ import {
 import { useAppTheme } from "../../theme/app-theme";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { FlatList } from "react-native";
-import { log } from "@/utils/logger";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { AudioPlayer, useAudioPlayerStatus } from "expo-audio";
 
 function MusicSearchBar() {
     const theme = useAppTheme();
@@ -60,7 +59,11 @@ function MusicFeatureCard({
 }: {
     title: string;
     color: string;
-    href: "/library/favourites" | "/library/playlists" | "/library/recent";
+    href:
+        | "/library/favourites"
+        | "/library/playlists"
+        | "/library/recent"
+        | "/library/ai-sync";
 }) {
     const theme = useAppTheme();
     const iconName =
@@ -68,7 +71,9 @@ function MusicFeatureCard({
             ? "heart"
             : title === "Playlists"
               ? "playlist-music"
-              : "clock-outline";
+              : title === "AI Sync"
+                ? "cloud-sync"
+                : "clock-outline";
 
     return (
         <YStack
@@ -273,13 +278,18 @@ function TrackRow({
 function MiniPlayer({
     track,
     onPress,
+    onPlayPause,
+    playNext,
+    activePlayerInstance,
 }: {
-    track?: MusicTrack;
-    onPress?: () => void;
+    track: MusicTrack;
+    onPress: () => void;
+    onPlayPause: (track: MusicTrack) => void;
+    playNext: () => void;
+    activePlayerInstance: AudioPlayer;
 }) {
+    const { playing } = useAudioPlayerStatus(activePlayerInstance);
     const theme = useAppTheme();
-
-    log.debug(JSON.stringify(track, null, 2));
 
     return (
         <SafeAreaView>
@@ -320,6 +330,7 @@ function MiniPlayer({
 
                 <XStack alignItems="center" gap={18} paddingLeft={10}>
                     <XStack
+                        onPress={() => onPlayPause(track)}
                         width={24}
                         aspectRatio={1}
                         borderRadius={17}
@@ -329,12 +340,13 @@ function MiniPlayer({
                         alignItems="center"
                     >
                         <MaterialCommunityIcons
-                            name="play"
+                            name={playing ? "pause" : "play"}
                             size={16}
                             color={theme.inverseText}
                         />
                     </XStack>
                     <MaterialCommunityIcons
+                        onPress={playNext}
                         name="skip-next"
                         size={18}
                         color={theme.inverseText}
@@ -377,7 +389,10 @@ export default function MusicHomeScreen() {
     const { tracks, isLoading, error } = useMusicTracks();
 
     // Отримуємо поточний трек із глобального стору!
+    const playerInstance = usePlayerStore((state) => state.playerInstance);
     const activeTrack = usePlayerStore((state) => state.activeTrack);
+    const playNext = usePlayerStore((state) => state.playNext);
+    const playToggle = usePlayerStore((state) => state.togglePlayPause);
 
     const handleTrackPress = (selectedTrack: MusicTrack, index: number) => {
         const store = usePlayerStore.getState();
@@ -500,9 +515,12 @@ export default function MusicHomeScreen() {
                 />
 
                 {/* Міні-плеєр зафіксований поверх списку в самому низу */}
-                {displayTrack && (
+                {displayTrack && playerInstance && (
                     <MiniPlayer
+                        onPlayPause={playToggle}
+                        playNext={playNext}
                         track={displayTrack}
+                        activePlayerInstance={playerInstance}
                         onPress={() =>
                             router.push(createListenRoute(displayTrack))
                         }

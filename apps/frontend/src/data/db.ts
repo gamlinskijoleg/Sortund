@@ -59,3 +59,31 @@ export function saveTracksToDb(tracks: any[]) {
         }
     });
 }
+
+export function updateTrackMetadataInDb(
+    assetId: string,
+    metadata: { title: string; artist: string; albumTitle?: string | null }
+) {
+    db.withTransactionSync(() => {
+        const statement = db.prepareSync(`
+            UPDATE tracks
+            SET title = $title, artist = $artist, albumTitle = $albumTitle
+            WHERE assetId = $assetId
+        `);
+        try {
+            statement.executeSync({
+                $title: metadata.title,
+                $artist: metadata.artist,
+                $albumTitle: metadata.albumTitle || null,
+                $assetId: assetId,
+            });
+            log.debug(
+                `✅ Track ${assetId} metadata updated in DB: ${metadata.title} - ${metadata.artist}`
+            );
+        } catch (error) {
+            log.error(`❌ Error updating track metadata in DB:`, error);
+        } finally {
+            statement.finalizeSync();
+        }
+    });
+}

@@ -10,6 +10,7 @@ import {
     addListener,
     MediaControlEvent,
     updateMetadata,
+    MediaMetadata,
 } from "expo-media-control";
 import type { MusicTrack } from "../data/music";
 import { usePlayerStore } from "@/store/usePlayerStore";
@@ -17,6 +18,8 @@ import { log } from "@/utils/logger";
 
 let initialized = false;
 let playbackToken = 0;
+let currentMediaMetadata: MediaMetadata | null = null;
+let lastElapsedMetadataSecond = -1;
 
 let onNextTrackHandler: (() => void) | null = null;
 let onPreviousTrackHandler: (() => void) | null = null;
@@ -46,6 +49,7 @@ async function configureAudioMode() {
                 Command.PAUSE,
                 Command.NEXT_TRACK,
                 Command.PREVIOUS_TRACK,
+                Command.SEEK,
             ],
             compactCapabilities: [
                 Command.PREVIOUS_TRACK,
@@ -116,12 +120,19 @@ export async function playTrack(track: MusicTrack) {
 
     const artworkUri = track.artworkUrl || fallbackArtworkUrl || "";
 
-    const mediaControlMetadata = {
+    log.debug(`duration: ${JSON.stringify(track, null, 2)}`);
+
+    const mediaControlMetadata: MediaMetadata = {
         title: track.title,
-        artist: track.artist || "Unknown Artist",
+        artist: track.artist,
         album: track.albumTitle || "",
         artwork: artworkUri ? { uri: artworkUri } : undefined,
+        duration: track.duration / 1000,
+        elapsedTime: 0,
     };
+
+    currentMediaMetadata = mediaControlMetadata;
+    lastElapsedMetadataSecond = 0;
 
     try {
         updateMetadata(mediaControlMetadata);
@@ -187,17 +198,20 @@ export async function playTrack(track: MusicTrack) {
                     ) {
                         track.artworkUrl = finalArtworkUri;
 
-                        const updatedMetadata = {
+                        const updatedMetadata: MediaMetadata = {
                             title: track.title,
-                            artist: track.artist || "Unknown Artist",
+                            artist: track.artist,
                             album: track.albumTitle || "",
                             artwork: { uri: finalArtworkUri },
+                            duration: track.duration / 1000,
+                            elapsedTime: currentMediaMetadata?.elapsedTime ?? 0,
                         };
 
                         try {
                             log.debug(
                                 "Player: Updating MediaControl with newly extracted artwork"
                             );
+                            currentMediaMetadata = updatedMetadata;
                             updateMetadata(updatedMetadata);
                         } catch (e) {
                             log.warn(
@@ -270,6 +284,56 @@ function setupNotificationListeners() {
                 usePlayerStore.getState().playerInstance?.pause();
                 break;
 
+            case Command.SEEK:
+            case "seek": {
+                const player = usePlayerStore.getState().playerInstance;
+                const seekPositionSeconds =
+                    typeof event.data?.position === "number"
+                        ? event.data.position
+                        : typeof event.timestamp === "number"
+                          ? event.timestamp / 1000
+                          : undefined;
+
+                if (player && typeof seekPositionSeconds === "number") {
+                    log.debug(
+                        `MediaControl: Hardware Seek to ${seekPositionSeconds}s`
+                    );
+                    player.seekTo(seekPositionSeconds);
+
+                    updatePlaybackState(
+                        usePlayerStore.getState().isPlaying
+                            ? PlaybackState.PLAYING
+                            : PlaybackState.PAUSED,
+                        seekPositionSeconds,
+                        usePlayerStore.getState().isPlaying
+                            ? player.playbackRate
+                            : 0.0
+                    ).catch((error) => {
+                        log.warn(
+                            "MediaControl: Failed to refresh playback state after seek",
+                            error
+                        );
+                    });
+
+                    if (currentMediaMetadata) {
+                        currentMediaMetadata = {
+                            ...currentMediaMetadata,
+                            elapsedTime: seekPositionSeconds,
+                        };
+                        try {
+                            updateMetadata(currentMediaMetadata);
+                        } catch (metaError) {
+                            log.warn(
+                                "MediaControl: Failed to refresh metadata after seek",
+                                metaError
+                            );
+                        }
+                    }
+                }
+
+                break;
+            }
+
             default:
                 log.debug("MediaControl: Unhandled media action", event);
         }
@@ -278,8 +342,8 @@ function setupNotificationListeners() {
 
 function setupPlaybackStatusListener(player: AudioPlayer) {
     player.addListener("playbackStatusUpdate", (status) => {
-        const positionInSeconds = (status.currentTime ?? 0) / 1000;
-        const durationInSeconds = (status.duration ?? 0) / 1000;
+        const positionInSeconds = status.currentTime ?? 0;
+        const durationInSeconds = status.duration ?? 0;
 
         let state = PlaybackState.NONE;
         if (status.isBuffering) {
@@ -290,7 +354,35 @@ function setupPlaybackStatusListener(player: AudioPlayer) {
             state = PlaybackState.PAUSED;
         }
 
-        updatePlaybackState(state, positionInSeconds, durationInSeconds);
+        updatePlaybackState(
+            state,
+            positionInSeconds,
+            status.playbackRate ?? (status.playing ? 1 : 0)
+        );
+
+        if (!currentMediaMetadata) return;
+
+        const elapsedSecond = Math.floor(positionInSeconds);
+        if (elapsedSecond === lastElapsedMetadataSecond) return;
+
+        lastElapsedMetadataSecond = elapsedSecond;
+
+        const nextMetadata: MediaMetadata = {
+            ...currentMediaMetadata,
+            elapsedTime: positionInSeconds,
+            duration:
+                durationInSeconds > 0
+                    ? durationInSeconds
+                    : currentMediaMetadata.duration,
+        };
+
+        currentMediaMetadata = nextMetadata;
+
+        try {
+            updateMetadata(nextMetadata);
+        } catch (metaError) {
+            log.warn("Player: Failed to refresh elapsed metadata", metaError);
+        }
     });
 }
 

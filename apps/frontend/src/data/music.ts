@@ -49,6 +49,22 @@ function colorFromName(value: string) {
     return `hsl(${hue} 52% 46%)`;
 }
 
+function parseDurationToMs(value: unknown): number | null {
+    if (value == null) return null;
+
+    const numeric =
+        typeof value === "number"
+            ? value
+            : typeof value === "string"
+              ? Number.parseFloat(value)
+              : Number.NaN;
+
+    if (!Number.isFinite(numeric) || numeric <= 0) return null;
+
+    // Some metadata providers return seconds, others milliseconds.
+    return numeric < 1000 ? Math.round(numeric * 1000) : Math.round(numeric);
+}
+
 export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
     const permission = await requestPermissionsAsync(false, ["audio"]);
 
@@ -92,14 +108,13 @@ export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
                 : rawId;
 
             const fileExtension = filename.split(".").pop() || "mp3";
-            const safeFileName = `${cleanId}.${fileExtension}`;
-            const cachedFile = new File(cacheDir, safeFileName);
+            const cachedFile = new File(cacheDir, filename);
 
             let title = filename.replace(`.${fileExtension}`, "");
             let artist = "Unknown Artist";
             let albumTitle: string | undefined;
             let artworkUrl: string | undefined;
-            let duration = (await asset.getDuration()) ?? 0;
+            let duration = 0;
 
             const cleanMetadataUri = decodeURIComponent(uri).replace(
                 "file://",
@@ -115,6 +130,9 @@ export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
             artist = metadata.artist?.trim() || artist;
             albumTitle = metadata.album?.trim();
             artworkUrl = artwork || undefined;
+            duration = parseDurationToMs(metadata.duration)!;
+
+            console.log("metadata", duration);
 
             const checkCache = cachedFile.info();
 
@@ -221,6 +239,7 @@ export const featureCards = [
         href: "/library/playlists" as const,
     },
     { title: "Recent", color: "#5b4db3", href: "/library/recent" as const },
+    { title: "AI Sync", color: "#3d8d67", href: "/library/ai-sync" as const },
 ];
 
 export const librarySectionCopy: Record<
