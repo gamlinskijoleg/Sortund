@@ -30,7 +30,9 @@ export function MusicBottomNav() {
         >
             <Pressable
                 accessibilityRole="button"
-                onPress={() => router.push("/")}
+                onPress={() => {
+                    if (pathname !== "/") router.push("/");
+                }}
                 style={styles.navItem}
             >
                 <MaterialCommunityIcons
@@ -45,7 +47,9 @@ export function MusicBottomNav() {
 
             <Pressable
                 accessibilityRole="button"
-                onPress={() => router.push("/ai-sync")}
+                onPress={() => {
+                    if (pathname !== "/ai-sync") router.push("/ai-sync");
+                }}
                 style={styles.navItem}
             >
                 <MaterialCommunityIcons
