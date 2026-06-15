@@ -108,21 +108,25 @@ export async function playTrack(track: MusicTrack) {
         : encodeURI(track.sourceUri);
     const currentToken = ++playbackToken;
 
-    if (track.artworkUrl && track.artworkUrl.startsWith("data:")) {
+    if (
+        track.artwork &&
+        typeof track.artwork === "string" &&
+        track.artwork.startsWith("data:")
+    ) {
         const cachedFileUri = await saveBase64ToCacheFile(
-            track.artworkUrl,
-            track.assetId
+            track.artwork,
+            track.assetId || `unknown_${Date.now()}`
         );
-        if (cachedFileUri) track.artworkUrl = cachedFileUri;
-        else track.artworkUrl = undefined;
+        if (cachedFileUri) track.artwork = cachedFileUri;
+        else track.artwork = undefined;
     }
 
-    const artworkUri = track.artworkUrl || fallbackArtworkUrl || "";
+    const artworkUri = track.artwork || fallbackArtworkUrl || "";
 
     const mediaControlMetadata: MediaMetadata = {
         title: track.title,
         artist: track.artist,
-        album: track.albumTitle || "",
+        album: track.album || "",
         artwork: { uri: artworkUri },
         duration: track.duration / 1000,
         elapsedTime: 0,
@@ -158,7 +162,7 @@ export async function playTrack(track: MusicTrack) {
             }
         }, 50);
 
-        if (!track.artworkUrl) {
+        if (!track.artwork) {
             const cleanMetadataUri = preparePathForMetadata(track.sourceUri);
             const playerForArtwork = activePlayer;
 
@@ -192,12 +196,12 @@ export async function playTrack(track: MusicTrack) {
                         finalArtworkUri &&
                         !finalArtworkUri.startsWith("data:")
                     ) {
-                        track.artworkUrl = finalArtworkUri;
+                        track.artwork = finalArtworkUri;
 
                         const updatedMetadata: MediaMetadata = {
                             title: track.title,
                             artist: track.artist,
-                            album: track.albumTitle || "",
+                            album: track.album || "",
                             artwork: { uri: finalArtworkUri },
                             duration: track.duration / 1000,
                             elapsedTime: currentMediaMetadata?.elapsedTime ?? 0,

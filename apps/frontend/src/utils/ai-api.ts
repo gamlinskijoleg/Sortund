@@ -8,6 +8,10 @@ export type AnalyzeResult = {
     year: number | null;
     analysis_source: string;
     tags: string[];
+    genre: string | null;
+    date: string | null;
+    rating: number | null;
+    artwork: string | null;
 };
 
 export async function analyzeTrackAPI(

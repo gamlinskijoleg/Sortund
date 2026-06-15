@@ -340,9 +340,9 @@ export default function MusicListenScreen() {
                             backgroundColor="rgba(255,255,255,0.04)"
                             zIndex={2}
                         />
-                        {activeTrack.artworkUrl ? (
+                        {activeTrack.artwork ? (
                             <Image
-                                source={{ uri: activeTrack.artworkUrl }}
+                                source={{ uri: activeTrack.artwork }}
                                 width="100%"
                                 height="100%"
                                 resizeMode="cover"

@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { YStack, XStack, Text } from "tamagui";
+import { YStack, XStack, Text, Image } from "tamagui";
 import { type MusicTrack } from "../../data/music";
 import { useAppTheme } from "../../theme/app-theme";
 import React from "react";
@@ -44,14 +44,22 @@ export function TrackListItem({
                         opacity: 0.9,
                     }}
                 />
-                <Text
-                    color="rgba(255,255,255,0.18)"
-                    fontSize={40}
-                    lineHeight={42}
-                    fontWeight="800"
-                >
-                    M
-                </Text>
+                {track.artwork ? (
+                    <Image
+                        source={{ uri: track.artwork }}
+                        style={{ width: "100%", height: "100%" }}
+                        objectFit="cover"
+                    />
+                ) : (
+                    <Text
+                        color="rgba(255,255,255,0.18)"
+                        fontSize={40}
+                        lineHeight={42}
+                        fontWeight="800"
+                    >
+                        67
+                    </Text>
+                )}
             </XStack>
 
             <YStack flex={1} paddingRight={10}>

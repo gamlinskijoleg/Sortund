@@ -11,14 +11,20 @@ import { getCachedTracks, initDatabase, saveTracksToDb } from "./db";
 import { log } from "@/utils/logger";
 
 export type MusicTrack = {
+    assetId: string;
+    sourceUri: string;
     title: string;
     artist: string;
-    albumTitle?: string;
-    artworkUrl?: string;
     color: string;
-    sourceUri: string;
     duration: number;
-    assetId?: string;
+    album?: string;
+    artwork?: string;
+    genre?: string;
+    date?: string;
+    rating?: number;
+    analysis_source?: string;
+    tags?: string[];
+    isAnalyzed?: boolean;
 };
 
 export type MusicSection = {
@@ -98,41 +104,50 @@ export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
 
             const rawId = asset.id;
             const cleanId = rawId.includes("/")
-                ? rawId.split("/").pop()
+                ? rawId.split("/").pop()!
                 : rawId;
 
             const fileExtension = filename.split(".").pop() || "mp3";
 
-            let title = filename.replace(`.${fileExtension}`, "");
-            let artist = "Unknown Artist";
-            let albumTitle: string | undefined;
-            let artworkUrl: string | undefined;
-            let duration = 0;
+            let title: string | undefined = filename.replace(
+                `.${fileExtension}`,
+                ""
+            );
+            let artist: string | undefined = "Unknown Artist";
+            let album: string | undefined;
+            let artwork: string | undefined;
+            let duration: number | undefined = 0;
 
             const cleanMetadataUri = decodeURIComponent(uri).replace(
                 "file://",
                 ""
             );
 
-            const [metadata, artwork] = await Promise.all([
+            const [metadata, fetchedArtwork] = await Promise.all([
                 getMetadata(cleanMetadataUri),
                 getArtwork(cleanMetadataUri),
             ]);
 
             title = metadata.title?.trim() || title;
             artist = metadata.artist?.trim() || artist;
-            albumTitle = metadata.album?.trim();
-            artworkUrl = artwork || undefined;
-            duration = parseDurationToMs(metadata.duration)!;
+            album = metadata.album?.trim();
+            artwork = fetchedArtwork || undefined;
+            duration = parseDurationToMs(metadata.duration) || undefined;
 
             tracks.push({
                 assetId: cleanId,
                 sourceUri: uri,
                 title,
                 artist,
-                albumTitle,
-                artworkUrl,
-                duration,
+                album,
+                artwork,
+                duration: duration || 0,
+                genre: undefined,
+                date: undefined,
+                rating: undefined,
+                analysis_source: undefined,
+                tags: undefined,
+                isAnalyzed: false,
                 color: colorFromName(filename),
             });
         } catch (trackError) {
@@ -143,7 +158,7 @@ export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
     return tracks;
 }
 
-export function useMusicTracks(limit = 100) {
+export function useMusicTracks(limit = 5) {
     const [tracks, setTracks] = useState<MusicTrack[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);

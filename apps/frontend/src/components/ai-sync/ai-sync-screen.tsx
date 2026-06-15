@@ -9,7 +9,7 @@ import { TrackListItem } from "../shared/track-list-item";
 import { PageHeader } from "../shared/page-header";
 import { AsyncListState } from "../shared/async-list-state";
 import { analyzeTrackAPI } from "../../utils/ai-api";
-import { updateTrackMetadataInDb } from "../../data/db";
+import { updateTrackAfterAnalysisInDb } from "../../data/db";
 import { log } from "@/utils/logger";
 
 function AiTrackRow({ track }: { track: MusicTrack }) {
@@ -27,10 +27,16 @@ function AiTrackRow({ track }: { track: MusicTrack }) {
             setArtist(result.artist);
 
             // Update local SQLite DB
-            updateTrackMetadataInDb(track.assetId, {
+            updateTrackAfterAnalysisInDb(track.assetId, {
                 title: result.title,
                 artist: result.artist,
-                albumTitle: result.album,
+                album: result.album,
+                artwork: result.artwork,
+                genre: result.genre,
+                date: result.date,
+                rating: result.rating,
+                analysis_source: result.analysis_source,
+                tags: result.tags,
             });
             log.debug(`Successfully analyzed track: ${result.title}`);
         } catch (error) {

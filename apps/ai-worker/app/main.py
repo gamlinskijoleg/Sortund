@@ -21,10 +21,14 @@ from app.services.youtube import fetch_and_validate_youtube_metadata, YTMetadata
 
 
 class AnalyzeResult(TypedDict):
-    title: str
-    artist: str
+    title: Optional[str]
+    artist: Optional[str]
     album: Optional[str]
-    year: Optional[int]
+    artwork: Optional[str]
+    duration: Optional[float]
+    genre: Optional[str]
+    date: Optional[str]
+    rating: Optional[str]
     analysis_source: str
     tags: List[str]
 
@@ -155,11 +159,19 @@ async def execute_analysis_pipeline(
     final_tags = get_final_tags(text_tags, audio_tags, yt_extra_tags, final_year)
 
     # 7. RESULT
+    genre_tag = next((t for t in final_tags if t in GENRE_LABELS or "(" in t), None)
+    if not genre_tag and final_tags:
+        genre_tag = final_tags[0]
+        
     return {
         "title": title,
         "artist": artist,
         "album": album_name,
-        "year": final_year,
+        "artwork": None,
+        "duration": None,
+        "genre": genre_tag,
+        "date": str(final_year) if final_year else None,
+        "rating": None,
         "analysis_source": source_analysis,
         "tags": final_tags,
     }
