@@ -12,45 +12,10 @@ import {
 import { useAppTheme } from "../../theme/app-theme";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { FlatList } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { AudioPlayer, useAudioPlayerStatus } from "expo-audio";
-
-function MusicSearchBar() {
-    const theme = useAppTheme();
-
-    return (
-        <XStack
-            flex={1}
-            height={50}
-            borderRadius={26}
-            backgroundColor={theme.surface}
-            alignItems="center"
-            paddingHorizontal={14}
-            gap={10}
-            onPress={() => router.push("/search")}
-        >
-            <MaterialCommunityIcons
-                name="magnify"
-                size={24}
-                color={theme.textSubtle}
-            />
-            <Text
-                flex={1}
-                fontSize={15}
-                color={theme.textSubtle}
-                numberOfLines={1}
-            >
-                Search songs, playlists, and artists
-            </Text>
-            <View width={1} height={18} backgroundColor={theme.border} />
-            <MaterialCommunityIcons
-                name="microphone"
-                size={24}
-                color={theme.textMuted}
-            />
-        </XStack>
-    );
-}
+import { SearchBar } from "../shared/search-bar";
+import { TrackListItem } from "../shared/track-list-item";
+import { AsyncListState } from "../shared/async-list-state";
+import { MiniPlayer } from "./mini-player";
 
 function MusicFeatureCard({
     title,
@@ -192,193 +157,6 @@ function ActionBar() {
     );
 }
 
-function TrackRow({
-    track,
-    onPress,
-}: {
-    track: MusicTrack;
-    onPress?: () => void;
-}) {
-    const theme = useAppTheme();
-    const { title, artist, color } = track;
-    return (
-        <XStack
-            alignItems="center"
-            marginBottom={22}
-            pressStyle={{ opacity: 0.84 }}
-            onPress={onPress}
-        >
-            <XStack
-                width={68}
-                height={68}
-                borderRadius={6}
-                marginRight={14}
-                backgroundColor={color}
-                overflow="hidden"
-                justifyContent="center"
-                alignItems="center"
-                position="relative"
-            >
-                <MaterialCommunityIcons
-                    name="music-note"
-                    size={16}
-                    color={theme.inverseText}
-                    style={{
-                        position: "absolute",
-                        top: 5,
-                        left: 5,
-                        opacity: 0.9,
-                    }}
-                />
-                <Text
-                    color="rgba(255,255,255,0.18)"
-                    fontSize={40}
-                    lineHeight={42}
-                    fontWeight="800"
-                >
-                    M
-                </Text>
-            </XStack>
-
-            <YStack flex={1} paddingRight={10}>
-                <Text
-                    fontSize={16}
-                    lineHeight={21}
-                    fontWeight="500"
-                    color={theme.text}
-                    marginBottom={6}
-                    numberOfLines={1}
-                >
-                    {title}
-                </Text>
-                <Text
-                    fontSize={15}
-                    lineHeight={19}
-                    color={theme.textMuted}
-                    numberOfLines={1}
-                >
-                    {artist}
-                </Text>
-            </YStack>
-
-            <MaterialCommunityIcons
-                name="dots-vertical"
-                size={28}
-                color={theme.border}
-            />
-        </XStack>
-    );
-}
-
-function MiniPlayer({
-    track,
-    onPress,
-    onPlayPause,
-    playNext,
-    activePlayerInstance,
-}: {
-    track: MusicTrack;
-    onPress: () => void;
-    onPlayPause: (track: MusicTrack) => void;
-    playNext: () => void;
-    activePlayerInstance: AudioPlayer;
-}) {
-    const { playing } = useAudioPlayerStatus(activePlayerInstance);
-    const theme = useAppTheme();
-
-    return (
-        <SafeAreaView>
-            <XStack
-                position="absolute"
-                left={16}
-                right={16}
-                bottom={70}
-                height={40}
-                borderRadius={22}
-                backgroundColor={theme.accent}
-                alignItems="center"
-                paddingLeft={58}
-                paddingRight={18}
-                paddingVertical={6}
-                pressStyle={{ opacity: 0.92 }}
-                onPress={onPress}
-            >
-                <YStack flex={1}>
-                    <Text
-                        fontSize={12}
-                        fontWeight="700"
-                        color={theme.inverseText}
-                        numberOfLines={1}
-                    >
-                        {track?.title ?? "Loading local music"}
-                    </Text>
-                    <Text
-                        fontSize={12}
-                        fontWeight="500"
-                        color={theme.inverseTextMuted}
-                        opacity={0.82}
-                        numberOfLines={1}
-                    >
-                        {track?.artist ?? "Scanning your music files"}
-                    </Text>
-                </YStack>
-
-                <XStack alignItems="center" gap={18} paddingLeft={10}>
-                    <XStack
-                        onPress={() => onPlayPause(track)}
-                        width={24}
-                        aspectRatio={1}
-                        borderRadius={17}
-                        borderWidth={2}
-                        borderColor="rgba(255,255,255,0.65)"
-                        justifyContent="center"
-                        alignItems="center"
-                    >
-                        <MaterialCommunityIcons
-                            name={playing ? "pause" : "play"}
-                            size={16}
-                            color={theme.inverseText}
-                        />
-                    </XStack>
-                    <MaterialCommunityIcons
-                        onPress={playNext}
-                        name="skip-next"
-                        size={18}
-                        color={theme.inverseText}
-                    />
-                </XStack>
-            </XStack>
-            {/* Вініл */}
-            <View
-                position="absolute"
-                left={16}
-                bottom={70}
-                height={50}
-                aspectRatio={1}
-                borderRadius={28}
-                borderWidth={6}
-                borderColor="#4f465d"
-                justifyContent="center"
-                alignItems="center"
-            >
-                <XStack
-                    width={40}
-                    height={40}
-                    borderRadius={22}
-                    backgroundColor={track?.color ?? theme.accent}
-                    justifyContent="center"
-                    alignItems="center"
-                    overflow="hidden"
-                >
-                    <Text color="rgba(255,255,255,0.18)" fontWeight="800">
-                        M
-                    </Text>
-                </XStack>
-            </View>
-        </SafeAreaView>
-    );
-}
-
 export default function MusicHomeScreen() {
     const theme = useAppTheme();
     const { tracks, isLoading, error } = useMusicTracks();
@@ -421,7 +199,7 @@ export default function MusicHomeScreen() {
                         color={theme.text}
                     />
                 </XStack>
-                <MusicSearchBar />
+                <SearchBar />
             </XStack>
 
             {/* Картки фіч */}
@@ -440,42 +218,14 @@ export default function MusicHomeScreen() {
     );
 
     // Стан завантаження / помилки / порожнього списку всередині FlatList
-    const renderEmptyOrStatus = () => {
-        if (isLoading) {
-            return (
-                <Text
-                    fontSize={15}
-                    padding={16}
-                    textAlign="center"
-                    color={theme.textMuted}
-                >
-                    Loading local music files...
-                </Text>
-            );
-        }
-        if (error) {
-            return (
-                <Text
-                    fontSize={15}
-                    padding={16}
-                    textAlign="center"
-                    color={theme.textMuted}
-                >
-                    {error}
-                </Text>
-            );
-        }
-        return (
-            <Text
-                fontSize={15}
-                padding={16}
-                textAlign="center"
-                color={theme.textMuted}
-            >
-                No local audio files found.
-            </Text>
-        );
-    };
+    const renderEmptyOrStatus = () => (
+        <AsyncListState
+            isLoading={isLoading}
+            error={error}
+            loadingMessage="Loading local music files..."
+            emptyMessage="No local audio files found."
+        />
+    );
 
     return (
         <AppScreen>
@@ -490,7 +240,7 @@ export default function MusicHomeScreen() {
                     // Самі рядки треків (рендериться ТІЛЬКИ те, що бачить користувач!)
                     renderItem={({ item, index }) => (
                         <View paddingHorizontal={16}>
-                            <TrackRow
+                            <TrackListItem
                                 track={item}
                                 onPress={() => handleTrackPress(item, index)}
                             />

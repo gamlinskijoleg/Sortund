@@ -6,6 +6,9 @@ import { AppScreen } from "../app-screen";
 import { type MusicTrack, useMusicTracks } from "../../data/music";
 import { useAppTheme } from "../../theme/app-theme";
 import { FlatList } from "react-native";
+import { TrackListItem } from "../shared/track-list-item";
+import { PageHeader } from "../shared/page-header";
+import { AsyncListState } from "../shared/async-list-state";
 import { analyzeTrackAPI } from "../../utils/ai-api";
 import { updateTrackMetadataInDb } from "../../data/db";
 import { log } from "@/utils/logger";
@@ -39,76 +42,26 @@ function AiTrackRow({ track }: { track: MusicTrack }) {
     };
 
     return (
-        <XStack alignItems="center" marginBottom={22}>
-            <XStack
-                width={68}
-                height={68}
-                borderRadius={6}
-                marginRight={14}
-                backgroundColor={track.color}
-                overflow="hidden"
-                justifyContent="center"
-                alignItems="center"
-                position="relative"
-            >
-                <MaterialCommunityIcons
-                    name="music-note"
-                    size={16}
-                    color={theme.inverseText}
-                    style={{
-                        position: "absolute",
-                        top: 5,
-                        left: 5,
-                        opacity: 0.9,
-                    }}
-                />
-                <Text
-                    color="rgba(255,255,255,0.18)"
-                    fontSize={40}
-                    lineHeight={42}
-                    fontWeight="800"
+        <TrackListItem
+            track={{ ...track, title, artist }}
+            trailingActionSlot={
+                <XStack
+                    pressStyle={{ opacity: 0.5 }}
+                    onPress={handleAnalyze}
+                    padding={8}
                 >
-                    M
-                </Text>
-            </XStack>
-
-            <YStack flex={1} paddingRight={10}>
-                <Text
-                    fontSize={16}
-                    lineHeight={21}
-                    fontWeight="500"
-                    color={theme.text}
-                    marginBottom={6}
-                    numberOfLines={1}
-                >
-                    {title}
-                </Text>
-                <Text
-                    fontSize={15}
-                    lineHeight={19}
-                    color={theme.textMuted}
-                    numberOfLines={1}
-                >
-                    {artist}
-                </Text>
-            </YStack>
-
-            <XStack
-                pressStyle={{ opacity: 0.5 }}
-                onPress={handleAnalyze}
-                padding={8}
-            >
-                {isAnalyzing ? (
-                    <Spinner size="small" color={theme.text} />
-                ) : (
-                    <MaterialCommunityIcons
-                        name="cloud-upload"
-                        size={28}
-                        color={theme.text}
-                    />
-                )}
-            </XStack>
-        </XStack>
+                    {isAnalyzing ? (
+                        <Spinner size="small" color={theme.text} />
+                    ) : (
+                        <MaterialCommunityIcons
+                            name="cloud-upload"
+                            size={28}
+                            color={theme.text}
+                        />
+                    )}
+                </XStack>
+            }
+        />
     );
 }
 
@@ -117,61 +70,23 @@ export default function AiAnalyzeScreen() {
     const { tracks, isLoading, error } = useMusicTracks();
 
     const renderHeader = () => (
-        <YStack gap={18} marginBottom={16} paddingHorizontal={16}>
-            <XStack alignItems="center" gap={12} marginTop={16}>
-                <MaterialCommunityIcons
-                    name="arrow-left"
-                    size={28}
-                    color={theme.text}
-                    onPress={() => router.back()}
-                />
-                <Text fontSize={24} fontWeight="bold" color={theme.text}>
-                    AI Track Sync
-                </Text>
-            </XStack>
-            <Text fontSize={15} color={theme.textMuted}>
-                Upload your local tracks to the AI server to retrieve accurate
-                metadata.
-            </Text>
-        </YStack>
+        <View paddingHorizontal={16}>
+            <PageHeader
+                title="AI Track Sync"
+                subtitle="Upload your local tracks to the AI server to retrieve accurate metadata."
+                showBackButton={true}
+            />
+        </View>
     );
 
-    const renderEmptyOrStatus = () => {
-        if (isLoading) {
-            return (
-                <Text
-                    fontSize={15}
-                    padding={16}
-                    textAlign="center"
-                    color={theme.textMuted}
-                >
-                    Loading local music files...
-                </Text>
-            );
-        }
-        if (error) {
-            return (
-                <Text
-                    fontSize={15}
-                    padding={16}
-                    textAlign="center"
-                    color={theme.textMuted}
-                >
-                    {error}
-                </Text>
-            );
-        }
-        return (
-            <Text
-                fontSize={15}
-                padding={16}
-                textAlign="center"
-                color={theme.textMuted}
-            >
-                No local audio files found.
-            </Text>
-        );
-    };
+    const renderEmptyOrStatus = () => (
+        <AsyncListState
+            isLoading={isLoading}
+            error={error}
+            loadingMessage="Loading local music files..."
+            emptyMessage="No local audio files found."
+        />
+    );
 
     return (
         <AppScreen>
