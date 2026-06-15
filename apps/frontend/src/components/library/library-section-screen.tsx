@@ -2,7 +2,9 @@ import { AppScreen } from "../app-screen";
 import { librarySectionCopy, type LibrarySectionKey } from "../../data/music";
 import { useAppTheme } from "../../theme/app-theme";
 import { PageHeader } from "../shared/page-header";
-import { YStack, Text, View } from "tamagui";
+import { YStack, Text } from "tamagui";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useLocalSearchParams } from "expo-router";
 
 const libraryIcons: Record<
     LibrarySectionKey,
