@@ -177,7 +177,7 @@ export default function MusicSectionScreen() {
                         ]}
                     >
                         Switch routes with the tabs above, or use the bottom bar
-                        to jump between music and watch views.
+                        to jump between music and AI sync views.
                     </Text>
                 </View>
 

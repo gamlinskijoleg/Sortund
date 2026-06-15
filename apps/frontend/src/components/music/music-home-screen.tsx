@@ -59,11 +59,7 @@ function MusicFeatureCard({
 }: {
     title: string;
     color: string;
-    href:
-        | "/library/favourites"
-        | "/library/playlists"
-        | "/library/recent"
-        | "/library/ai-sync";
+    href: "/library/favourites" | "/library/playlists" | "/library/recent";
 }) {
     const theme = useAppTheme();
     const iconName =
@@ -71,9 +67,7 @@ function MusicFeatureCard({
             ? "heart"
             : title === "Playlists"
               ? "playlist-music"
-              : title === "AI Sync"
-                ? "cloud-sync"
-                : "clock-outline";
+              : "clock-outline";
 
     return (
         <YStack

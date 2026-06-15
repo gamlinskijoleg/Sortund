@@ -239,7 +239,6 @@ export const featureCards = [
         href: "/library/playlists" as const,
     },
     { title: "Recent", color: "#5b4db3", href: "/library/recent" as const },
-    { title: "AI Sync", color: "#3d8d67", href: "/library/ai-sync" as const },
 ];
 
 export const librarySectionCopy: Record<

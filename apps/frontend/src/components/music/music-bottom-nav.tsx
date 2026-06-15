@@ -12,7 +12,7 @@ export function MusicBottomNav() {
     const pathname = usePathname();
     const insets = useSafeAreaInsets();
 
-    if (!musicRoutes.has(pathname) && pathname !== "/watch") {
+    if (!musicRoutes.has(pathname) && pathname !== "/ai-sync") {
         return null;
     }
 
@@ -45,7 +45,7 @@ export function MusicBottomNav() {
 
             <Pressable
                 accessibilityRole="button"
-                onPress={() => router.push("/watch")}
+                onPress={() => router.push("/ai-sync")}
                 style={styles.navItem}
             >
                 <MaterialCommunityIcons
@@ -61,7 +61,7 @@ export function MusicBottomNav() {
                         },
                     ]}
                 >
-                    Watch
+                    AI Sync
                 </Text>
             </Pressable>
         </View>
