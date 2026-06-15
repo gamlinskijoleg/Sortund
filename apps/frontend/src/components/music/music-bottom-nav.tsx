@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useAppTheme } from "../../theme/app-theme";
 
-const musicRoutes = new Set(["/", "/artists", "/albums"]);
+const musicRoutes = new Set(["/"]);
 
 export function MusicBottomNav() {
     const theme = useAppTheme();

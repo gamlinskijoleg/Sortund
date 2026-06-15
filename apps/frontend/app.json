@@ -54,7 +54,9 @@
                     "image": "./assets/icon.png",
                     "resizeMode": "contain"
                 }
-            ]
+            ],
+            "expo-image",
+            "expo-sqlite"
         ],
         "experiments": {
             "typedRoutes": true,

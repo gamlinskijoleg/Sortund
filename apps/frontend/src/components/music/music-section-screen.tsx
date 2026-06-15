@@ -19,7 +19,7 @@ function SectionTabs() {
     return (
         <View style={styles.tabsRow}>
             {musicSections.map((section) => {
-                const isActive = pathname === section.href;
+                const isActive = section.href === pathname;
 
                 return (
                     <Pressable

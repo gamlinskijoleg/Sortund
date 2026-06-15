@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, usePathname } from "expo-router";
 import { YStack, XStack, Text, View } from "tamagui";
 import { AppScreen } from "../app-screen";
 import {
@@ -106,6 +106,7 @@ function MusicFeatureCard({
 
 function SectionTabs() {
     const theme = useAppTheme();
+    const pathname = usePathname();
 
     return (
         <XStack
@@ -115,7 +116,7 @@ function SectionTabs() {
             justifyContent="space-between"
         >
             {musicSections.map((section) => {
-                const isActive = section.href === "/";
+                const isActive = section.href === pathname;
 
                 return (
                     <XStack

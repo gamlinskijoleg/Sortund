@@ -23,7 +23,7 @@ export type MusicTrack = {
 };
 
 export type MusicSection = {
-    href: "/" | "/artists" | "/albums";
+    href: "/";
     label: string;
 };
 
@@ -221,11 +221,7 @@ export function useMusicTracks(limit = 5) {
     return { tracks, isLoading, error };
 }
 
-export const musicSections: MusicSection[] = [
-    { href: "/", label: "Songs" },
-    { href: "/artists", label: "Artists" },
-    { href: "/albums", label: "Albums" },
-];
+export const musicSections: MusicSection[] = [{ href: "/", label: "Songs" }];
 
 export const featureCards = [
     {
