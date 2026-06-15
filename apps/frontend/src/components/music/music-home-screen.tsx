@@ -199,7 +199,27 @@ export default function MusicHomeScreen() {
                         color={theme.text}
                     />
                 </XStack>
-                <SearchBar />
+                <View flex={1}>
+                    <SearchBar />
+                </View>
+                {process.env.EXPO_PUBLIC_DEV_DB === "true" && (
+                    <XStack
+                        width={32}
+                        height={32}
+                        borderRadius={16}
+                        backgroundColor={theme.background || "#f0f0f0"}
+                        justifyContent="center"
+                        alignItems="center"
+                        pressStyle={{ opacity: 0.8 }}
+                        onPress={() => router.push("/debug-db")}
+                    >
+                        <MaterialCommunityIcons
+                            name="database"
+                            size={20}
+                            color={theme.text}
+                        />
+                    </XStack>
+                )}
             </XStack>
 
             {/* Картки фіч */}

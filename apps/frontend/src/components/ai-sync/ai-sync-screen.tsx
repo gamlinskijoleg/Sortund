@@ -1,6 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import { YStack, XStack, Text, View, Spinner } from "tamagui";
+import { YStack, XStack, View, Spinner } from "tamagui";
 import { useState } from "react";
 import { AppScreen } from "../app-screen";
 import { type MusicTrack, useMusicTracks } from "../../data/music";
@@ -66,7 +65,6 @@ function AiTrackRow({ track }: { track: MusicTrack }) {
 }
 
 export default function AiAnalyzeScreen() {
-    const theme = useAppTheme();
     const { tracks, isLoading, error } = useMusicTracks();
 
     const renderHeader = () => (
