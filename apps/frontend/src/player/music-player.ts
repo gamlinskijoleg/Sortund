@@ -1,7 +1,7 @@
 import { AudioPlayer, createAudioPlayer, AudioModule } from "expo-audio";
 import { Image } from "react-native";
-import { Directory, File, Paths } from "expo-file-system";
 import { getArtwork } from "react-native-audio-metadata";
+import { saveBase64ArtworkAsync } from "@/utils/file-utils";
 import {
     enableMediaControls,
     Command,
@@ -72,34 +72,6 @@ export function setTrackNavigationCallbacks(
     onPreviousTrackHandler = onPrev;
 }
 
-function preparePathForMetadata(uri: string): string {
-    let clean = uri;
-    if (clean.startsWith("file://")) {
-        clean = clean.replace("file://", "");
-    }
-    return decodeURIComponent(clean);
-}
-
-async function saveBase64ToCacheFile(
-    base64WithPrefix: string,
-    assetId?: string
-): Promise<string | null> {
-    try {
-        const regex = /^data:image\/\w+;base64,/;
-        const base64Data = base64WithPrefix.replace(regex, "");
-
-        const cacheDir = new Directory(Paths.cache, "subdirName");
-        const filename = `cover_${assetId || Date.now()}.png`;
-        const targetFile = new File(cacheDir, filename);
-
-        targetFile.write(base64Data, { encoding: "base64" });
-        return targetFile.uri;
-    } catch (error) {
-        log.warn("Player: Failed to save base64 artwork string to file", error);
-        return null;
-    }
-}
-
 export async function playTrack(track: MusicTrack) {
     await configureAudioMode();
 
@@ -113,7 +85,7 @@ export async function playTrack(track: MusicTrack) {
         typeof track.artwork === "string" &&
         track.artwork.startsWith("data:")
     ) {
-        const cachedFileUri = await saveBase64ToCacheFile(
+        const cachedFileUri = await saveBase64ArtworkAsync(
             track.artwork,
             track.assetId || `unknown_${Date.now()}`
         );
@@ -163,7 +135,12 @@ export async function playTrack(track: MusicTrack) {
         }, 50);
 
         if (!track.artwork) {
-            const cleanMetadataUri = preparePathForMetadata(track.sourceUri);
+            let cleanMetadataUri = track.sourceUri;
+            if (cleanMetadataUri.startsWith("file://")) {
+                cleanMetadataUri = cleanMetadataUri.replace("file://", "");
+            }
+            cleanMetadataUri = decodeURIComponent(cleanMetadataUri);
+
             const playerForArtwork = activePlayer;
 
             void getArtwork(cleanMetadataUri)
@@ -181,7 +158,7 @@ export async function playTrack(track: MusicTrack) {
 
                     let finalArtworkUri: string | null = null;
                     if (artworkResult.startsWith("data:")) {
-                        finalArtworkUri = await saveBase64ToCacheFile(
+                        finalArtworkUri = await saveBase64ArtworkAsync(
                             artworkResult,
                             track.assetId
                         );

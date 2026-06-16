@@ -1,5 +1,11 @@
 import { log } from "./logger";
-import { uploadAsync, FileSystemUploadType } from "expo-file-system/legacy";
+import {
+    uploadAsync,
+    downloadAsync,
+    makeDirectoryAsync,
+    cacheDirectory,
+    FileSystemUploadType,
+} from "expo-file-system/legacy";
 
 export type AnalyzeResult = {
     title: string;
@@ -39,4 +45,30 @@ export async function analyzeTrackAPI(
     const data: AnalyzeResult = JSON.parse(response.body);
     log.debug(`AI API Response: ${JSON.stringify(data)}`);
     return data;
+}
+
+export async function downloadArtworkAsync(
+    url: string,
+    assetId: string
+): Promise<string | null> {
+    try {
+        const artworkDir = `${cacheDirectory}artwork/`;
+        await makeDirectoryAsync(artworkDir, { intermediates: true }).catch(
+            () => {}
+        );
+
+        const extMatch = url.match(/\.(jpg|jpeg|png|webp|gif)/i);
+        const ext = extMatch ? extMatch[1] : "jpg";
+        const filename = `art_${assetId || Date.now()}_${Date.now()}.${ext}`;
+        const targetUri = `${artworkDir}${filename}`;
+
+        const result = await downloadAsync(url, targetUri);
+        if (result.status === 200) {
+            return result.uri;
+        }
+        return null;
+    } catch (e) {
+        log.warn("Failed to download artwork:", e);
+        return null;
+    }
 }

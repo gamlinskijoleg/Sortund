@@ -4,11 +4,11 @@ import { useState } from "react";
 import { AppScreen } from "../app-screen";
 import { type MusicTrack, useMusicTracks } from "../../data/music";
 import { useAppTheme } from "../../theme/app-theme";
-import { FlatList } from "react-native";
+import { FlatList, DeviceEventEmitter } from "react-native";
 import { TrackListItem } from "../shared/track-list-item";
 import { PageHeader } from "../shared/page-header";
 import { AsyncListState } from "../shared/async-list-state";
-import { analyzeTrackAPI } from "../../utils/ai-api";
+import { analyzeTrackAPI, downloadArtworkAsync } from "../../utils/ai-api";
 import { updateTrackAfterAnalysisInDb } from "../../data/db";
 import { log } from "@/utils/logger";
 
@@ -19,24 +19,40 @@ function AiTrackRow({ track }: { track: MusicTrack }) {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
 
     const handleAnalyze = async () => {
-        if (isAnalyzing || !track.assetId) return;
+        if (isAnalyzing || !track.assetId || track.isAnalyzed) return;
         setIsAnalyzing(true);
         try {
             const result = await analyzeTrackAPI(track.sourceUri);
             setTitle(result.title);
             setArtist(result.artist);
 
-            // Update local SQLite DB
-            updateTrackAfterAnalysisInDb(track.assetId, {
+            let finalArtwork = result.artwork;
+            if (finalArtwork && finalArtwork.startsWith("http")) {
+                const localUri = await downloadArtworkAsync(
+                    finalArtwork,
+                    track.assetId
+                );
+                if (localUri) {
+                    finalArtwork = localUri;
+                }
+            }
+
+            const updatedData = {
                 title: result.title,
                 artist: result.artist,
                 album: result.album,
-                artwork: result.artwork,
+                artwork: finalArtwork,
                 genre: result.genre,
                 date: result.date,
                 rating: result.rating,
                 analysis_source: result.analysis_source,
                 tags: result.tags,
+            };
+            // Update local SQLite DB
+            updateTrackAfterAnalysisInDb(track.assetId, updatedData);
+            DeviceEventEmitter.emit("track_updated", {
+                assetId: track.assetId,
+                ...updatedData,
             });
             log.debug(`Successfully analyzed track: ${result.title}`);
         } catch (error) {
@@ -51,12 +67,19 @@ function AiTrackRow({ track }: { track: MusicTrack }) {
             track={{ ...track, title, artist }}
             trailingActionSlot={
                 <XStack
-                    pressStyle={{ opacity: 0.5 }}
-                    onPress={handleAnalyze}
+                    pressStyle={{ opacity: track.isAnalyzed ? 1 : 0.5 }}
+                    onPress={track.isAnalyzed ? undefined : handleAnalyze}
                     padding={8}
+                    opacity={track.isAnalyzed ? 0.5 : 1}
                 >
                     {isAnalyzing ? (
                         <Spinner size="small" color={theme.text} />
+                    ) : track.isAnalyzed ? (
+                        <MaterialCommunityIcons
+                            name="check-circle"
+                            size={28}
+                            color={theme.text}
+                        />
                     ) : (
                         <MaterialCommunityIcons
                             name="cloud-upload"

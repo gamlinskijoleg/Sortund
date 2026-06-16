@@ -6,8 +6,10 @@ import {
     requestPermissionsAsync,
 } from "expo-media-library";
 import { useEffect, useState } from "react";
+import { DeviceEventEmitter } from "react-native";
 import { getArtwork, getMetadata } from "react-native-audio-metadata";
 import { getCachedTracks, initDatabase, saveTracksToDb } from "./db";
+import { saveBase64ArtworkAsync } from "@/utils/file-utils";
 import { log } from "@/utils/logger";
 
 export type MusicTrack = {
@@ -131,7 +133,18 @@ export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
             title = metadata.title?.trim() || title;
             artist = metadata.artist?.trim() || artist;
             album = metadata.album?.trim();
-            artwork = fetchedArtwork || undefined;
+
+            let finalArtwork = fetchedArtwork || undefined;
+            if (finalArtwork && finalArtwork.startsWith("data:")) {
+                const localPath = await saveBase64ArtworkAsync(
+                    finalArtwork,
+                    cleanId
+                );
+                if (localPath) {
+                    finalArtwork = localPath;
+                }
+            }
+            artwork = finalArtwork;
             duration = parseDurationToMs(metadata.duration) || undefined;
 
             tracks.push({
@@ -158,7 +171,7 @@ export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
     return tracks;
 }
 
-export function useMusicTracks(limit = 5) {
+export function useMusicTracks(limit = Infinity) {
     const [tracks, setTracks] = useState<MusicTrack[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -190,9 +203,34 @@ export function useMusicTracks(limit = 5) {
                     log.debug(
                         "🔄 Змінилася кількість треків. Оновлюємо базу даних..."
                     );
-                    saveTracksToDb(freshTracks);
+
+                    // Відновлюємо AI-метадані для існуючих треків, щоб не перезаписати їх пустими
+                    const cachedMap = new Map(
+                        cached.map((t) => [t.assetId, t])
+                    );
+                    const mergedTracks = freshTracks.map((fresh) => {
+                        const existing = cachedMap.get(fresh.assetId);
+                        if (existing && existing.isAnalyzed) {
+                            return {
+                                ...fresh,
+                                title: existing.title,
+                                artist: existing.artist,
+                                album: existing.album,
+                                artwork: existing.artwork,
+                                genre: existing.genre,
+                                date: existing.date,
+                                rating: existing.rating,
+                                tags: existing.tags,
+                                analysis_source: existing.analysis_source,
+                                isAnalyzed: existing.isAnalyzed,
+                            };
+                        }
+                        return fresh;
+                    });
+
+                    saveTracksToDb(mergedTracks);
                     log.debug("✅ База даних оновлена, оновлюємо UI.");
-                    setTracks(freshTracks);
+                    setTracks(mergedTracks);
                 } else {
                     log.debug(
                         "⚡️ Кількість треків не змінилася. Скан пропущено, взято кеш SQLite."
@@ -211,8 +249,22 @@ export function useMusicTracks(limit = 5) {
 
         syncTracks();
 
+        const sub = DeviceEventEmitter.addListener(
+            "track_updated",
+            (updatedTrack: Partial<MusicTrack> & { assetId: string }) => {
+                setTracks((prev) =>
+                    prev.map((t) =>
+                        t.assetId === updatedTrack.assetId
+                            ? { ...t, ...updatedTrack }
+                            : t
+                    )
+                );
+            }
+        );
+
         return () => {
             isActive = false;
+            sub.remove();
         };
     }, [limit]);
 

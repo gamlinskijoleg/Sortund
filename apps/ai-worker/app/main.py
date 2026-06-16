@@ -2,6 +2,7 @@ import os
 import uuid
 import asyncio
 import logging
+import librosa
 from contextlib import AsyncExitStack
 from fastapi import FastAPI, UploadFile, File, HTTPException, status
 from dotenv import load_dotenv
@@ -78,12 +79,13 @@ def parse_youtube_extra_info(
 
 async def get_base_metadata(
     temp_file_path: str, original_filename: str
-) -> Tuple[str, str, Optional[int], str, YTMetadata]:
+) -> Tuple[str, str, Optional[int], str, YTMetadata, Optional[str]]:
     """Визначає базові метадані (Artist, Title, Year) з Shazam або локального парсера."""
     shazam_match = await recognize_via_shazam_local(temp_file_path)
+    artwork = None
 
     if shazam_match:
-        artist, title, final_year = shazam_match
+        artist, title, final_year, artwork = shazam_match
         source_analysis = "Shazam Core Engine"
         yt_data = await fetch_and_validate_youtube_metadata(
             artist, title, source_analysis, original_filename
@@ -100,7 +102,7 @@ async def get_base_metadata(
         source_analysis = yt_data["source"]
         final_year = yt_data["year"]
 
-    return artist, title, final_year, source_analysis, yt_data
+    return artist, title, final_year, source_analysis, yt_data, artwork
 
 
 async def get_text_tags(artist: str, title: str) -> List[str]:
@@ -126,10 +128,6 @@ def get_final_tags(
     """Об'єднує всі теги в один фінальний набір."""
     final_tags = set(text_tags + audio_tags + yt_extra_tags)
 
-    epoch_tag = get_epoch_tag_by_year(year) if year is not None else None
-    if epoch_tag:
-        final_tags.add(epoch_tag)
-
     return list(final_tags)
 
 
@@ -142,8 +140,8 @@ async def execute_analysis_pipeline(
     audio_ai_task = asyncio.create_task(predict_audio_tags(temp_file_path))
 
     # 2. BASE METADATA
-    artist, title, final_year, source_analysis, yt_data = await get_base_metadata(
-        temp_file_path, original_filename
+    artist, title, final_year, source_analysis, yt_data, artwork = (
+        await get_base_metadata(temp_file_path, original_filename)
     )
 
     # 3. ALBUM
@@ -162,13 +160,18 @@ async def execute_analysis_pipeline(
     genre_tag = next((t for t in final_tags if t in GENRE_LABELS or "(" in t), None)
     if not genre_tag and final_tags:
         genre_tag = final_tags[0]
-        
+
+    try:
+        duration = librosa.get_duration(path=temp_file_path)
+    except Exception:
+        duration = None
+
     return {
         "title": title,
         "artist": artist,
         "album": album_name,
-        "artwork": None,
-        "duration": None,
+        "artwork": artwork,
+        "duration": duration,
         "genre": genre_tag,
         "date": str(final_year) if final_year else None,
         "rating": None,
