@@ -2,11 +2,12 @@ import asyncio
 import logging
 import difflib
 from ytmusicapi import YTMusic
-from typing import Dict, Union, List, Optional
+from typing import List, Optional
 from typing_extensions import TypedDict
 
 logger = logging.getLogger("sortund-ai-pipeline")
 yt_music_client = YTMusic()
+
 
 class YTMetadata(TypedDict):
     extra_info: List[str]
@@ -89,7 +90,6 @@ async def fetch_and_validate_youtube_metadata(
                     enrichment["source"] = "YouTube Music Search Engine"
 
             # Збір додаткових метаданих
-
 
             album_name = (
                 top_hit.get("album", {}).get("name", "") if top_hit.get("album") else ""

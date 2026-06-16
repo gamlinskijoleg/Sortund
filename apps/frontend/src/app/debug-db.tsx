@@ -4,10 +4,11 @@ import { YStack, XStack, Text } from "tamagui";
 import { AppScreen } from "../components/app-screen";
 import { getCachedTracks } from "../data/db";
 import { useAppTheme } from "../theme/app-theme";
+import { MusicTrack } from "@/data/music";
 
 export default function DebugDbScreen() {
     const theme = useAppTheme();
-    const [tracks, setTracks] = useState<any[]>([]);
+    const [tracks, setTracks] = useState<MusicTrack[]>([]);
 
     useEffect(() => {
         const loadData = () => {

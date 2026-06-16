@@ -6,7 +6,7 @@ import { YStack, XStack, Text, Image, Button, View, Slider } from "tamagui";
 import { AppScreen } from "../app-screen";
 import { getPlayerInstance, togglePlayback } from "../../player/music-player";
 import { usePlayerStore } from "@/store/usePlayerStore";
-import { useAppTheme } from "@/theme/app-theme";
+import { AppTheme, useAppTheme } from "@/theme/app-theme";
 import { AudioPlayer, useAudioPlayerStatus } from "expo-audio";
 
 function formatTime(milliseconds: number) {
@@ -23,7 +23,7 @@ function formatTime(milliseconds: number) {
 interface SliderProps {
     player: AudioPlayer;
     fallbackDuration: number;
-    theme: any;
+    theme: AppTheme;
 }
 
 // Ізольований компонент трекера для максимальної плавності (60+ FPS)
@@ -172,7 +172,7 @@ const PlayPauseButton = ({
     theme,
 }: {
     player: AudioPlayer;
-    theme: any;
+    theme: AppTheme;
 }) => {
     const { playing } = useAudioPlayerStatus(player);
     return (
