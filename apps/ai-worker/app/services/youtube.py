@@ -89,11 +89,7 @@ async def fetch_and_validate_youtube_metadata(
                     enrichment["source"] = "YouTube Music Search Engine"
 
             # Збір додаткових метаданих
-            if "year" in top_hit and top_hit["year"]:
-                try:
-                    enrichment["year"] = int(top_hit["year"])
-                except Exception:
-                    pass
+
 
             album_name = (
                 top_hit.get("album", {}).get("name", "") if top_hit.get("album") else ""

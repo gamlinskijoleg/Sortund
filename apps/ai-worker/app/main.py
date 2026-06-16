@@ -16,9 +16,11 @@ from app.ml.models import (
     predict_text_zero_shot,
     predict_audio_tags,
 )
-from app.core.utils import parse_filename_fallback, get_epoch_tag_by_year
+from app.core.utils import parse_filename_fallback, get_epoch_tag_by_year, extract_year_from_filename
 from app.services.shazam import recognize_via_shazam_local
 from app.services.youtube import fetch_and_validate_youtube_metadata, YTMetadata
+from app.services.theaudiodb import fetch_release_year_from_theaudiodb
+from app.services.musicbrainz import fetch_release_year_from_musicbrainz, fetch_release_year_from_musicbrainz_by_isrc
 
 
 class AnalyzeResult(TypedDict):
@@ -79,13 +81,14 @@ def parse_youtube_extra_info(
 
 async def get_base_metadata(
     temp_file_path: str, original_filename: str
-) -> Tuple[str, str, Optional[int], str, YTMetadata, Optional[str]]:
-    """Визначає базові метадані (Artist, Title, Year) з Shazam або локального парсера."""
+) -> Tuple[str, str, str, YTMetadata, Optional[str], Optional[str]]:
+    """Визначає базові метадані (Artist, Title) з Shazam або локального парсера."""
     shazam_match = await recognize_via_shazam_local(temp_file_path)
     artwork = None
+    isrc = None
 
     if shazam_match:
-        artist, title, final_year, artwork = shazam_match
+        artist, title, artwork, isrc = shazam_match
         source_analysis = "Shazam Core Engine"
         yt_data = await fetch_and_validate_youtube_metadata(
             artist, title, source_analysis, original_filename
@@ -100,9 +103,8 @@ async def get_base_metadata(
         artist = yt_data["artist"]
         title = yt_data["title"]
         source_analysis = yt_data["source"]
-        final_year = yt_data["year"]
 
-    return artist, title, final_year, source_analysis, yt_data, artwork
+    return artist, title, source_analysis, yt_data, artwork, isrc
 
 
 async def get_text_tags(artist: str, title: str) -> List[str]:
@@ -140,7 +142,7 @@ async def execute_analysis_pipeline(
     audio_ai_task = asyncio.create_task(predict_audio_tags(temp_file_path))
 
     # 2. BASE METADATA
-    artist, title, final_year, source_analysis, yt_data, artwork = (
+    artist, title, source_analysis, yt_data, artwork, isrc = (
         await get_base_metadata(temp_file_path, original_filename)
     )
 
@@ -152,6 +154,32 @@ async def execute_analysis_pipeline(
 
     # 5. AUDIO TAGS
     audio_tags = await get_audio_tags(audio_ai_task)
+
+    # 5.5 YEAR CASCADE (Concurrent for better results)
+    final_year = None
+    if isrc:
+        final_year = await fetch_release_year_from_musicbrainz_by_isrc(isrc)
+        if final_year:
+            logger.info(f"🧠 ISRC-Пріоритет: MusicBrainz знайшов рік {final_year} за ISRC {isrc}")
+            
+    if not final_year:
+        theaudiodb_year_task = asyncio.create_task(
+            fetch_release_year_from_theaudiodb(artist, title)
+        )
+        musicbrainz_year_task = asyncio.create_task(
+            fetch_release_year_from_musicbrainz(artist, title)
+        )
+        
+        adb_year, mb_year = await asyncio.gather(theaudiodb_year_task, musicbrainz_year_task)
+        
+        years = [y for y in [adb_year, mb_year] if y is not None]
+        if years:
+            final_year = min(years)
+            logger.info(f"🧠 Smart Cascade обрав фінальний рік: {final_year} (TheAudioDB: {adb_year}, MusicBrainz: {mb_year})")
+        else:
+            final_year = extract_year_from_filename(original_filename)
+            if final_year:
+                logger.info(f"Fallback знайшов рік релізу {final_year} з назви файлу")
 
     # 6. FINAL TAGS
     final_tags = get_final_tags(text_tags, audio_tags, yt_extra_tags, final_year)

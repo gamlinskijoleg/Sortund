@@ -68,6 +68,14 @@ def parse_filename_fallback(filename: str) -> Tuple[str, str]:
     return "Unknown Artist", name_cleaned if name_cleaned else "Unknown Title"
 
 
+def extract_year_from_filename(filename: str) -> int | None:
+    """Витягує рік з назви файлу (1900-2099) як Fallback."""
+    match = re.search(r"\b(19\d{2}|20\d{2})\b", filename)
+    if match:
+        return int(match.group(1))
+    return None
+
+
 def get_epoch_tag_by_year(year: int) -> str:
     """Визначає епоху (наприклад, '80s', 'Early 2000s') за роком випуску."""
     if year < 1900:

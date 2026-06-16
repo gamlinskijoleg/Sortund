@@ -9,28 +9,16 @@ shazam_client = Shazam()
 
 async def recognize_via_shazam_local(
     file_path: str,
-) -> Optional[Tuple[str, str, Optional[int], Optional[str]]]:
+) -> Optional[Tuple[str, str, Optional[str], Optional[str]]]:
     """Аналіз аудіо за акустичним відбитком через Shazam Core API."""
     try:
         out = await shazam_client.recognize(file_path)
         if out and "track" in out:
             title = out["track"].get("title", "Unknown Title")
             artist = out["track"].get("subtitle", "Unknown Artist")
-            year = None
             artwork = out["track"].get("images", {}).get("coverart")
-
-            sections = out["track"].get("sections", [])
-            if sections:
-                metadata_list = sections[0].get("metadata", [])
-                for item in metadata_list:
-                    if item.get("title") == "Released":
-                        try:
-                            match = re.search(r"\d{4}", item.get("text", ""))
-                            if match:
-                                year = int(match.group())
-                        except Exception:
-                            pass
-            return artist, title, year, artwork
+            isrc = out["track"].get("isrc")
+            return artist, title, artwork, isrc
     except Exception as e:
         logger.warning(f"⚠️ Збій підсистеми Shazam Core: {e}")
     return None
