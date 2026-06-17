@@ -8,7 +8,12 @@ import {
 import { useEffect, useState } from "react";
 import { DeviceEventEmitter } from "react-native";
 import { getArtwork, getMetadata } from "react-native-audio-metadata";
-import { getCachedTracks, initDatabase, saveTracksToDb } from "./db";
+import {
+    getCachedTracks,
+    initDatabase,
+    insertOrReplaceTracksAsync,
+    deleteTracksByIdAsync,
+} from "./db";
 import { saveBase64ArtworkAsync } from "@/utils/file-utils";
 import { log } from "@/utils/logger";
 
@@ -27,6 +32,7 @@ export type MusicTrack = {
     analysis_source?: string;
     tags?: string[];
     isAnalyzed?: boolean;
+    modificationTime?: number;
 };
 
 export type MusicSection = {
@@ -72,147 +78,160 @@ function parseDurationToMs(value: unknown): number | null {
     return numeric < 1000 ? Math.round(numeric * 1000) : Math.round(numeric);
 }
 
-export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
-    const permission = await requestPermissionsAsync(false, ["audio"]);
+let isSyncingLibrary = false;
 
-    if (!permission.granted) {
-        log.error("❌ Доступ до аудіо файлів відхилено.");
-        return [];
+export async function syncMusicLibrary(
+    limit: number,
+    cachedTracks: MusicTrack[],
+    onProgress: (newTracks: MusicTrack[], deletedIds: string[]) => void
+) {
+    if (isSyncingLibrary) {
+        log.debug("⚡️ Синхронізація вже виконується. Пропуск...");
+        return;
     }
 
-    const album = await Album.get("Music");
+    isSyncingLibrary = true;
+    try {
+        const permission = await requestPermissionsAsync(false, ["audio"]);
 
-    if (!album) {
-        log.error("❌ Альбом 'Music' не знайдено.");
-        return [];
-    }
+        if (!permission.granted) {
+            log.error("❌ Доступ до аудіо файлів відхилено.");
+            return;
+        }
 
-    const queryMedia = await new Query()
-        .album(album)
-        .eq(AssetField.MEDIA_TYPE, MediaType.AUDIO)
-        .limit(limit)
-        .exe();
+        const album = await Album.get("Music");
 
-    log.debug(
-        `🎵 Знайдено треків в альбомі ${await album.getTitle()}: ${queryMedia.length}`
-    );
+        if (!album) {
+            log.error("❌ Альбом 'Music' не знайдено.");
+            return;
+        }
 
-    const tracks: MusicTrack[] = [];
+        // 1. Get all assets quickly
+        const queryMedia = await new Query()
+            .album(album)
+            .eq(AssetField.MEDIA_TYPE, MediaType.AUDIO)
+            .limit(limit)
+            .exe();
 
-    for (const asset of queryMedia) {
-        try {
-            const uri = await asset.getUri();
-            const filename = await asset.getFilename();
+        log.debug(
+            `🎵 Знайдено треків в альбомі ${await album.getTitle()}: ${queryMedia.length}`
+        );
 
+        // 2. Identify new, modified, and deleted
+        const cachedMap = new Map(cachedTracks.map((t) => [t.assetId, t]));
+        const currentAssetIds = new Set<string>();
+
+        const assetsToProcess = [];
+
+        for (const asset of queryMedia) {
             const rawId = asset.id;
             const cleanId = rawId.includes("/")
                 ? rawId.split("/").pop()!
                 : rawId;
+            currentAssetIds.add(cleanId);
 
-            const fileExtension = filename.split(".").pop() || "mp3";
+            const cached = cachedMap.get(cleanId);
 
-            let title: string | undefined = filename.replace(
-                `.${fileExtension}`,
-                ""
-            );
-            let artist: string | undefined = "Unknown Artist";
-            let album: string | undefined;
-            let artwork: string | undefined;
-            let duration: number | undefined = 0;
+            const fileModTime = (await asset.getModificationTime()) || 0;
 
-            const cleanMetadataUri = decodeURIComponent(uri).replace(
-                "file://",
-                ""
-            );
-
-            const [metadata, fetchedArtwork] = await Promise.all([
-                getMetadata(cleanMetadataUri),
-                getArtwork(cleanMetadataUri),
-            ]);
-
-            title = metadata.title?.trim() || title;
-            artist = metadata.artist?.trim() || artist;
-            album = metadata.album?.trim();
-
-            let finalArtwork = fetchedArtwork || undefined;
-            if (finalArtwork && finalArtwork.startsWith("data:")) {
-                const localPath = await saveBase64ArtworkAsync(
-                    finalArtwork,
-                    cleanId
-                );
-                if (localPath) {
-                    finalArtwork = localPath;
-                }
+            if (!cached || (cached.modificationTime || 0) < fileModTime) {
+                assetsToProcess.push({ asset, cleanId, fileModTime });
             }
-            artwork = finalArtwork;
-            duration = parseDurationToMs(metadata.duration) || undefined;
-
-            tracks.push({
-                assetId: cleanId,
-                sourceUri: uri,
-                title,
-                artist,
-                album,
-                artwork,
-                duration: duration || 0,
-                genre: undefined,
-                date: undefined,
-                rating: undefined,
-                analysis_source: undefined,
-                tags: undefined,
-                isAnalyzed: false,
-                color: colorFromName(filename),
-            });
-        } catch (trackError) {
-            log.error(`❌ Помилка обробки треку:`, trackError);
         }
-    }
 
-    return tracks;
-}
+        const deletedIds = cachedTracks
+            .map((t) => t.assetId)
+            .filter((id) => !currentAssetIds.has(id));
 
-export function useMusicTracks(limit = 1000000000) {
-    const [tracks, setTracks] = useState<MusicTrack[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+        // Handle deletions
+        if (deletedIds.length > 0) {
+            log.debug(`🗑 Видалення ${deletedIds.length} треків...`);
+            await deleteTracksByIdAsync(deletedIds);
+            onProgress([], deletedIds);
+        }
 
-    useEffect(() => {
-        let isActive = true;
+        if (assetsToProcess.length === 0) {
+            log.debug("⚡️ Немає нових або змінених треків для обробки.");
+            return;
+        }
 
-        async function syncTracks() {
-            let cached: MusicTrack[] = [];
+        log.debug(
+            `⏳ Обробка ${assetsToProcess.length} нових/змінених треків...`
+        );
 
-            try {
-                // 1. Ініціалізуємо БД
-                initDatabase();
+        // 3. Process in chunks
+        const CHUNK_SIZE = 10;
+        for (let i = 0; i < assetsToProcess.length; i += CHUNK_SIZE) {
+            const chunk = assetsToProcess.slice(i, i + CHUNK_SIZE);
+            const processedChunk: MusicTrack[] = [];
 
-                // 2. Миттєво беремо локальний кеш з SQLite
-                cached = getCachedTracks();
-                if (cached.length > 0 && isActive) {
-                    setTracks(cached);
-                    setIsLoading(false);
-                }
+            await Promise.all(
+                chunk.map(async ({ asset, cleanId, fileModTime }) => {
+                    try {
+                        const uri = await asset.getUri();
+                        const filename = await asset.getFilename();
+                        const fileExtension =
+                            filename.split(".").pop() || "mp3";
 
-                // 3. Запускаємо фоновий важкий скан файлів
-                const freshTracks = await loadMusicTracks(limit);
+                        let title: string | undefined = filename.replace(
+                            `.${fileExtension}`,
+                            ""
+                        );
+                        let artist: string | undefined = "Unknown Artist";
+                        let albumName: string | undefined;
+                        let artwork: string | undefined;
+                        let duration: number | undefined = 0;
 
-                if (!isActive) return;
+                        const cleanMetadataUri = decodeURIComponent(
+                            uri
+                        ).replace("file://", "");
 
-                // 4. Оновлюємо UI та БД тільки якщо щось змінилося
-                if (freshTracks.length !== cached.length) {
-                    log.debug(
-                        "🔄 Змінилася кількість треків. Оновлюємо базу даних..."
-                    );
+                        const [metadata, fetchedArtwork] = await Promise.all([
+                            getMetadata(cleanMetadataUri),
+                            getArtwork(cleanMetadataUri),
+                        ]);
 
-                    // Відновлюємо AI-метадані для існуючих треків, щоб не перезаписати їх пустими
-                    const cachedMap = new Map(
-                        cached.map((t) => [t.assetId, t])
-                    );
-                    const mergedTracks = freshTracks.map((fresh) => {
-                        const existing = cachedMap.get(fresh.assetId);
+                        title = metadata.title?.trim() || title;
+                        artist = metadata.artist?.trim() || artist;
+                        albumName = metadata.album?.trim();
+
+                        let finalArtwork = fetchedArtwork || undefined;
+                        if (finalArtwork && finalArtwork.startsWith("data:")) {
+                            const localPath = await saveBase64ArtworkAsync(
+                                finalArtwork,
+                                cleanId
+                            );
+                            if (localPath) {
+                                finalArtwork = localPath;
+                            }
+                        }
+                        artwork = finalArtwork;
+                        duration =
+                            parseDurationToMs(metadata.duration) || undefined;
+
+                        // Merge with existing metadata if analyzed
+                        const existing = cachedMap.get(cleanId);
+                        let newTrack: MusicTrack = {
+                            assetId: cleanId,
+                            sourceUri: uri,
+                            title,
+                            artist,
+                            album: albumName,
+                            artwork,
+                            duration: duration || 0,
+                            genre: undefined,
+                            date: undefined,
+                            rating: undefined,
+                            analysis_source: undefined,
+                            tags: undefined,
+                            isAnalyzed: false,
+                            color: colorFromName(filename),
+                            modificationTime: fileModTime,
+                        };
+
                         if (existing && existing.isAnalyzed) {
-                            return {
-                                ...fresh,
+                            newTrack = {
+                                ...newTrack,
                                 title: existing.title,
                                 artist: existing.artist,
                                 album: existing.album,
@@ -225,29 +244,123 @@ export function useMusicTracks(limit = 1000000000) {
                                 isAnalyzed: existing.isAnalyzed,
                             };
                         }
-                        return fresh;
-                    });
 
-                    saveTracksToDb(mergedTracks);
-                    log.debug("✅ База даних оновлена, оновлюємо UI.");
-                    setTracks(mergedTracks);
-                } else {
-                    log.debug(
-                        "⚡️ Кількість треків не змінилася. Скан пропущено, взято кеш SQLite."
-                    );
-                }
-            } catch (err) {
-                log.error("Помилка синхронізації треків:", err);
-                // Тепер тут cached доступна і помилки не буде!
-                if (cached.length === 0) {
-                    setError("Не вдалося завантажити музику.");
-                }
-            } finally {
-                if (isActive) setIsLoading(false);
+                        processedChunk.push(newTrack);
+                    } catch (error) {
+                        log.error(
+                            `❌ Помилка обробки треку ${cleanId}:`,
+                            error
+                        );
+                    }
+                })
+            );
+
+            if (processedChunk.length > 0) {
+                await insertOrReplaceTracksAsync(processedChunk);
+                onProgress(processedChunk, []);
             }
         }
 
-        syncTracks();
+        log.debug("✅ Синхронізація бібліотеки завершена.");
+    } finally {
+        isSyncingLibrary = false;
+    }
+}
+
+export function useMusicTracks(limit = Infinity) {
+    const [tracks, setTracks] = useState<MusicTrack[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        let isActive = true;
+        let syncTimeout: NodeJS.Timeout;
+
+        async function initAndSync() {
+            try {
+                // 1. Ініціалізуємо БД
+                initDatabase();
+
+                // 2. Миттєво беремо локальний кеш з SQLite
+                const cached = getCachedTracks();
+                if (isActive) {
+                    setTracks(cached);
+                    if (cached.length > 0) {
+                        setIsLoading(false);
+                    }
+                }
+
+                // 3. Запускаємо фоновий скан з затримкою
+                syncTimeout = setTimeout(async () => {
+                    try {
+                        await syncMusicLibrary(
+                            limit,
+                            cached,
+                            (newOrModifiedTracks, deletedIds) => {
+                                if (!isActive) return;
+
+                                setTracks((prev) => {
+                                    let next = [...prev];
+
+                                    // Remove deleted
+                                    if (deletedIds.length > 0) {
+                                        const deletedSet = new Set(deletedIds);
+                                        next = next.filter(
+                                            (t) => !deletedSet.has(t.assetId)
+                                        );
+                                    }
+
+                                    // Update or Add new
+                                    if (newOrModifiedTracks.length > 0) {
+                                        const newMap = new Map(
+                                            newOrModifiedTracks.map((t) => [
+                                                t.assetId,
+                                                t,
+                                            ])
+                                        );
+                                        // Update existing in-place
+                                        next = next.map((t) =>
+                                            newMap.has(t.assetId)
+                                                ? newMap.get(t.assetId)!
+                                                : t
+                                        );
+                                        // Append purely new ones
+                                        const existingIds = new Set(
+                                            next.map((t) => t.assetId)
+                                        );
+                                        const purelyNew =
+                                            newOrModifiedTracks.filter(
+                                                (t) =>
+                                                    !existingIds.has(t.assetId)
+                                            );
+                                        next = [...next, ...purelyNew];
+                                    }
+
+                                    return next;
+                                });
+
+                                setIsLoading(false); // Make sure to remove loading spinner when we get updates
+                            }
+                        );
+                    } catch (syncError) {
+                        log.error(
+                            "Помилка під час syncMusicLibrary:",
+                            syncError
+                        );
+                    } finally {
+                        if (isActive) setIsLoading(false);
+                    }
+                }, 500); // 500ms delay debounce
+            } catch (err) {
+                log.error("Помилка ініціалізації бази треків:", err);
+                if (isActive) {
+                    setError("Не вдалося завантажити музику.");
+                    setIsLoading(false);
+                }
+            }
+        }
+
+        initAndSync();
 
         const sub = DeviceEventEmitter.addListener(
             "track_updated",
@@ -264,6 +377,7 @@ export function useMusicTracks(limit = 1000000000) {
 
         return () => {
             isActive = false;
+            clearTimeout(syncTimeout);
             sub.remove();
         };
     }, [limit]);

@@ -22,8 +22,10 @@ export function initDatabase() {
       analysis_source TEXT,
       tags TEXT,
       isAnalyzed INTEGER DEFAULT 0,
-      color TEXT NOT NULL
+      color TEXT NOT NULL,
+      modificationTime INTEGER DEFAULT 0
     );
+    CREATE INDEX IF NOT EXISTS idx_tracks_analyzed ON tracks(isAnalyzed);
   `);
 }
 
@@ -39,22 +41,21 @@ export function getCachedTracks(): MusicTrack[] {
         ...track,
         tags: track.tags ? JSON.parse(track.tags) : undefined,
         isAnalyzed: !!track.isAnalyzed,
+        modificationTime: track.modificationTime,
     }));
 }
 
-export function saveTracksToDb(tracks: MusicTrack[]) {
-    // Очищаємо стару базу та записуємо свіжі дані в одній транзакції (це супер-швидко)
-    db.withTransactionSync(() => {
-        db.execSync("DELETE FROM tracks");
-
-        const statement = db.prepareSync(`
-      INSERT INTO tracks (assetId, sourceUri, title, artist, album, artwork, duration, genre, date, rating, analysis_source, tags, isAnalyzed, color)
-      VALUES ($assetId, $sourceUri, $title, $artist, $album, $artwork, $duration, $genre, $date, $rating, $analysis_source, $tags, $isAnalyzed, $color)
+export async function insertOrReplaceTracksAsync(tracks: MusicTrack[]) {
+    if (tracks.length === 0) return;
+    await db.withTransactionAsync(async () => {
+        const statement = await db.prepareAsync(`
+      INSERT OR REPLACE INTO tracks (assetId, sourceUri, title, artist, album, artwork, duration, genre, date, rating, analysis_source, tags, isAnalyzed, color, modificationTime)
+      VALUES ($assetId, $sourceUri, $title, $artist, $album, $artwork, $duration, $genre, $date, $rating, $analysis_source, $tags, $isAnalyzed, $color, $modificationTime)
     `);
 
         try {
             for (const track of tracks) {
-                statement.executeSync({
+                await statement.executeAsync({
                     $assetId: track.assetId,
                     $sourceUri: track.sourceUri,
                     $title: track.title || null,
@@ -69,15 +70,32 @@ export function saveTracksToDb(tracks: MusicTrack[]) {
                     $tags: track.tags ? JSON.stringify(track.tags) : null,
                     $isAnalyzed: track.isAnalyzed ? 1 : 0,
                     $color: track.color,
+                    $modificationTime: track.modificationTime || 0,
                 });
             }
         } finally {
-            statement.finalizeSync();
+            await statement.finalizeAsync();
         }
     });
 }
 
-export function updateTrackAfterAnalysisInDb(
+export async function deleteTracksByIdAsync(assetIds: string[]) {
+    if (assetIds.length === 0) return;
+    await db.withTransactionAsync(async () => {
+        const statement = await db.prepareAsync(
+            `DELETE FROM tracks WHERE assetId = $assetId`
+        );
+        try {
+            for (const id of assetIds) {
+                await statement.executeAsync({ $assetId: id });
+            }
+        } finally {
+            await statement.finalizeAsync();
+        }
+    });
+}
+
+export async function updateTrackAfterAnalysisInDbAsync(
     assetId: string,
     metadata: {
         title?: string;
@@ -91,23 +109,23 @@ export function updateTrackAfterAnalysisInDb(
         tags?: string[] | null;
     }
 ) {
-    db.withTransactionSync(() => {
-        const statement = db.prepareSync(`
+    await db.withTransactionAsync(async () => {
+        const statement = await db.prepareAsync(`
             UPDATE tracks
             SET title = $title,
                 artist = $artist,
-                album = COALESCE(album, $album),
-                artwork = COALESCE(artwork, $artwork),
-                genre = COALESCE(genre, $genre),
-                date = COALESCE(date, $date),
-                rating = COALESCE(rating, $rating),
-                analysis_source = COALESCE(analysis_source, $analysis_source),
-                tags = COALESCE(tags, $tags),
+                album = COALESCE($album, album),
+                artwork = COALESCE($artwork, artwork),
+                genre = COALESCE($genre, genre),
+                date = COALESCE($date, date),
+                rating = COALESCE($rating, rating),
+                analysis_source = COALESCE($analysis_source, analysis_source),
+                tags = COALESCE($tags, tags),
                 isAnalyzed = 1
             WHERE assetId = $assetId
         `);
         try {
-            statement.executeSync({
+            await statement.executeAsync({
                 $title: metadata.title || null,
                 $artist: metadata.artist || null,
                 $album: metadata.album || null,
@@ -126,7 +144,7 @@ export function updateTrackAfterAnalysisInDb(
         } catch (error) {
             log.error(`❌ Error updating track metadata in DB:`, error);
         } finally {
-            statement.finalizeSync();
+            await statement.finalizeAsync();
         }
     });
 }
