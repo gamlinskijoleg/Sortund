@@ -8,6 +8,6 @@ onnxruntime>=1.15.0
 shazamio>=0.5.1
 ytmusicapi>=1.0.2
 transformers>=4.30.0
-
+soundfile
 huggingface_hub
-musicbrainzngs>=0.7.1 
+musicbrainzngs>=0.7.1

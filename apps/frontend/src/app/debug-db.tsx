@@ -22,7 +22,7 @@ export default function DebugDbScreen() {
         loadData();
     }, []);
 
-    if (process.env.EXPO_PUBLIC_DEV_DB !== "true") {
+    if (__DEV__ !== true) {
         return (
             <AppScreen>
                 <YStack flex={1} justifyContent="center" alignItems="center">

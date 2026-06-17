@@ -1,10 +1,13 @@
 import { log } from "./logger";
 import {
-    uploadAsync,
-    downloadAsync,
-    makeDirectoryAsync,
     cacheDirectory,
+    deleteAsync,
+    downloadAsync,
     FileSystemUploadType,
+    makeDirectoryAsync,
+    readAsStringAsync,
+    uploadAsync,
+    writeAsStringAsync,
 } from "expo-file-system/legacy";
 
 export type AnalyzeResult = {
@@ -30,13 +33,41 @@ export async function analyzeTrackAPI(
 
     const endpoint = `${aiServiceUrl.replace(/\/$/, "")}/v1/analyze-track`;
 
-    log.debug(`Uploading ${sourceUri} to ${endpoint}...`);
+    let finalUri = sourceUri;
+    let isTrimmed = false;
+
+    // Only attempt byte-slicing for MP3 files to avoid corrupting other containers
+    if (sourceUri.toLowerCase().endsWith(".mp3")) {
+        try {
+            log.debug(`Attempting fast byte-slicing for MP3...`);
+            const targetUri = `${cacheDirectory}sliced_${Date.now()}.mp3`;
+            const chunk = await readAsStringAsync(sourceUri, {
+                encoding: "base64",
+                position: 0,
+                length: 0.5 * 1024 * 1024, // Read the first 0.5 MB of the file
+            });
+            await writeAsStringAsync(targetUri, chunk, {
+                encoding: "base64",
+            });
+            finalUri = targetUri;
+            isTrimmed = true;
+            log.debug(`Byte-slicing successful: ${finalUri}`);
+        } catch (e) {
+            log.warn(`Byte-slicing failed (falling back to original): ${e}`);
+        }
+    }
+
+    log.debug(`Uploading ${finalUri} to ${endpoint}...`);
     // uploadAsync automatically forms multipart/form-data
-    const response = await uploadAsync(endpoint, sourceUri, {
+    const response = await uploadAsync(endpoint, finalUri, {
         fieldName: "file", // This is the field name expected by your backend
         httpMethod: "POST",
         uploadType: FileSystemUploadType.MULTIPART,
     });
+
+    if (isTrimmed) {
+        await deleteAsync(finalUri, { idempotent: true }).catch(() => {});
+    }
 
     if (response.status !== 200) {
         throw new Error(`AI API Error (${response.status}): ${response.body}`);

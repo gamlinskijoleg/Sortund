@@ -205,7 +205,7 @@ export default function MusicHomeScreen() {
                 <View flex={1}>
                     <SearchBar />
                 </View>
-                {process.env.EXPO_PUBLIC_DEV_DB === "true" && (
+                {__DEV__ === true && (
                     <XStack
                         width={32}
                         height={32}

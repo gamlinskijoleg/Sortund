@@ -72,9 +72,7 @@ def load_onnx_models():
             )
             logger.info("✅ Text Zero-Shot ONNX successfully loaded.")
         except Exception as e:
-            logger.error(
-                f"❌ Error initializing text model: {e}", exc_info=True
-            )
+            logger.error(f"❌ Error initializing text model: {e}", exc_info=True)
 
     if os.path.exists(AUDIO_MODEL_PATH):
         try:
@@ -135,10 +133,8 @@ def _sync_predict_audio_tags(file_path: str) -> Tuple[List[str], str]:
         return [], "Unknown"
 
     try:
-        duration = librosa.get_duration(path=file_path)
-        offset_value = 30.0 if duration > 40.0 else 0.0
-
-        y, sr = librosa.load(file_path, sr=16000, offset=offset_value, duration=10)
+        # Since the frontend already trims the audio, we process it from the beginning
+        y, sr = librosa.load(file_path, sr=16000, offset=0.0, duration=10)
         if np.max(np.abs(y)) < 1e-4:
             return [], "Calm"
 
