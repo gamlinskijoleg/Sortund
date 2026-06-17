@@ -201,7 +201,7 @@ async def execute_analysis_pipeline(
     if not genre_tag and final_tags:
         genre_tag = final_tags[0]
 
-    return {
+    results = {
         "title": title,
         "artist": artist,
         "album": album_name,
@@ -212,6 +212,10 @@ async def execute_analysis_pipeline(
         "analysis_source": source_analysis,
         "tags": final_tags,
     }
+
+    logger.info(f"✅ Analysis complete:` {results}")
+
+    return results
 
 
 @app.post("/v1/analyze-track", status_code=status.HTTP_200_OK)
