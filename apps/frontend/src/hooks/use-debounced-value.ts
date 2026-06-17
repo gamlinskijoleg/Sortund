@@ -6,15 +6,21 @@ export function useDebouncedValue<T>(
 ): [T, boolean] {
     const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
+    const isInstant = typeof value === "string" && value.trim() === "";
+
     useEffect(() => {
-        const handler = setTimeout(() => {
-            setDebouncedValue(value);
-        }, delay);
+        const handler = setTimeout(
+            () => {
+                setDebouncedValue(value);
+            },
+            isInstant ? 0 : delay
+        );
 
         return () => clearTimeout(handler);
-    }, [value, delay]);
+    }, [value, delay, isInstant]);
 
-    const isDebouncing = value !== debouncedValue;
+    const effectiveValue = isInstant ? value : debouncedValue;
+    const isDebouncing = value !== effectiveValue;
 
-    return [debouncedValue, isDebouncing];
+    return [effectiveValue, isDebouncing];
 }

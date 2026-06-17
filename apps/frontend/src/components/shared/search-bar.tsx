@@ -68,10 +68,8 @@ export function SearchBar({
             {value && isInteractive && (
                 <XStack>
                     <MaterialCommunityIcons
-                        onPress={() => {
-                            onChangeText("");
-                        }}
-                        color={theme.textMuted}
+                        onPress={() => onChangeText?.("")}
+                        color={theme.textPlaceholder}
                         name="close-circle"
                         size={20}
                     />

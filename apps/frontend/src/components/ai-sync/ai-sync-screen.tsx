@@ -2,28 +2,32 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { YStack, XStack, View, Spinner } from "tamagui";
 import { useState } from "react";
 import { AppScreen } from "../app-screen";
-import { type MusicTrack, useMusicTracks } from "../../data/music";
+import { type MusicTrack } from "../../data/music";
 import { useAppTheme } from "../../theme/app-theme";
-import { FlatList, DeviceEventEmitter } from "react-native";
+import { DeviceEventEmitter } from "react-native";
 import { TrackListItem } from "../shared/track-list-item";
-import { AsyncListState } from "../shared/async-list-state";
 import { analyzeTrackAPI, downloadArtworkAsync } from "../../utils/ai-api";
 import { updateTrackAfterAnalysisInDb } from "../../data/db";
 import { log } from "@/utils/logger";
+import { useLocalTrackSearch } from "../../hooks/use-local-track-search";
+import { SearchBar } from "../shared/search-bar";
+import { SearchList } from "../shared/search-list";
 
 function AiTrackRow({ track }: { track: MusicTrack }) {
     const theme = useAppTheme();
     const [title, setTitle] = useState(track.title);
     const [artist, setArtist] = useState(track.artist);
+    const [isAnalyzed, setIsAnalyzed] = useState(track.isAnalyzed);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
 
     const handleAnalyze = async () => {
-        if (isAnalyzing || !track.assetId || track.isAnalyzed) return;
+        if (isAnalyzing || !track.assetId) return;
         setIsAnalyzing(true);
         try {
             const result = await analyzeTrackAPI(track.sourceUri);
             setTitle(result.title);
             setArtist(result.artist);
+            setIsAnalyzed(true);
 
             let finalArtwork = result.artwork;
             if (finalArtwork && finalArtwork.startsWith("http")) {
@@ -66,14 +70,14 @@ function AiTrackRow({ track }: { track: MusicTrack }) {
             track={{ ...track, title, artist }}
             trailingActionSlot={
                 <XStack
-                    pressStyle={{ opacity: track.isAnalyzed ? 1 : 0.5 }}
-                    onPress={track.isAnalyzed ? undefined : handleAnalyze}
+                    pressStyle={{ opacity: isAnalyzed ? 1 : 0.5 }}
+                    onPress={isAnalyzed ? undefined : handleAnalyze}
                     padding={8}
-                    opacity={track.isAnalyzed ? 0.5 : 1}
+                    opacity={isAnalyzed ? 0.5 : 1}
                 >
                     {isAnalyzing ? (
                         <Spinner size="small" color={theme.text} />
-                    ) : track.isAnalyzed ? (
+                    ) : isAnalyzed ? (
                         <MaterialCommunityIcons
                             name="check-circle"
                             size={28}
@@ -93,35 +97,42 @@ function AiTrackRow({ track }: { track: MusicTrack }) {
 }
 
 export default function AiAnalyzeScreen() {
-    const { tracks, isLoading, error } = useMusicTracks();
-
-    const renderEmptyOrStatus = () => (
-        <AsyncListState
-            isLoading={isLoading}
-            error={error}
-            loadingMessage="Loading local music files..."
-            emptyMessage="No local audio files found."
-        />
-    );
+    const {
+        tracks: filteredTracks,
+        isLoading,
+        searchQuery,
+        setSearchQuery,
+        isDebouncing,
+        debouncedQuery,
+    } = useLocalTrackSearch();
 
     return (
         <AppScreen>
             <YStack flex={1} paddingTop={8} position="relative">
-                <FlatList
-                    data={isLoading || error ? [] : tracks}
-                    keyExtractor={(item, index) =>
-                        item.sourceUri ?? `${item.title}-${index}`
-                    }
+                <XStack paddingHorizontal={16} paddingBottom={12}>
+                    <SearchBar
+                        value={searchQuery}
+                        placeholder="Search local files..."
+                        onChangeText={setSearchQuery}
+                    />
+                </XStack>
+                <SearchList
+                    data={filteredTracks}
+                    isLoading={isLoading}
+                    isDebouncing={isDebouncing}
+                    showInitialState={false}
+                    searchQuery={debouncedQuery}
+                    noResultsMessage="No local audio files found."
+                    keyExtractor={(item) => item.sourceUri}
                     renderItem={({ item }) => (
                         <View paddingHorizontal={16}>
                             <AiTrackRow track={item} />
                         </View>
                     )}
-                    ListEmptyComponent={renderEmptyOrStatus}
                     contentContainerStyle={{
                         paddingBottom: 40,
                     }}
-                    showsVerticalScrollIndicator={false}
+                    // showsVerticalScrollIndicator={false}
                     removeClippedSubviews={true}
                     maxToRenderPerBatch={10}
                     windowSize={5}

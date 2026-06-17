@@ -1,37 +1,27 @@
 import { AppScreen } from "../app-screen";
 import { useAppTheme } from "../../theme/app-theme";
 import { SearchBar } from "../shared/search-bar";
-import { YStack, Text, XStack } from "tamagui";
-import { FlatList, ActivityIndicator } from "react-native";
-import React, { useState, useMemo } from "react";
-import {
-    useMusicTracks,
-    createListenRoute,
-    MusicTrack,
-} from "../../data/music";
+import { YStack, XStack } from "tamagui";
+import React from "react";
+import { createListenRoute, MusicTrack } from "../../data/music";
 import { TrackListItem } from "../shared/track-list-item";
 import { router } from "expo-router";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useDebouncedValue } from "../../hooks/use-debounced-value";
+import { SearchList } from "../shared/search-list";
+import { useLocalTrackSearch } from "../../hooks/use-local-track-search";
 
 export default function SearchScreen() {
     const theme = useAppTheme();
-    const [query, setQuery] = useState("");
-    const [debouncedQuery, isDebouncing] = useDebouncedValue(query);
 
-    const { tracks, isLoading } = useMusicTracks();
-
-    const filteredTracks = useMemo(() => {
-        if (debouncedQuery.trim() === "") return [];
-        const lowerQuery = debouncedQuery.toLowerCase();
-        return tracks.filter(
-            (track) =>
-                track.title.toLowerCase().includes(lowerQuery) ||
-                track.artist.toLowerCase().includes(lowerQuery) ||
-                track.album?.toLowerCase().includes(lowerQuery)
-        );
-    }, [debouncedQuery, tracks]);
+    const {
+        tracks: filteredTracks,
+        isLoading,
+        searchQuery,
+        setSearchQuery,
+        debouncedQuery,
+        isDebouncing,
+    } = useLocalTrackSearch({ returnEmptyOnBlank: true });
 
     const handleTrackPress = (selectedTrack: MusicTrack, index: number) => {
         const store = usePlayerStore.getState();
@@ -39,12 +29,7 @@ export default function SearchScreen() {
         router.push(createListenRoute(selectedTrack));
     };
 
-    const showInitialState = query.trim() === "";
-    const showNoResults =
-        !showInitialState &&
-        !isDebouncing &&
-        !isLoading &&
-        filteredTracks.length === 0;
+    const showInitialState = searchQuery.trim() === "";
 
     return (
         <AppScreen>
@@ -66,16 +51,19 @@ export default function SearchScreen() {
                         />
                     </XStack>
                     <SearchBar
-                        value={query}
+                        value={searchQuery}
                         placeholder="Search for songs on device"
-                        onChangeText={setQuery}
+                        onChangeText={setSearchQuery}
                     />
                 </XStack>
 
-                <FlatList
-                    data={
-                        showInitialState || isDebouncing ? [] : filteredTracks
-                    }
+                <SearchList
+                    data={filteredTracks}
+                    isLoading={isLoading}
+                    isDebouncing={isDebouncing}
+                    showInitialState={showInitialState}
+                    searchQuery={debouncedQuery}
+                    initialStateMessage="Введіть назву пісні або артиста"
                     keyExtractor={(item) => item.sourceUri}
                     renderItem={({ item, index }) => (
                         <TrackListItem
@@ -83,34 +71,6 @@ export default function SearchScreen() {
                             onPress={() => handleTrackPress(item, index)}
                         />
                     )}
-                    contentContainerStyle={{ paddingBottom: 160 }}
-                    showsVerticalScrollIndicator={false}
-                    ListEmptyComponent={
-                        showInitialState ? (
-                            <Text
-                                color={theme.textSubtle}
-                                textAlign="center"
-                                marginTop={20}
-                            >
-                                Введіть назву пісні або артиста
-                            </Text>
-                        ) : isDebouncing || isLoading ? (
-                            <YStack marginTop={20} alignItems="center">
-                                <ActivityIndicator
-                                    size="large"
-                                    color={theme.text}
-                                />
-                            </YStack>
-                        ) : showNoResults ? (
-                            <Text
-                                color={theme.textSubtle}
-                                textAlign="center"
-                                marginTop={20}
-                            >
-                                No results found for {debouncedQuery}
-                            </Text>
-                        ) : null
-                    }
                 />
             </YStack>
         </AppScreen>
