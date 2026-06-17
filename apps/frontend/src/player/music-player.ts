@@ -262,7 +262,7 @@ function setupNotificationListeners() {
             case Command.SEEK:
             case "seek": {
                 const player = usePlayerStore.getState().playerInstance;
-                const seekPositionSeconds =
+                const seekPositionSeconds: number | undefined =
                     typeof event.data?.position === "number"
                         ? event.data.position
                         : typeof event.timestamp === "number"
@@ -271,8 +271,6 @@ function setupNotificationListeners() {
 
                 if (player && typeof seekPositionSeconds === "number") {
                     player.seekTo(seekPositionSeconds);
-                    // Не потрібно викликати updateMetadata вручну, якщо ви
-                    // вже передали позицію в updatePlaybackState вище
                 }
                 break;
             }

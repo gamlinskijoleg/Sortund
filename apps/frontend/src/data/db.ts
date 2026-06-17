@@ -2,11 +2,11 @@ import { log } from "@/utils/logger";
 import * as SQLite from "expo-sqlite";
 import type { MusicTrack } from "./music";
 
-// Відкриваємо (або створюємо) базу даних
+// Open (or create) database
 const db = SQLite.openDatabaseSync("music_player.db");
 
 export function initDatabase() {
-    // Створюємо таблицю, якщо її ще немає
+    // Create table if it does not exist
     db.execSync(`
     CREATE TABLE IF NOT EXISTS tracks (
       assetId TEXT PRIMARY KEY NOT NULL,
@@ -35,7 +35,7 @@ export function getCachedTracks(): MusicTrack[] {
     const tracks = db.getAllSync("SELECT * FROM tracks") as any[];
     const endTime = Date.now();
     log.debug(
-        `SQLite: Витягування ${tracks.length} треків зайняло ${endTime - startTime} ms`
+        `SQLite: Fetching ${tracks.length} tracks took ${endTime - startTime} ms`
     );
     return tracks.map((track) => ({
         ...track,

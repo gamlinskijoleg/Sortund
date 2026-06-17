@@ -90,7 +90,7 @@ export function MiniPlayer({
                     />
                 </XStack>
             </XStack>
-            {/* Вініл */}
+            {/* Vinyl */}
             <View
                 position="absolute"
                 left={16}

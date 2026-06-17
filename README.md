@@ -1,70 +1,70 @@
 # Sortund
 
-**Sortund** — це інноваційний мобільний музичний менеджер, який використовує AI для автоматичного тегування та впорядкування вашої локальної медіатеки. Забудьте про безлад у треках — ми аналізуємо музику на вашому пристрої та структуруємо її за жанрами, настроєм та іншими параметрами.
+**Sortund** is an innovative mobile music manager that uses AI to automatically tag and organize your local media library. Forget about messy tracks — we analyze music on your device and structure it by genres, mood, and other parameters.
 
-## 🏗 Архітектура проекту
+## 🏗 Project Architecture
 
-Проект побудований на принципах монорепозиторію та мікросервісної взаємодії.
+The project is built on the principles of a monorepo and microservices architecture.
 
-- **Frontend (Expo/React Native):** Клієнтська частина, яка працює з медіатекою пристрою та локальною базою даних (SQLite).
-- **Backend (NestJS):** Центральний API для авторизації, синхронізації профілю та керування даними користувача.
-- **AI Worker (FastAPI on Hugging Face):** Cервіс для класифікації аудіо на основі нейронних мереж.
+- **Frontend (Expo/React Native):** Client-side application that works with the device's media library and a local database (SQLite).
+- **Backend (NestJS):** Central API for authorization, profile synchronization, and user data management.
+- **AI Worker (FastAPI on Hugging Face):** Service for audio classification based on neural networks.
 
-## 🚀 Основні компоненти
+## 🚀 Key Components
 
-### 1. Мобільний клієнт (Expo)
+### 1. Mobile Client (Expo)
 
-- **Local-First:** Усі дані про музику зберігаються в локальному SQLite.
-- **Scan Engine:** Використовує `expo-media-library` та `react-native-audio-metadata` для сканування та фонового аналізу.
-- **Smart Upload:** Надсилає лише стиснуті фрагменти аудіо (30 сек) для мінімізації трафіку користувача.
+- **Local-First:** All music data is stored in local SQLite.
+- **Scan Engine:** Uses `expo-media-library` and `react-native-audio-metadata` for scanning and background analysis.
+- **Smart Upload:** Sends only compressed audio fragments (30 sec) to minimize user traffic.
 
-### 2. AI Сервіс (FastAPI @ Hugging Face)
+### 2. AI Service (FastAPI @ Hugging Face)
 
-- **On-Demand Processing:** Аналізує аудіо-фрагменти через `multipart/form-data` запити.
-- **Stateless:** Не зберігає файли користувачів, обробка відбувається в пам'яті (RAM).
-- **Scalable:** Легко масштабується та замінюється на потужніші моделі без змін у клієнтській частині.
+- **On-Demand Processing:** Analyzes audio fragments via `multipart/form-data` requests.
+- **Stateless:** Does not store user files; processing occurs in memory (RAM).
+- **Scalable:** Easily scalable and replaceable with more powerful models without client-side changes.
 
-### 3. Бекенд (NestJS)
+### 3. Backend (NestJS)
 
-- **Auth & Data:** Керування обліковими записами та збереження метаданих.
-- **Orchestrator:** Координує запити між мобільним додатком та AI-воркером.
+- **Auth & Data:** Account management and metadata storage.
+- **Orchestrator:** Coordinates requests between the mobile app and the AI worker.
 
 ---
 
-## Технологічний стек
+## Tech Stack
 
-- **Монорепозиторій:** Turborepo
+- **Monorepo:** Turborepo
 - **Frontend:** Expo, React Native, TypeScript, SQLite
-- **Backend:** NestJS, PostgreSQL (через Render)
-- **AI:** FastAPI, Python, Hugging Face моделі
+- **Backend:** NestJS, PostgreSQL (via Render)
+- **AI:** FastAPI, Python, Hugging Face models
 
 ---
 
-## Як працює сканування
+## How Scanning Works
 
-1. **Сканування:** Користувач відправляє трек.
-2. **Аналіз:** Додаток вибирає фрагменти треків, відправляє їх на AI-воркер.
-3. **Збереження:** Отримані теги записуються в локальну БД.
-4. **Offline:** Після першого сканування додаток повністю працює без інтернету.
+1. **Scanning:** User uploads a track.
+2. **Analysis:** The app selects track fragments and sends them to the AI worker.
+3. **Storage:** The received tags are written to the local DB.
+4. **Offline:** After the first scan, the app works entirely offline.
 
 ---
 
-## 🏗 Налаштування розробки
+## 🏗 Development Setup
 
 ```bash
-# Встановлення залежностей
+# Install dependencies
 npm install
 
-# Запуск всього проекту (Turborepo)
+# Run entire project (Turborepo)
 npm run dev
 
-# Запуск конкретного воркера
+# Run specific worker
 turbo run dev --filter=ai-worker
 
 ```
 
 ---
 
-_Створено з використанням архітектурного підходу "Serverless AI Inference"._
+_Created using the "Serverless AI Inference" architectural approach._
 
 ---

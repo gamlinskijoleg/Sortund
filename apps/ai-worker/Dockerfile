@@ -1,12 +1,12 @@
 FROM python:3.11-slim
 
-# Встановлюємо системні залежності
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libsndfile1 \
     ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
-# Створюємо користувача
+# Create user
 RUN useradd -m -u 1000 user
 USER user
 ENV HOME=/home/user \
@@ -14,16 +14,16 @@ ENV HOME=/home/user \
 
 WORKDIR $HOME/app
 
-# Встановлюємо залежності
+# Install dependencies
 COPY --chown=user requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
-# Копіюємо код
+# Copy code
 COPY --chown=user . .
 
-# Змінюємо порт на 8000 (стандарт для локальної розробки)
+# Change port to 8000 (standard for local development)
 EXPOSE 8000
 
-# Запускаємо через uvicorn
+# Run via uvicorn
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

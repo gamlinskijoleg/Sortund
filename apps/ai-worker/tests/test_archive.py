@@ -6,17 +6,17 @@ import random
 import requests
 from typing import List
 
-# Конфігурація локального середовища
+# Local environment configuration
 TARGET_DIR = r"D:\Users\Oleg\Desktop\music\files"
 API_URL = "http://127.0.0.1:8000/v1/analyze-track"
-LIMIT_TRACKS = 3  # Збільшено за твоїм запитом
+LIMIT_TRACKS = 3  # Increased at your request
 OUTPUT_JSON_PATH = os.path.join(os.path.dirname(__file__), "pipeline_results.json")
 
 
 def get_random_mp3_files(directory: str, limit: int) -> List[str]:
-    """Сканує директорію та повертає шляхи до N випадкових файлів .mp3"""
+    """Scans directory and returns paths to N random .mp3 files"""
     if not os.path.exists(directory):
-        print(f"❌ Помилка: Вказана папка не існує: {directory}")
+        print(f"❌ Error: The specified folder does not exist: {directory}")
         sys.exit(1)
 
     mp3_files = []
@@ -27,25 +27,25 @@ def get_random_mp3_files(directory: str, limit: int) -> List[str]:
     if not mp3_files:
         return []
 
-    # Безпечний вибірка унікальних треків
+    # Safe unique tracks sampling
     sample_size = min(len(mp3_files), limit)
     return random.sample(mp3_files, sample_size)
 
 
 def test_pipeline():
-    """Запускає тестування локального аудіо пайплайну на випадкових треках."""
+    """Starts testing the local audio pipeline on random tracks."""
     print("=" * 60)
-    print("🚀 СТАРТ ТЕСТУВАННЯ ЛОКАЛЬНОГО АУДІО ПАЙПЛАЙНУ (V1.5.0 CLEAN API)")
+    print("🚀 START LOCAL AUDIO PIPELINE TESTING (V1.5.0 CLEAN API)")
     print("=" * 60)
-    print(f"📁 Сканування папки: {TARGET_DIR}")
+    print(f"📁 Scanning folder: {TARGET_DIR}")
 
     tracks = get_random_mp3_files(TARGET_DIR, LIMIT_TRACKS)
 
     if not tracks:
-        print("⚠️ У папці не знайдено жодного файлу з розширенням .mp3")
+        print("⚠️ No .mp3 files found in the folder")
         return
 
-    print(f"📌 Обрано {len(tracks)} випадкових треків для тестового забігу.\n")
+    print(f"📌 Selected {len(tracks)} random tracks for the test run.\n")
 
     total_start_time = time.perf_counter()
     successful_tracks_count = 0
@@ -53,8 +53,8 @@ def test_pipeline():
 
     for index, track_path in enumerate(tracks, start=1):
         filename = os.path.basename(track_path)
-        print(f"--- [Трек {index}/{len(tracks)}]: {filename} ---")
-        print("⏳ Надсилання файлу в нейромережу...")
+        print(f"--- [Track {index}/{len(tracks)}]: {filename} ---")
+        print("⏳ Sending file to neural network...")
 
         track_start_time = time.perf_counter()
         track_record = {
@@ -80,36 +80,36 @@ def test_pipeline():
                 track_record["status"] = "success"
                 track_record["api_response"] = result
 
-                # Красиво підставляємо "—" якщо поле прийшло як None
+                # Nicely insert "—" if the field came as None
                 album_display = result.get("album") or "—"
                 year_display = result.get("year") or "—"
 
-                print("✅ Успішна відповідь від API:")
-                print(f"   🎵 Назва:    {result.get('title')}")
-                print(f"   👤 Артист:   {result.get('artist')}")
-                print(f"   💿 Альбом:   {album_display}")
-                print(f"   📅 Рік:      {year_display}")
-                print(f"   🔍 Джерело:  {result.get('analysis_source')}")
-                print(f"   🎭 Настрій:  {result.get('mood')}")
-                print(f"   🏷️ Теги:     {', '.join(result.get('tags', []))}")
-                print(f"   ⏱️ Швидкість: {track_duration:.2f} сек")
+                print("✅ Successful API response:")
+                print(f"   🎵 Title:    {result.get('title')}")
+                print(f"   👤 Artist:   {result.get('artist')}")
+                print(f"   💿 Album:    {album_display}")
+                print(f"   📅 Year:     {year_display}")
+                print(f"   🔍 Source:   {result.get('analysis_source')}")
+                print(f"   🎭 Mood:     {result.get('mood')}")
+                print(f"   🏷️ Tags:     {', '.join(result.get('tags', []))}")
+                print(f"   ⏱️ Speed:     {track_duration:.2f} sec")
             else:
                 track_record["api_response"] = {
                     "error_code": response.status_code,
                     "text": response.text,
                 }
-                print(f"❌ Помилка API (Код {response.status_code}): {response.text}")
-                print(f"   ⏱️ Час обробки до збою: {track_duration:.2f} сек")
+                print(f"❌ API Error (Code {response.status_code}): {response.text}")
+                print(f"   ⏱️ Processing time before failure: {track_duration:.2f} sec")
 
         except requests.exceptions.ConnectionError:
             print(
-                "❌ Не вдалося з'єднатися з сервером FastAPI. Перевірте, чи запущено uvicorn!"
+                "❌ Failed to connect to FastAPI server. Check if uvicorn is running!"
             )
             track_record["api_response"] = {"error": "ConnectionError"}
             saved_results.append(track_record)
             break
         except Exception as e:
-            print(f"❌ Непередбачувана помилка під час обробки файлу: {e}")
+            print(f"❌ Unexpected error during file processing: {e}")
             track_record["api_response"] = {"error": str(e)}
 
         saved_results.append(track_record)
@@ -117,20 +117,20 @@ def test_pipeline():
 
     total_duration = time.perf_counter() - total_start_time
 
-    # Записуємо чисті результати у структурований JSON
+    # Writing clean results to structured JSON
     try:
         with open(OUTPUT_JSON_PATH, "w", encoding="utf-8") as f:
             json.dump(saved_results, f, ensure_ascii=False, indent=4)
-        print(f"💾 Результати успішно збережено у файл: {OUTPUT_JSON_PATH}")
+        print(f"💾 Results successfully saved to file: {OUTPUT_JSON_PATH}")
     except Exception as e:
-        print(f"❌ Помилка при збереженні JSON-файлу: {e}")
+        print(f"❌ Error saving JSON file: {e}")
 
     print("=" * 60)
-    print("🏁 Тестування випадкових треків завершено!")
+    print("🏁 Random track testing completed!")
     if successful_tracks_count > 0:
         avg_time = total_duration / successful_tracks_count
-        print(f"📊 Загальний час забігу: {total_duration:.2f} сек")
-        print(f"⚡ Середня швидкість пайплайну: {avg_time:.2f} сек/трек")
+        print(f"📊 Total run time: {total_duration:.2f} sec")
+        print(f"⚡ Average pipeline speed: {avg_time:.2f} sec/track")
     print("=" * 60)
 
 

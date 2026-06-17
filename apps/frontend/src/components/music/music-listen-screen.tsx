@@ -26,12 +26,12 @@ interface SliderProps {
     theme: AppTheme;
 }
 
-// Ізольований компонент трекера для максимальної плавності (60+ FPS)
+// Isolated tracker component for maximum smoothness (60+ FPS)
 const PlaybackSlider = React.memo(
     ({ player, fallbackDuration, theme }: SliderProps) => {
         const { currentTime, duration } = useAudioPlayerStatus(player);
 
-        // Локальний стейт для трекінгу пальця
+        // Local state for finger tracking
         const [isSliding, setIsSliding] = useState(false);
         const [slidingValue, setSlidingValue] = useState(0);
 
@@ -39,28 +39,28 @@ const PlaybackSlider = React.memo(
         const totalMs =
             duration && duration > 0 ? duration * 1000 : fallbackDuration;
 
-        // Справжній прогрес треку від плеєра
+        // Real track progress from player
         const currentProgressPercent =
             totalMs > 0 ? (playedMs / totalMs) * 100 : 0;
 
-        // ВИПРАВЛЕННЯ БЛИМАННЯ: Показуємо АБО значення пальця, АБО прогрес плеєра
+        // FLICKER FIX: Show EITHER finger value OR player progress
         const activeProgress = isSliding
             ? slidingValue
             : currentProgressPercent;
 
-        // Визначаємо час для лічильника
+        // Determine time for counter
         const displayPlayedMs = isSliding
             ? (slidingValue / 100) * totalMs
             : playedMs;
 
-        // Спрацьовує при кожному русі пальця
+        // Triggers on every finger movement
         const handleValueChange = useCallback((values: number[]) => {
-            // Вмикаємо режим "ігнорування плеєра" і фіксуємо координату пальця
+            // Turn on "ignore player" mode and fix finger coordinate
             setIsSliding(true);
             setSlidingValue(values[0]);
         }, []);
 
-        // Спрацьовує ТІЛЬКИ коли відпустили палець
+        // Triggers ONLY when finger is released
         const handleSlidingComplete = useCallback(
             (event: any, value: number) => {
                 if (totalMs <= 0 || value === undefined) {
@@ -74,8 +74,8 @@ const PlaybackSlider = React.memo(
                     player.seekTo(newPositionSec);
                 }
 
-                // Маленький хак: залишаємо локальне значення пальця активним ще на 100мс,
-                // щоб плеєр встиг зробити seek і не повернув старий час на один кадр
+                // Small hack: leave local finger value active for another 100ms,
+                // so the player has time to seek and does not return the old time for one frame
                 setTimeout(() => {
                     setIsSliding(false);
                 }, 1);
@@ -85,7 +85,7 @@ const PlaybackSlider = React.memo(
 
         return (
             <YStack marginBottom={20}>
-                {/* Час треку */}
+                {/* Track time */}
                 <XStack justifyContent="space-between" marginBottom={8}>
                     <Text
                         color={isSliding ? theme.accent : theme.textMuted}
@@ -104,7 +104,7 @@ const PlaybackSlider = React.memo(
                 </XStack>
 
                 <View height={20} justifyContent="center">
-                    {/* 1. ФОНОВИЙ ФАНТОМНИЙ ТРЕК */}
+                    {/* 1. BACKGROUND PHANTOM TRACK */}
                     {isSliding && (
                         <View
                             position="absolute"
@@ -126,9 +126,9 @@ const PlaybackSlider = React.memo(
                         </View>
                     )}
 
-                    {/* 2. ОСНОВНИЙ СЛАЙДЕР */}
+                    {/* 2. MAIN SLIDER */}
                     <Slider
-                        value={[activeProgress]} // Використовуємо очищене від блимань значення
+                        value={[activeProgress]} // Using flicker-free value
                         onValueChange={handleValueChange}
                         onSlideEnd={handleSlidingComplete}
                         max={100}
@@ -203,13 +203,13 @@ export default function MusicListenScreen() {
     const activeTrack = usePlayerStore((state) => state.activeTrack);
     const { playNext, playPrevious } = usePlayerStore();
 
-    // ВИПРАВЛЕНО: Якщо немає треку АБО плеєр ще не створився в initPlayer
+    // FIXED: If there is no track OR the player is not yet created in initPlayer
     if (!activeTrack || !player) {
         return (
             <AppScreen backgroundColor={theme.background} statusBarStyle="dark">
                 <YStack flex={1} justifyContent="center" alignItems="center">
                     <Text color={theme.textMuted} fontSize={16}>
-                        Плеєр порожній або завантажується...
+                        Player is empty or loading...
                     </Text>
                 </YStack>
             </AppScreen>
@@ -224,7 +224,7 @@ export default function MusicListenScreen() {
                 paddingTop={8}
                 paddingBottom={16}
             >
-                {/* Верхня панель */}
+                {/* Top panel */}
                 <XStack
                     alignItems="center"
                     justifyContent="space-between"
@@ -294,7 +294,7 @@ export default function MusicListenScreen() {
                     </Button>
                 </XStack>
 
-                {/* Візуалізація обкладинки треку */}
+                {/* Track cover visualization */}
                 <YStack
                     alignItems="center"
                     justifyContent="center"
@@ -355,7 +355,7 @@ export default function MusicListenScreen() {
                     </YStack>
                 </YStack>
 
-                {/* Метадані треку */}
+                {/* Track metadata */}
                 <YStack alignItems="center" marginBottom={16}>
                     <Text
                         color={theme.text}
@@ -379,14 +379,14 @@ export default function MusicListenScreen() {
                     </Text>
                 </YStack>
 
-                {/* ВИПРАВЛЕНО: Сюди йде 100% солідний інстанс плеєра */}
+                {/* FIXED: Here goes a 100% solid player instance */}
                 <PlaybackSlider
                     player={player}
                     fallbackDuration={activeTrack.duration || 0}
                     theme={theme}
                 />
 
-                {/* Елементи керування плеєром */}
+                {/* Player controls */}
                 <XStack
                     alignItems="center"
                     justifyContent="space-between"
@@ -412,7 +412,6 @@ export default function MusicListenScreen() {
                         />
                     </Button>
 
-                    {/* ВИПРАВЛЕНО: Винесено кнопку для безпечного виклику хука */}
                     <PlayPauseButton player={player} theme={theme} />
 
                     <Button

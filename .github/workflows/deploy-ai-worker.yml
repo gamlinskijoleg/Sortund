@@ -12,20 +12,20 @@ jobs:
         steps:
             - uses: actions/checkout@v4
 
-            # 1. Підключаємося до вашої мережі Tailscale
+            # 1. Connect to Tailscale network
             - name: Connect to Tailscale
               uses: tailscale/github-action@v2
               with:
                   authkey: ${{ secrets.TS_API_KEY }}
 
-            # 2. Логін в Docker Hub
+            # 2. Login to Docker Hub
             - name: Login to Docker Hub
               uses: docker/login-action@v3
               with:
                   username: ${{ secrets.DOCKERHUB_USERNAME }}
                   password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-            # 3. Збірка і пуш образу в Docker Hub
+            # 3. Build and push image to Docker Hub
             - name: Build and push
               uses: docker/build-push-action@v5
               with:
@@ -36,7 +36,7 @@ jobs:
             - name: Test Ping to Server
               run: ping -c 4 ${{ secrets.SERVER_IP }}
 
-            # 4. Деплой на сервер через SSH (всередині тунелю Tailscale)
+            # 4. Deploy to server via SSH (inside Tailscale tunnel)
             - name: Deploy via SSH
               uses: appleboy/ssh-action@master
               with:

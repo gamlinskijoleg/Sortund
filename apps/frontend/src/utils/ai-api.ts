@@ -31,9 +31,9 @@ export async function analyzeTrackAPI(
     const endpoint = `${aiServiceUrl.replace(/\/$/, "")}/v1/analyze-track`;
 
     log.debug(`Uploading ${sourceUri} to ${endpoint}...`);
-    // uploadAsync автоматично формує multipart/form-data
+    // uploadAsync automatically forms multipart/form-data
     const response = await uploadAsync(endpoint, sourceUri, {
-        fieldName: "file", // Це ім'я поля, яке очікує ваш бекенд
+        fieldName: "file", // This is the field name expected by your backend
         httpMethod: "POST",
         uploadType: FileSystemUploadType.MULTIPART,
     });

@@ -164,7 +164,7 @@ export default function MusicHomeScreen() {
     const tracks = usePlayerStore((state) => state.libraryTracks);
     const isLoading = usePlayerStore((state) => state.isLibraryLoading);
 
-    // Отримуємо поточний трек із глобального стору!
+    // Getting current track from global store!
     const playerInstance = usePlayerStore((state) => state.playerInstance);
     const activeTrack = usePlayerStore((state) => state.activeTrack);
     const playNext = usePlayerStore((state) => state.playNext);
@@ -173,22 +173,22 @@ export default function MusicHomeScreen() {
     const handleTrackPress = (selectedTrack: MusicTrack, index: number) => {
         const store = usePlayerStore.getState();
 
-        // 1. Оновлюємо чергу та активний трек
+        // 1. Update queue and active track
         store.setQueue(tracks, index);
 
-        // 2. Якщо у твоєму music-player або сторі немає автоплей-логіки,
-        // обов'язково викликай функцію запуску плеєра тут! Наприклад:
-        // getPlayerInstance().play(); або супутню функцію, яку ти написав.
+        // 2. If there is no auto-play logic in your music-player or store,
+        // be sure to call the player launch function here! For example:
+        // getPlayerInstance().play(); or the accompanying function you wrote.
 
         router.push(createListenRoute(selectedTrack));
     };
 
     const displayTrack = activeTrack || tracks[0];
 
-    // Виносимо рендер шапки в окрему функцію, щоб FlatList міг її відрендерити зверху списку
+    // Move header render to a separate function so FlatList can render it above the list
     const renderHeader = () => (
         <YStack gap={18} marginBottom={16}>
-            {/* Пошук */}
+            {/* Search */}
             <XStack paddingHorizontal={16} alignItems="center" gap={12}>
                 <XStack
                     width={28}
@@ -225,14 +225,14 @@ export default function MusicHomeScreen() {
                 )}
             </XStack>
 
-            {/* Картки фіч */}
+            {/* Feature cards */}
             <XStack gap={10} paddingHorizontal={16}>
                 {featureCards.map((card) => (
                     <MusicFeatureCard key={card.title} {...card} />
                 ))}
             </XStack>
 
-            {/* Таби та Екшн-бар */}
+            {/* Tabs and Action bar */}
             <YStack>
                 <SectionTabs />
                 <ActionBar />
@@ -240,7 +240,7 @@ export default function MusicHomeScreen() {
         </YStack>
     );
 
-    // Стан завантаження / помилки / порожнього списку всередині FlatList
+    // Loading / error / empty list state inside FlatList
     const renderEmptyOrStatus = () => (
         <AsyncListState
             isLoading={isLoading}
@@ -258,9 +258,9 @@ export default function MusicHomeScreen() {
                     keyExtractor={(item, index) =>
                         item.sourceUri ?? `${item.title}-${index}`
                     }
-                    // Шапка, яка скролиться разом зі списком треків
+                    // Header that scrolls with the list of tracks
                     ListHeaderComponent={renderHeader}
-                    // Самі рядки треків (рендериться ТІЛЬКИ те, що бачить користувач!)
+                    // Track rows themselves (ONLY what the user sees is rendered!)
                     renderItem={({ item, index }) => (
                         <View paddingHorizontal={16}>
                             <TrackListItem
@@ -269,20 +269,20 @@ export default function MusicHomeScreen() {
                             />
                         </View>
                     )}
-                    // Що показувати, якщо список порожній або вантажиться
+                    // What to show if the list is empty or loading
                     ListEmptyComponent={renderEmptyOrStatus}
-                    // Стилі контейнера для скролу (наприклад, великий паддінг знизу під MiniPlayer)
+                    // Scroll container styles (e.g., large bottom padding for MiniPlayer)
                     contentContainerStyle={{
                         paddingBottom: 160,
                     }}
                     showsVerticalScrollIndicator={false}
-                    // Оптимізація швидкості для великих списків
+                    // Speed optimization for large lists
                     removeClippedSubviews={true}
                     maxToRenderPerBatch={10}
                     windowSize={5}
                 />
 
-                {/* Міні-плеєр зафіксований поверх списку в самому низу */}
+                {/* Mini-player fixed above the list at the very bottom */}
                 {displayTrack && playerInstance && (
                     <MiniPlayer
                         onPlayPause={playToggle}

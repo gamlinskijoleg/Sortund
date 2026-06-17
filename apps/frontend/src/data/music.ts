@@ -82,7 +82,7 @@ export async function syncMusicLibrary(
     onProgress: (newTracks: MusicTrack[], deletedIds: string[]) => void
 ) {
     if (isSyncingLibrary) {
-        log.debug("⚡️ Синхронізація вже виконується. Пропуск...");
+        log.debug("⚡️ Synchronization is already running. Skipping...");
         return;
     }
 
@@ -91,14 +91,14 @@ export async function syncMusicLibrary(
         const permission = await requestPermissionsAsync(false, ["audio"]);
 
         if (!permission.granted) {
-            log.error("❌ Доступ до аудіо файлів відхилено.");
+            log.error("❌ Access to audio files denied.");
             return;
         }
 
         const album = await Album.get("Music");
 
         if (!album) {
-            log.error("❌ Альбом 'Music' не знайдено.");
+            log.error("❌ Album 'Music' not found.");
             return;
         }
 
@@ -114,7 +114,7 @@ export async function syncMusicLibrary(
         const queryMedia = await query.exe();
 
         log.debug(
-            `🎵 Знайдено треків в альбомі ${await album.getTitle()}: ${queryMedia.length}`
+            `🎵 Found tracks in album ${await album.getTitle()}: ${queryMedia.length}`
         );
 
         // 2. Identify new, modified, and deleted
@@ -145,18 +145,18 @@ export async function syncMusicLibrary(
 
         // Handle deletions
         if (deletedIds.length > 0) {
-            log.debug(`🗑 Видалення ${deletedIds.length} треків...`);
+            log.debug(`🗑 Deleting ${deletedIds.length} tracks...`);
             await deleteTracksByIdAsync(deletedIds);
             onProgress([], deletedIds);
         }
 
         if (assetsToProcess.length === 0) {
-            log.debug("⚡️ Немає нових або змінених треків для обробки.");
+            log.debug("⚡️ No new or modified tracks to process.");
             return;
         }
 
         log.debug(
-            `⏳ Обробка ${assetsToProcess.length} нових/змінених треків...`
+            `⏳ Processing ${assetsToProcess.length} new/modified tracks...`
         );
 
         // 3. Process in chunks
@@ -248,7 +248,7 @@ export async function syncMusicLibrary(
                         processedChunk.push(newTrack);
                     } catch (error) {
                         log.error(
-                            `❌ Помилка обробки треку ${cleanId}:`,
+                            `❌ Error processing track ${cleanId}:`,
                             error
                         );
                     }
@@ -261,7 +261,7 @@ export async function syncMusicLibrary(
             }
         }
 
-        log.debug("✅ Синхронізація бібліотеки завершена.");
+        log.debug("✅ Library synchronization completed.");
     } finally {
         isSyncingLibrary = false;
     }
@@ -276,17 +276,17 @@ export function useMusicLibrary(limit = 6) {
             const store = usePlayerStore.getState();
             if (store.hasSynced) return;
 
-            // Запобігаємо повторному запуску в межах сесії
+            // Prevent restart within session
             store.setHasSynced(true);
 
             let cached = store.libraryTracks;
 
             try {
                 if (cached.length === 0) {
-                    // 1. Ініціалізуємо БД
+                    // 1. Initialize DB
                     initDatabase();
 
-                    // 2. Миттєво беремо локальний кеш з SQLite
+                    // 2. Instantly take local cache from SQLite
                     cached = getCachedTracks();
                     if (isActive) {
                         store.setLibraryTracks(cached);
@@ -296,7 +296,7 @@ export function useMusicLibrary(limit = 6) {
                     }
                 }
 
-                // 3. Запускаємо фоновий скан з затримкою
+                // 3. Run background scan with delay
                 syncTimeout = setTimeout(async () => {
                     try {
                         await syncMusicLibrary(
@@ -305,7 +305,7 @@ export function useMusicLibrary(limit = 6) {
                             (newOrModifiedTracks, deletedIds) => {
                                 if (!isActive) return;
 
-                                // Оновлюємо глобальний стан
+                                // Update global state
                                 const currentStore = usePlayerStore.getState();
                                 let next = [...currentStore.libraryTracks];
 
@@ -347,17 +347,14 @@ export function useMusicLibrary(limit = 6) {
                             }
                         );
                     } catch (syncError) {
-                        log.error(
-                            "Помилка під час syncMusicLibrary:",
-                            syncError
-                        );
+                        log.error("Error during syncMusicLibrary:", syncError);
                     } finally {
                         if (isActive)
                             usePlayerStore.getState().setLibraryLoading(false);
                     }
                 }, 500); // 500ms delay debounce
             } catch (err) {
-                log.error("Помилка ініціалізації бази треків:", err);
+                log.error("Error initializing tracks database:", err);
                 if (isActive) {
                     usePlayerStore.getState().setLibraryLoading(false);
                 }

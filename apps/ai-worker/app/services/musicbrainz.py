@@ -11,7 +11,7 @@ musicbrainzngs.set_useragent("SortundAIPipeline", "1.5.0", "sortund@example.com"
 
 
 async def fetch_release_year_from_musicbrainz_by_isrc(isrc: str) -> Optional[int]:
-    """Шукає рік релізу треку за ISRC кодом через MusicBrainz API."""
+    """Searches for track release year by ISRC code via MusicBrainz API."""
     if not isrc:
         return None
 
@@ -38,7 +38,7 @@ async def fetch_release_year_from_musicbrainz_by_isrc(isrc: str) -> Optional[int
                     await asyncio.sleep(2)
                 else:
                     logger.warning(
-                        f"⚠️ Остаточний збій MusicBrainz ISRC після {max_retries} спроб: {e}"
+                        f"⚠️ Final MusicBrainz ISRC failure after {max_retries} attempts: {e}"
                     )
                     return None
             except Exception as e:
@@ -46,7 +46,7 @@ async def fetch_release_year_from_musicbrainz_by_isrc(isrc: str) -> Optional[int
                     await asyncio.sleep(2)
                 else:
                     logger.warning(
-                        f"⚠️ Остаточний збій MusicBrainz ISRC після {max_retries} спроб: {e}"
+                        f"⚠️ Final MusicBrainz ISRC failure after {max_retries} attempts: {e}"
                     )
                     return None
 
@@ -69,12 +69,12 @@ async def fetch_release_year_from_musicbrainz_by_isrc(isrc: str) -> Optional[int
                         continue
         return best_year
     except Exception as e:
-        logger.warning(f"⚠️ Збій підсистеми MusicBrainz (ISRC): {e}")
+        logger.warning(f"⚠️ MusicBrainz (ISRC) subsystem failure: {e}")
         return None
 
 
 async def fetch_release_year_from_musicbrainz(artist: str, title: str) -> Optional[int]:
-    """Шукає рік релізу треку за допомогою MusicBrainz API."""
+    """Searches for track release year using MusicBrainz API."""
     if artist == "Unknown Artist":
         return None
 
@@ -102,12 +102,12 @@ async def fetch_release_year_from_musicbrainz(artist: str, title: str) -> Option
             except Exception as e:
                 if attempt < max_retries - 1:
                     logger.warning(
-                        f"⚠️ Помилка MusicBrainz (спроба {attempt+1}/{max_retries}): {e}. Повтор через 2с..."
+                        f"⚠️ MusicBrainz error (attempt {attempt+1}/{max_retries}): {e}. Retrying in 2s..."
                     )
                     await asyncio.sleep(2)
                 else:
                     logger.warning(
-                        f"⚠️ Остаточний збій MusicBrainz після {max_retries} спроб: {e}"
+                        f"⚠️ Final MusicBrainz failure after {max_retries} attempts: {e}"
                     )
                     return None
 
@@ -121,7 +121,7 @@ async def fetch_release_year_from_musicbrainz(artist: str, title: str) -> Option
                 if date:
                     try:
                         year = int(date.split("-")[0])
-                        # Знаходимо найстаріший (оригінальний) рік релізу
+                        # Find the oldest (original) release year
                         if best_year is None or year < best_year:
                             best_year = year
                     except ValueError:
@@ -129,9 +129,9 @@ async def fetch_release_year_from_musicbrainz(artist: str, title: str) -> Option
 
         if best_year:
             logger.info(
-                f"🎵 MusicBrainz знайшов рік релізу {best_year} для {artist} - {clean_title}"
+                f"🎵 MusicBrainz found release year {best_year} for {artist} - {clean_title}"
             )
         return best_year
     except Exception as e:
-        logger.warning(f"⚠️ Збій підсистеми MusicBrainz: {e}")
+        logger.warning(f"⚠️ MusicBrainz subsystem failure: {e}")
         return None

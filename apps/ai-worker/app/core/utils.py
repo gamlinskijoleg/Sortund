@@ -4,8 +4,8 @@ from typing import Tuple
 
 
 def clean_youtube_trash(text: str) -> str:
-    """Очищає назву файлу від сміття YouTube та специфічних артефактів"""
-    # Замінюємо всі типи підкреслень на пробіли, зберігаючи роздільники
+    """Cleans the filename from YouTube trash and specific artifacts"""
+    # Replace all types of underscores with spaces, preserving separators
     text = re.sub(r"_+-_+", " - ", text)
     text = re.sub(r"_+", " ", text)
 
@@ -22,11 +22,11 @@ def clean_youtube_trash(text: str) -> str:
 
 
 def parse_filename_fallback(filename: str) -> Tuple[str, str]:
-    """Локальний парсер назви файлу з посиленою обробкою каверів та ієрогліфів"""
+    """Local filename parser with enhanced processing for covers and hieroglyphs"""
     name_without_ext = os.path.splitext(filename)[0]
     name_cleaned = clean_youtube_trash(name_without_ext)
 
-    # 1. Специфічна обробка каверів
+    # 1. Specific processing for covers
     cover_match = re.search(
         r"^(.*?)\s+(?:ukr\s+)?cover\s+by\s+(.*)$", name_cleaned, flags=re.IGNORECASE
     )
@@ -34,7 +34,7 @@ def parse_filename_fallback(filename: str) -> Tuple[str, str]:
         potential_title = cover_match.group(1).strip()
         potential_artist = cover_match.group(2).strip()
         potential_artist = re.sub(
-            r"(?:opening|op|ending|ed|ost|саундтрек).*$",
+            r"(?:opening|op|ending|ed|ost|soundtrack).*$",
             "",
             potential_artist,
             flags=re.IGNORECASE,
@@ -43,8 +43,8 @@ def parse_filename_fallback(filename: str) -> Tuple[str, str]:
             potential_artist if potential_artist else "Unknown Artist"
         ), potential_title
 
-    # 2. Обробка японських/круглих дужок ТІЛЬКИ НА САМОМУ ПОЧАТКУ рядка (наприклад: 【Ado】MIRROR)
-    # Зміна: додаємо ^[【\[\(\s]+ щоб переконатися, що рядок РЕАЛЬНО ПОЧИНАЄТЬСЯ з дужки
+    # 2. Processing Japanese/round brackets ONLY AT THE VERY BEGINNING of the string (e.g. 【Ado】MIRROR)
+    # Change: add ^[【\[\(\s]+ to ensure the string ACTUALLY STARTS with a bracket
     if re.match(r"^[【\[\(\s]", name_cleaned):
         brackets_match = re.match(r"^[【\[\(\s]*(.*?)[】\]\)\s]+(.*)$", name_cleaned)
         if brackets_match:
@@ -54,7 +54,7 @@ def parse_filename_fallback(filename: str) -> Tuple[str, str]:
                 potential_title = re.sub(r"^[_\-\–\—\s]+", "", potential_title).strip()
                 return potential_artist, potential_title
 
-    # 3. Суворе правило роздільників
+    # 3. Strict separator rule
     for separator in [" - ", " – ", " — "]:
         if separator in name_cleaned:
             parts = name_cleaned.split(separator, 1)
@@ -63,13 +63,13 @@ def parse_filename_fallback(filename: str) -> Tuple[str, str]:
             if artist_part and title_part:
                 return artist_part, title_part
 
-    # 4. Якщо нічого не підійшло — віддаємо назву як Title
+    # 4. If nothing matches - return the name as Title
     name_cleaned = re.sub(r"[_\-\–\—\s]+$", "", name_cleaned).strip()
     return "Unknown Artist", name_cleaned if name_cleaned else "Unknown Title"
 
 
 def extract_year_from_filename(filename: str) -> int | None:
-    """Витягує рік з назви файлу (1900-2099) як Fallback."""
+    """Extracts the year from the filename (1900-2099) as Fallback."""
     match = re.search(r"\b(19\d{2}|20\d{2})\b", filename)
     if match:
         return int(match.group(1))
@@ -77,7 +77,7 @@ def extract_year_from_filename(filename: str) -> int | None:
 
 
 def get_epoch_tag_by_year(year: int) -> str:
-    """Визначає епоху (наприклад, '80s', 'Early 2000s') за роком випуску."""
+    """Determines the epoch (e.g. '80s', 'Early 2000s') by release year."""
     if year < 1900:
         return "really really REALLY old"
 

@@ -4,12 +4,12 @@ from typing import List, Dict, Set
 
 
 def setup_logging():
-    """Налаштовує логування з підтримкою UTF-8 для запобігання UnicodeEncodeError на Windows."""
+    """Configures logging with UTF-8 support to prevent UnicodeEncodeError on Windows."""
     logger = logging.getLogger("sortund-ai-pipeline")
     logger.setLevel(logging.INFO)
 
     if not logger.handlers:
-        # Примусово змушуємо стрім писати в UTF-8
+        # Force stream to write in UTF-8
         stream_handler = logging.StreamHandler(sys.stdout)
         stream_handler.setFormatter(
             logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")

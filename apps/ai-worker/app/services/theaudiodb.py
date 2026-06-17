@@ -8,7 +8,7 @@ logger = logging.getLogger("sortund-ai-pipeline")
 
 
 async def fetch_release_year_from_theaudiodb(artist: str, title: str) -> Optional[int]:
-    """Шукає рік релізу треку за допомогою TheAudioDB API."""
+    """Searches for track release year using TheAudioDB API."""
     if artist == "Unknown Artist":
         return None
 
@@ -62,7 +62,7 @@ async def fetch_release_year_from_theaudiodb(artist: str, title: str) -> Optiona
                     try:
                         year = int(year_str)
                         logger.info(
-                            f"🎵 TheAudioDB знайшов рік релізу {year} для {artist} - {clean_title}"
+                            f"🎵 TheAudioDB found release year {year} for {artist} - {clean_title}"
                         )
                         return year
                     except ValueError:
@@ -70,5 +70,5 @@ async def fetch_release_year_from_theaudiodb(artist: str, title: str) -> Optiona
 
         return None
     except Exception as e:
-        logger.warning(f"⚠️ Збій підсистеми TheAudioDB: {e}")
+        logger.warning(f"⚠️ TheAudioDB subsystem failure: {e}")
         return None

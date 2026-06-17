@@ -20,7 +20,7 @@ class YTMetadata(TypedDict):
 async def fetch_and_validate_youtube_metadata(
     artist: str, title: str, source_analysis: str, original_filename: str
 ) -> YTMetadata:
-    """Шукає трек на YouTube Music і валідує відповідність, щоб захистити локальні релізи."""
+    """Searches for a track on YouTube Music and validates the match to protect local releases."""
     enrichment: YTMetadata = {
         "extra_info": [],
         "source": source_analysis,
@@ -44,14 +44,15 @@ async def fetch_and_validate_youtube_metadata(
                 else "Unknown Artist"
             )
 
-            # --- 🛡️ СУВОРРИЙ ЗАХИСТ АНДЕРГРАУНДУ (Кейс Schmalgauzen) ---
-            # Перевіряємо, чи є в оригінальному файлі маркери специфічних локальних треків
+            # --- 🛡️ STRICT UNDERGROUND PROTECTION (Schmalgauzen Case) ---
+            # Check if the original file has markers of specific local tracks
             fn_lower = original_filename.lower()
             is_special_local = any(
                 m in fn_lower
                 for m in [
                     "cover",
                     "українською",
+                    "ukrainian",
                     "ukr",
                     "ua",
                     "шмальцгаузен",
@@ -59,7 +60,7 @@ async def fetch_and_validate_youtube_metadata(
                 ]
             )
 
-            # Розрахунок схожості назв (Fuzzy Matching)
+            # Title similarity calculation (Fuzzy Matching)
             similarity = difflib.SequenceMatcher(
                 None, title.lower(), found_title.lower()
             ).ratio()
@@ -68,28 +69,28 @@ async def fetch_and_validate_youtube_metadata(
                 source_analysis == "Filename Local Parser"
                 and artist == "Unknown Artist"
             ):
-                # Якщо пошуковик знайшов зовсім іншого виконавця на ультра-короткий запит (наприклад, "уночі")
-                # і назва має маркери каверу/інді, або збіг за тайтлом слабкий — БЛОКУЄМО автозаміну артиста!
+                # If search engine found a completely different artist for an ultra-short query (e.g. "unochi")
+                # and title has cover/indie markers, or weak title match — BLOCK artist auto-replacement!
                 if (
                     is_special_local
                     and found_artist.lower() != "schmalgauzen"
                     and found_artist.lower() != "shmalgauzen"
                 ):
                     logger.info(
-                        f"🛡️ Валідатор заблокував автозаміну для '{title}': знайдено поп-трек від {found_artist}"
+                        f"🛡️ Validator blocked auto-replacement for '{title}': found pop track by {found_artist}"
                     )
-                    # Залишаємо оригінальні дані парсера, не пускаючи попсу
+                    # Keep original parser data, not allowing pop music
                 elif len(title) <= 5 and similarity < 0.9:
                     logger.info(
-                        f"🛡️ Запит занадто короткий ({title}), низький збіг. Результат YouTube ігнорується."
+                        f"🛡️ Query too short ({title}), low match. YouTube result ignored."
                     )
                 else:
-                    # Безпечний імпорт метаданих
+                    # Safe metadata import
                     enrichment["title"] = found_title
                     enrichment["artist"] = found_artist
                     enrichment["source"] = "YouTube Music Search Engine"
 
-            # Збір додаткових метаданих
+            # Additional metadata collection
 
             album_name = (
                 top_hit.get("album", {}).get("name", "") if top_hit.get("album") else ""
@@ -98,6 +99,6 @@ async def fetch_and_validate_youtube_metadata(
                 enrichment["extra_info"].append(f"Album: {album_name}")
 
     except Exception as e:
-        logger.warning(f"⚠️ Не вдалося збагатити метадані з YouTube: {e}")
+        logger.warning(f"⚠️ Failed to enrich metadata from YouTube: {e}")
 
     return enrichment

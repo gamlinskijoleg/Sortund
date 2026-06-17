@@ -23,39 +23,39 @@ audio_session: Optional[ort.InferenceSession] = None
 
 
 def load_onnx_models():
-    """Завантажує ONNX моделі в пам'ять. Якщо файлів немає, стягує їх з HF Model Hub."""
+    """Loads ONNX models into memory. If files are missing, downloads them from HF Model Hub."""
     global text_session, text_tokenizer, audio_session, TEXT_MODEL_PATH, AUDIO_MODEL_PATH
 
-    # 1. ПЕРЕВІРКА: Якщо локальних файлів немає, качаємо з Hugging Face
+    # 1. CHECK: If local files are missing, download from Hugging Face
     if not os.path.exists(TEXT_MODEL_PATH) or not os.path.exists(AUDIO_MODEL_PATH):
         logger.info(
-            "⚠️ Локальних моделей не знайдено. Починаю завантаження з Hugging Face Model Hub..."
+            "⚠️ Local models not found. Starting download from Hugging Face Model Hub..."
         )
         try:
-            # Стягуємо токен із секретів (на HF Spaces він підтягнеться автоматично, якщо доданий в Settings)
+            # Pull token from secrets (on HF Spaces it will be pulled automatically if added in Settings)
             hf_token = os.getenv("HF_TOKEN")
 
-            # Завантажуємо весь репозиторій моделей у системний кеш
+            # Download the entire model repository to system cache
             downloaded_dir = snapshot_download(
                 repo_id="gamlinskijoleg/sortund-models", token=hf_token
             )
 
-            # Перепризначаємо шляхи на завантажені файли
+            # Reassign paths to downloaded files
             TEXT_MODEL_PATH = os.path.join(
                 downloaded_dir, "text_zero_shot", "model.onnx"
             )
             AUDIO_MODEL_PATH = os.path.join(
                 downloaded_dir, "audio_tagger", "model.onnx"
             )
-            logger.info(f"✅ Моделі успішно завантажено у кеш: {downloaded_dir}")
+            logger.info(f"✅ Models successfully loaded into cache: {downloaded_dir}")
         except Exception as e:
             logger.error(
-                f"❌ Не вдалося завантажити моделі з Hugging Face Hub: {e}",
+                f"❌ Failed to download models from Hugging Face Hub: {e}",
                 exc_info=True,
             )
             return
 
-    # 2. ІНІЦІАЛІЗАЦІЯ СЕСІЙ (Твій оригінальний код, але з новими шляхами)
+    # 2. SESSION INITIALIZATION (Original code, but with new paths)
     opts = ort.SessionOptions()
     opts.intra_op_num_threads = 2
     opts.inter_op_num_threads = 2
@@ -66,14 +66,14 @@ def load_onnx_models():
             text_session = ort.InferenceSession(
                 TEXT_MODEL_PATH, sess_options=opts, providers=["CPUExecutionProvider"]
             )
-            # Токенізер шукаємо в тій же папці, де лежить ONNX модель
+            # Tokenizer is expected in the same folder as the ONNX model
             text_tokenizer = AutoTokenizer.from_pretrained(
                 os.path.dirname(TEXT_MODEL_PATH)
             )
-            logger.info("✅ Текстовий Zero-Shot ONNX завантажено успішно.")
+            logger.info("✅ Text Zero-Shot ONNX successfully loaded.")
         except Exception as e:
             logger.error(
-                f"❌ Помилка ініціалізації текстової моделі: {e}", exc_info=True
+                f"❌ Error initializing text model: {e}", exc_info=True
             )
 
     if os.path.exists(AUDIO_MODEL_PATH):
@@ -81,13 +81,13 @@ def load_onnx_models():
             audio_session = ort.InferenceSession(
                 AUDIO_MODEL_PATH, sess_options=opts, providers=["CPUExecutionProvider"]
             )
-            logger.info("✅ Аудіо AST ONNX завантажено успішно.")
+            logger.info("✅ Audio AST ONNX successfully loaded.")
         except Exception as e:
-            logger.error(f"❌ Помилка ініціалізації аудіо моделі: {e}", exc_info=True)
+            logger.error(f"❌ Error initializing audio model: {e}", exc_info=True)
 
 
 def _sync_predict_text_zero_shot(text: str) -> List[Dict[str, Union[str, float]]]:
-    """Синхронно передбачає текстові теги за допомогою моделі zero-shot."""
+    """Synchronously predicts text tags using zero-shot model."""
     if text_session is None or text_tokenizer is None:
         return []
 
@@ -125,12 +125,12 @@ def _sync_predict_text_zero_shot(text: str) -> List[Dict[str, Union[str, float]]
                 if entail_prob > 85.0:
                     raw_results.append({"label": label, "prob": entail_prob})
     except Exception as e:
-        logger.error(f"❌ Збій обчислень Text Zero-Shot: {e}")
+        logger.error(f"❌ Text Zero-Shot calculation failure: {e}")
     return raw_results
 
 
 def _sync_predict_audio_tags(file_path: str) -> Tuple[List[str], str]:
-    """Синхронно аналізує аудіофайл та визначає аудіо теги і дефолтний настрій (як fallback)."""
+    """Synchronously analyzes audio file and determines audio tags and default mood (as fallback)."""
     if audio_session is None:
         return [], "Unknown"
 
@@ -189,7 +189,7 @@ def _sync_predict_audio_tags(file_path: str) -> Tuple[List[str], str]:
 
         return detected_audio_tags, primary_mood
     except Exception as e:
-        logger.error(f"❌ Збій обчислень Audio AST Engine: {e}")
+        logger.error(f"❌ Audio AST Engine computation failure: {e}")
         return [], "Unknown"
 
 

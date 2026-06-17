@@ -18,10 +18,10 @@ SplashScreen.setOptions({
 export default function RootLayout() {
     useEffect(() => {
         initPlayer()
-            .then(() => log.debug("🚀 Аудіо-сервіс успішно готовий до роботи"))
-            .catch((err) =>
-                log.error("Не вдалося ініціалізувати аудіо-режим:", err)
-            );
+            .then(() =>
+                log.debug("🚀 Audio service successfully ready for work")
+            )
+            .catch((err) => log.error("Failed to initialize audio mode:", err));
     }, []);
 
     return (

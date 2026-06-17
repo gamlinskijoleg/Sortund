@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from typing import Dict, Union, List, Optional, Tuple, Any
 from typing_extensions import TypedDict
 
-# Імпорт модулів архітектури
+# Import architecture modules
 from app.core.config import setup_logging, GENRE_LABELS
 from app.ml.models import (
     load_onnx_models,
@@ -55,13 +55,13 @@ app = FastAPI(
 
 @app.on_event("startup")
 def startup_event() -> None:
-    """Виконується при запуску застосунку. Завантажує моделі ONNX."""
+    """Executed on application startup. Loads ONNX models."""
     os.makedirs("temp", exist_ok=True)
     load_onnx_models()
 
 
 def format_zero_shot_text_tags(raw_text_tags: List[Dict[str, Any]]) -> List[str]:
-    """Фільтрує та форматує текстові теги (жанри та інші)."""
+    """Filters and formats text tags (genres and others)."""
     genres = [t for t in raw_text_tags if t["label"] in GENRE_LABELS]
     non_genres = [t for t in raw_text_tags if t["label"] not in GENRE_LABELS]
     genres.sort(key=lambda x: x["prob"], reverse=True)
@@ -74,7 +74,7 @@ def format_zero_shot_text_tags(raw_text_tags: List[Dict[str, Any]]) -> List[str]
 def parse_youtube_extra_info(
     yt_extra_info: List[str],
 ) -> Tuple[Optional[str], List[str]]:
-    """Витягує назву альбому та додаткові теги з метаданих YouTube."""
+    """Extracts album name and additional tags from YouTube metadata."""
     album_name = None
     extra_tags = []
     for tag in yt_extra_info:
@@ -88,7 +88,7 @@ def parse_youtube_extra_info(
 async def get_base_metadata(
     temp_file_path: str, original_filename: str
 ) -> Tuple[str, str, str, YTMetadata, Optional[str], Optional[str]]:
-    """Визначає базові метадані (Artist, Title) з Shazam або локального парсера."""
+    """Determines base metadata (Artist, Title) from Shazam or local parser."""
     shazam_match = await recognize_via_shazam_local(temp_file_path)
     artwork = None
     isrc = None
@@ -114,13 +114,13 @@ async def get_base_metadata(
 
 
 async def get_text_tags(artist: str, title: str) -> List[str]:
-    """Отримує та форматує жанри з текстової моделі Zero-Shot."""
+    """Gets and formats genres from Zero-Shot text model."""
     raw_text_tags = await predict_text_zero_shot(f"{artist} - {title}")
     return format_zero_shot_text_tags(raw_text_tags)
 
 
 async def get_audio_tags(audio_ai_task: asyncio.Task) -> List[str]:
-    """Очікує результати фонового аналізу аудіо та фільтрує їх."""
+    """Waits for background audio analysis results and filters them."""
     audio_tags, _ = await audio_ai_task
     if "Music" in audio_tags:
         audio_tags.remove("Music")
@@ -133,7 +133,7 @@ def get_final_tags(
     yt_extra_tags: List[str],
     year: Optional[int],
 ) -> List[str]:
-    """Об'єднує всі теги в один фінальний набір."""
+    """Combines all tags into a single final set."""
     final_tags = set(text_tags + audio_tags + yt_extra_tags)
 
     return list(final_tags)
@@ -142,9 +142,9 @@ def get_final_tags(
 async def execute_analysis_pipeline(
     temp_file_path: str, original_filename: str
 ) -> AnalyzeResult:
-    """Оркеструє весь процес розпізнавання, збору даних та AI-аналізу для треку."""
+    """Orchestrates the entire recognition process, data collection, and AI analysis for the track."""
 
-    # 1. AUDIO AI (запускаємо у фоні)
+    # 1. AUDIO AI (run in background)
     audio_ai_task = asyncio.create_task(predict_audio_tags(temp_file_path))
 
     # 2. BASE METADATA
@@ -167,7 +167,7 @@ async def execute_analysis_pipeline(
         final_year = await fetch_release_year_from_musicbrainz_by_isrc(isrc)
         if final_year:
             logger.info(
-                f"🧠 ISRC-Пріоритет: MusicBrainz знайшов рік {final_year} за ISRC {isrc}"
+                f"🧠 ISRC-Priority: MusicBrainz found year {final_year} via ISRC {isrc}"
             )
 
     if not final_year:
@@ -186,12 +186,12 @@ async def execute_analysis_pipeline(
         if years:
             final_year = min(years)
             logger.info(
-                f"🧠 Smart Cascade обрав фінальний рік: {final_year} (TheAudioDB: {adb_year}, MusicBrainz: {mb_year})"
+                f"🧠 Smart Cascade chose final year: {final_year} (TheAudioDB: {adb_year}, MusicBrainz: {mb_year})"
             )
         else:
             final_year = extract_year_from_filename(original_filename)
             if final_year:
-                logger.info(f"Fallback знайшов рік релізу {final_year} з назви файлу")
+                logger.info(f"Fallback found release year {final_year} from filename")
 
     # 6. FINAL TAGS
     final_tags = get_final_tags(text_tags, audio_tags, yt_extra_tags, final_year)
@@ -218,9 +218,9 @@ async def execute_analysis_pipeline(
 async def analyze_track(
     file: UploadFile = File(...),
 ) -> AnalyzeResult:
-    """Обробляє завантажений аудіофайл, витягує теги та метадані з різних джерел."""
+    """Processes the uploaded audio file, extracts tags and metadata from various sources."""
     filename = file.filename or "unknown.mp3"
-    logger.info(f"📥 Отримано файл для аналізу: {filename}")
+    logger.info(f"📥 Received file for analysis: {filename}")
     if not filename.endswith((".mp3", ".wav", ".m4a", ".ogg", ".flac")):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported audio format."
@@ -237,7 +237,7 @@ async def analyze_track(
                 buffer.write(contents)
             await file.close()
 
-            # Гарантоване видалення файлу після завершення запиту
+            # Guaranteed file deletion after request completion
             stack.callback(
                 lambda: (
                     os.remove(temp_file_path)
@@ -250,7 +250,7 @@ async def analyze_track(
 
         except Exception as general_error:
             logger.critical(
-                f"🚨 Критичний збій пайплайну: {general_error}", exc_info=True
+                f"🚨 Critical pipeline failure: {general_error}", exc_info=True
             )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -260,5 +260,5 @@ async def analyze_track(
 
 @app.get("/health", status_code=status.HTTP_200_OK)
 async def health_check() -> Dict[str, str]:
-    """Проста перевірка здоров'я сервісу."""
+    """Simple service health check."""
     return {"status": "ok", "message": "Sortund AI Worker is healthy."}

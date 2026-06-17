@@ -10,7 +10,7 @@ shazam_client = Shazam()
 async def recognize_via_shazam_local(
     file_path: str,
 ) -> Optional[Tuple[str, str, Optional[str], Optional[str]]]:
-    """Аналіз аудіо за акустичним відбитком через Shazam Core API."""
+    """Audio analysis by acoustic fingerprint via Shazam Core API."""
     try:
         out = await shazam_client.recognize(file_path)
         if out and "track" in out:
@@ -20,5 +20,5 @@ async def recognize_via_shazam_local(
             isrc = out["track"].get("isrc")
             return artist, title, artwork, isrc
     except Exception as e:
-        logger.warning(f"⚠️ Збій підсистеми Shazam Core: {e}")
+        logger.warning(f"⚠️ Shazam Core subsystem failure: {e}")
     return None

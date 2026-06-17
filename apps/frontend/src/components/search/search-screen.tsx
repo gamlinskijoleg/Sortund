@@ -63,7 +63,7 @@ export default function SearchScreen() {
                     isDebouncing={isDebouncing}
                     showInitialState={showInitialState}
                     searchQuery={debouncedQuery}
-                    initialStateMessage="Введіть назву пісні або артиста"
+                    initialStateMessage="Enter song or artist name"
                     keyExtractor={(item) => item.sourceUri}
                     renderItem={({ item, index }) => (
                         <TrackListItem
