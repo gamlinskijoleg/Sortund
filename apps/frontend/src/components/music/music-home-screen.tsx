@@ -286,9 +286,12 @@ export default function MusicHomeScreen() {
                         playNext={playNext}
                         track={displayTrack}
                         activePlayerInstance={playerInstance}
-                        onPress={() =>
-                            router.push(createListenRoute(displayTrack))
-                        }
+                        onPress={() => {
+                            if (!activeTrack && tracks.length > 0) {
+                                usePlayerStore.getState().setQueue(tracks, 0);
+                            }
+                            router.push(createListenRoute(displayTrack));
+                        }}
                     />
                 )}
             </YStack>
