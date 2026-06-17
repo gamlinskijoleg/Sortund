@@ -135,6 +135,11 @@ def _sync_predict_audio_tags(file_path: str) -> Tuple[List[str], str]:
     try:
         # Since the frontend already trims the audio, we process it from the beginning
         y, sr = librosa.load(file_path, sr=16000, offset=0.0, duration=10)
+        if y.size == 0:
+            logger.warning(
+                f"⚠️ Audio file loaded as an empty array. Skipping processing."
+            )
+            return [], "Unknown"
         if np.max(np.abs(y)) < 1e-4:
             return [], "Calm"
 
