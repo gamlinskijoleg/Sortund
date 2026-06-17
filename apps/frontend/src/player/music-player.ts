@@ -291,6 +291,11 @@ function setupPlaybackStatusListener(player: AudioPlayer) {
         if (status.isBuffering) state = PlaybackState.BUFFERING;
 
         updatePlaybackState(state, status.currentTime, status.playbackRate);
+
+        if (status.didJustFinish) {
+            log.debug("Player: Track finished, playing next");
+            usePlayerStore.getState().playNext();
+        }
     });
 }
 export async function pausePlayback() {
