@@ -5,7 +5,6 @@ import { AppScreen } from "../app-screen";
 import {
     createListenRoute,
     featureCards,
-    musicSections,
     type MusicTrack,
     useMusicLibrary,
 } from "../../data/music";
@@ -16,6 +15,7 @@ import { SearchBar } from "../shared/search-bar";
 import { TrackListItem } from "../shared/track-list-item";
 import { AsyncListState } from "../shared/async-list-state";
 import { MiniPlayer } from "./mini-player";
+import { sectionTabRoutes } from "@/config/routes";
 
 function MusicFeatureCard({
     title,
@@ -80,7 +80,7 @@ function SectionTabs() {
             marginTop={18}
             justifyContent="space-between"
         >
-            {musicSections.map((section) => {
+            {sectionTabRoutes.map((section) => {
                 const isActive = section.href === pathname;
 
                 return (
@@ -93,7 +93,7 @@ function SectionTabs() {
                         justifyContent="center"
                         alignItems="center"
                         pressStyle={{ opacity: 0.84 }}
-                        onPress={() => router.push(section.href)}
+                        onPress={() => isActive || router.push(section.href)}
                     >
                         <Text
                             fontSize={18}

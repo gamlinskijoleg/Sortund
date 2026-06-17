@@ -36,11 +36,6 @@ export type MusicTrack = {
     modificationTime?: number;
 };
 
-export type MusicSection = {
-    href: "/";
-    label: string;
-};
-
 export type LibrarySectionKey = "favourites" | "playlists" | "recent";
 
 export function createListenRoute(track: MusicTrack) {
@@ -392,8 +387,6 @@ export function useMusicLibrary(limit = 6) {
         };
     }, [limit]);
 }
-
-export const musicSections: MusicSection[] = [{ href: "/", label: "Songs" }];
 
 export const featureCards = [
     {

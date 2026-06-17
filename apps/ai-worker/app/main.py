@@ -16,11 +16,18 @@ from app.ml.models import (
     predict_text_zero_shot,
     predict_audio_tags,
 )
-from app.core.utils import parse_filename_fallback, get_epoch_tag_by_year, extract_year_from_filename
+from app.core.utils import (
+    parse_filename_fallback,
+    get_epoch_tag_by_year,
+    extract_year_from_filename,
+)
 from app.services.shazam import recognize_via_shazam_local
 from app.services.youtube import fetch_and_validate_youtube_metadata, YTMetadata
 from app.services.theaudiodb import fetch_release_year_from_theaudiodb
-from app.services.musicbrainz import fetch_release_year_from_musicbrainz, fetch_release_year_from_musicbrainz_by_isrc
+from app.services.musicbrainz import (
+    fetch_release_year_from_musicbrainz,
+    fetch_release_year_from_musicbrainz_by_isrc,
+)
 
 
 class AnalyzeResult(TypedDict):
@@ -28,7 +35,6 @@ class AnalyzeResult(TypedDict):
     artist: Optional[str]
     album: Optional[str]
     artwork: Optional[str]
-    duration: Optional[float]
     genre: Optional[str]
     date: Optional[str]
     rating: Optional[str]
@@ -142,8 +148,8 @@ async def execute_analysis_pipeline(
     audio_ai_task = asyncio.create_task(predict_audio_tags(temp_file_path))
 
     # 2. BASE METADATA
-    artist, title, source_analysis, yt_data, artwork, isrc = (
-        await get_base_metadata(temp_file_path, original_filename)
+    artist, title, source_analysis, yt_data, artwork, isrc = await get_base_metadata(
+        temp_file_path, original_filename
     )
 
     # 3. ALBUM
@@ -160,8 +166,10 @@ async def execute_analysis_pipeline(
     if isrc:
         final_year = await fetch_release_year_from_musicbrainz_by_isrc(isrc)
         if final_year:
-            logger.info(f"🧠 ISRC-Пріоритет: MusicBrainz знайшов рік {final_year} за ISRC {isrc}")
-            
+            logger.info(
+                f"🧠 ISRC-Пріоритет: MusicBrainz знайшов рік {final_year} за ISRC {isrc}"
+            )
+
     if not final_year:
         theaudiodb_year_task = asyncio.create_task(
             fetch_release_year_from_theaudiodb(artist, title)
@@ -169,13 +177,17 @@ async def execute_analysis_pipeline(
         musicbrainz_year_task = asyncio.create_task(
             fetch_release_year_from_musicbrainz(artist, title)
         )
-        
-        adb_year, mb_year = await asyncio.gather(theaudiodb_year_task, musicbrainz_year_task)
-        
+
+        adb_year, mb_year = await asyncio.gather(
+            theaudiodb_year_task, musicbrainz_year_task
+        )
+
         years = [y for y in [adb_year, mb_year] if y is not None]
         if years:
             final_year = min(years)
-            logger.info(f"🧠 Smart Cascade обрав фінальний рік: {final_year} (TheAudioDB: {adb_year}, MusicBrainz: {mb_year})")
+            logger.info(
+                f"🧠 Smart Cascade обрав фінальний рік: {final_year} (TheAudioDB: {adb_year}, MusicBrainz: {mb_year})"
+            )
         else:
             final_year = extract_year_from_filename(original_filename)
             if final_year:
@@ -189,17 +201,11 @@ async def execute_analysis_pipeline(
     if not genre_tag and final_tags:
         genre_tag = final_tags[0]
 
-    try:
-        duration = librosa.get_duration(path=temp_file_path)
-    except Exception:
-        duration = None
-
     return {
         "title": title,
         "artist": artist,
         "album": album_name,
         "artwork": artwork,
-        "duration": duration,
         "genre": genre_tag,
         "date": str(final_year) if final_year else None,
         "rating": None,

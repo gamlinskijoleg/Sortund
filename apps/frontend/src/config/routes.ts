@@ -1,20 +1,19 @@
-export type NavigationRoute = {
+type BottomNavRoutePath = "/" | "/ai-sync";
+type SectionTabRoutePath = "/";
+
+export type NavigationRoute<T extends string> = {
     label: string;
-    href: string;
+    href: T;
     icon?: string;
 };
 
 // Bottom Navigation Routes
-export const bottomNavRoutes: NavigationRoute[] = [
+export const bottomNavRoutes: NavigationRoute<BottomNavRoutePath>[] = [
     { label: "My music", href: "/", icon: "headphones" },
     { label: "AI Sync", href: "/ai-sync", icon: "television-classic" },
 ];
 
-export const isBottomNavVisible = (pathname: string) => {
-    return bottomNavRoutes.some((route) => route.href === pathname);
-};
-
 // Top Section Tabs Routes (for music-home-screen)
-export const sectionTabRoutes: NavigationRoute[] = [
+export const sectionTabRoutes: NavigationRoute<SectionTabRoutePath>[] = [
     { label: "Songs", href: "/" },
 ];
