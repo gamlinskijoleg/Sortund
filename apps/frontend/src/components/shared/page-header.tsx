@@ -10,7 +10,7 @@ export function PageHeader({
     showBackButton = true,
     trailingAction,
 }: {
-    title: string;
+    title?: string;
     subtitle?: string;
     showBackButton?: boolean;
     trailingAction?: React.ReactNode;
@@ -33,14 +33,17 @@ export function PageHeader({
                             />
                         </XStack>
                     )}
-                    <Text
-                        fontSize={28}
-                        lineHeight={32}
-                        fontWeight="800"
-                        color={theme.text}
-                    >
-                        {title}
-                    </Text>
+
+                    {title && (
+                        <Text
+                            fontSize={28}
+                            lineHeight={32}
+                            fontWeight="800"
+                            color={theme.text}
+                        >
+                            {title}
+                        </Text>
+                    )}
                 </XStack>
                 {trailingAction && trailingAction}
             </XStack>

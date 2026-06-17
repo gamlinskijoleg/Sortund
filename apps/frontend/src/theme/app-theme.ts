@@ -10,6 +10,7 @@ export function useAppTheme() {
         text: theme.color.val,
         textMuted: theme.colorHover.val,
         textSubtle: theme.colorPress.val,
+        textPlaceholder: theme.placeholderColor.val,
         border: theme.borderColor.val,
 
         accent: theme.brandPink.val,

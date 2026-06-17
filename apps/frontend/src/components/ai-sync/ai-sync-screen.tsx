@@ -6,7 +6,6 @@ import { type MusicTrack, useMusicTracks } from "../../data/music";
 import { useAppTheme } from "../../theme/app-theme";
 import { FlatList, DeviceEventEmitter } from "react-native";
 import { TrackListItem } from "../shared/track-list-item";
-import { PageHeader } from "../shared/page-header";
 import { AsyncListState } from "../shared/async-list-state";
 import { analyzeTrackAPI, downloadArtworkAsync } from "../../utils/ai-api";
 import { updateTrackAfterAnalysisInDb } from "../../data/db";
@@ -96,16 +95,6 @@ function AiTrackRow({ track }: { track: MusicTrack }) {
 export default function AiAnalyzeScreen() {
     const { tracks, isLoading, error } = useMusicTracks();
 
-    const renderHeader = () => (
-        <View paddingHorizontal={16}>
-            <PageHeader
-                title="AI Track Sync"
-                subtitle="Upload your local tracks to the AI server to retrieve accurate metadata."
-                showBackButton={true}
-            />
-        </View>
-    );
-
     const renderEmptyOrStatus = () => (
         <AsyncListState
             isLoading={isLoading}
@@ -123,7 +112,6 @@ export default function AiAnalyzeScreen() {
                     keyExtractor={(item, index) =>
                         item.sourceUri ?? `${item.title}-${index}`
                     }
-                    ListHeaderComponent={renderHeader}
                     renderItem={({ item }) => (
                         <View paddingHorizontal={16}>
                             <AiTrackRow track={item} />

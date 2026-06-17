@@ -171,7 +171,7 @@ export async function loadMusicTracks(limit: number): Promise<MusicTrack[]> {
     return tracks;
 }
 
-export function useMusicTracks(limit = 5) {
+export function useMusicTracks(limit = 1000000000) {
     const [tracks, setTracks] = useState<MusicTrack[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
