@@ -9,7 +9,12 @@ interface PlayerState {
     playerInstance: AudioPlayer | null;
     isPlaying: boolean;
 
-    // Екшени
+    // Library Cache
+    libraryTracks: MusicTrack[];
+    isLibraryLoading: boolean;
+    hasSynced: boolean;
+
+    // Actions
     setPlayerInstance: (player: AudioPlayer) => void;
     setQueue: (
         tracks: MusicTrack[],
@@ -20,6 +25,11 @@ interface PlayerState {
     playPrevious: () => void;
     selectTrackById: (assetId: string) => void;
     togglePlayPause: (track: MusicTrack) => void;
+
+    // Library Actions
+    setLibraryTracks: (tracks: MusicTrack[]) => void;
+    setLibraryLoading: (loading: boolean) => void;
+    setHasSynced: (synced: boolean) => void;
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => {
@@ -33,6 +43,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         activeTrack: null,
         playerInstance: null,
         isPlaying: false,
+
+        libraryTracks: [],
+        isLibraryLoading: true,
+        hasSynced: false,
+
+        setLibraryTracks: (tracks) => set({ libraryTracks: tracks }),
+        setLibraryLoading: (loading) => set({ isLibraryLoading: loading }),
+        setHasSynced: (synced) => set({ hasSynced: synced }),
 
         setPlayerInstance: (playerInstance) => set({ playerInstance }),
 

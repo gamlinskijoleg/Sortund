@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useMusicTracks } from "../data/music";
+import { usePlayerStore } from "../store/usePlayerStore";
 import { useDebouncedValue } from "./use-debounced-value";
 
 interface UseTrackSearchOptions {
@@ -9,7 +9,9 @@ interface UseTrackSearchOptions {
 export function useLocalTrackSearch({
     returnEmptyOnBlank = false,
 }: UseTrackSearchOptions = {}) {
-    const { tracks, isLoading, error } = useMusicTracks();
+    const tracks = usePlayerStore((state) => state.libraryTracks);
+    const isLoading = usePlayerStore((state) => state.isLibraryLoading);
+    const error = null;
     const [searchQuery, setSearchQuery] = useState("");
     const [debouncedQuery, isDebouncing] = useDebouncedValue(searchQuery);
 

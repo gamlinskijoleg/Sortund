@@ -5,7 +5,7 @@ import {
     Query,
     requestPermissionsAsync,
 } from "expo-media-library";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { DeviceEventEmitter } from "react-native";
 import { getArtwork, getMetadata } from "react-native-audio-metadata";
 import {
@@ -14,6 +14,7 @@ import {
     insertOrReplaceTracksAsync,
     deleteTracksByIdAsync,
 } from "./db";
+import { usePlayerStore } from "../store/usePlayerStore";
 import { saveBase64ArtworkAsync } from "@/utils/file-utils";
 import { log } from "@/utils/logger";
 
@@ -107,11 +108,15 @@ export async function syncMusicLibrary(
         }
 
         // 1. Get all assets quickly
-        const queryMedia = await new Query()
+        let query = new Query()
             .album(album)
-            .eq(AssetField.MEDIA_TYPE, MediaType.AUDIO)
-            .limit(limit)
-            .exe();
+            .eq(AssetField.MEDIA_TYPE, MediaType.AUDIO);
+
+        if (limit !== Infinity) {
+            query = query.limit(limit);
+        }
+
+        const queryMedia = await query.exe();
 
         log.debug(
             `🎵 Знайдено треків в альбомі ${await album.getTitle()}: ${queryMedia.length}`
@@ -267,26 +272,39 @@ export async function syncMusicLibrary(
     }
 }
 
-export function useMusicTracks(limit = Infinity) {
-    const [tracks, setTracks] = useState<MusicTrack[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+export function useMusicLibrary(limit = 20) {
+    const {
+        libraryTracks,
+        setLibraryTracks,
+        setLibraryLoading,
+        hasSynced,
+        setHasSynced,
+    } = usePlayerStore();
 
     useEffect(() => {
         let isActive = true;
         let syncTimeout: NodeJS.Timeout;
 
         async function initAndSync() {
-            try {
-                // 1. Ініціалізуємо БД
-                initDatabase();
+            if (hasSynced) return;
 
-                // 2. Миттєво беремо локальний кеш з SQLite
-                const cached = getCachedTracks();
-                if (isActive) {
-                    setTracks(cached);
-                    if (cached.length > 0) {
-                        setIsLoading(false);
+            // Запобігаємо повторному запуску в межах сесії
+            setHasSynced(true);
+
+            let cached = usePlayerStore.getState().libraryTracks;
+
+            try {
+                if (cached.length === 0) {
+                    // 1. Ініціалізуємо БД
+                    initDatabase();
+
+                    // 2. Миттєво беремо локальний кеш з SQLite
+                    cached = getCachedTracks();
+                    if (isActive) {
+                        setLibraryTracks(cached);
+                        if (cached.length > 0) {
+                            setLibraryLoading(false);
+                        }
                     }
                 }
 
@@ -299,47 +317,46 @@ export function useMusicTracks(limit = Infinity) {
                             (newOrModifiedTracks, deletedIds) => {
                                 if (!isActive) return;
 
-                                setTracks((prev) => {
-                                    let next = [...prev];
+                                // Оновлюємо глобальний стан
+                                const currentTracks =
+                                    usePlayerStore.getState().libraryTracks;
+                                let next = [...currentTracks];
 
-                                    // Remove deleted
-                                    if (deletedIds.length > 0) {
-                                        const deletedSet = new Set(deletedIds);
-                                        next = next.filter(
-                                            (t) => !deletedSet.has(t.assetId)
-                                        );
-                                    }
+                                // Remove deleted
+                                if (deletedIds.length > 0) {
+                                    const deletedSet = new Set(deletedIds);
+                                    next = next.filter(
+                                        (t) => !deletedSet.has(t.assetId)
+                                    );
+                                }
 
-                                    // Update or Add new
-                                    if (newOrModifiedTracks.length > 0) {
-                                        const newMap = new Map(
-                                            newOrModifiedTracks.map((t) => [
-                                                t.assetId,
-                                                t,
-                                            ])
+                                // Update or Add new
+                                if (newOrModifiedTracks.length > 0) {
+                                    const newMap = new Map(
+                                        newOrModifiedTracks.map((t) => [
+                                            t.assetId,
+                                            t,
+                                        ])
+                                    );
+                                    // Update existing in-place
+                                    next = next.map((t) =>
+                                        newMap.has(t.assetId)
+                                            ? newMap.get(t.assetId)!
+                                            : t
+                                    );
+                                    // Append purely new ones
+                                    const existingIds = new Set(
+                                        next.map((t) => t.assetId)
+                                    );
+                                    const purelyNew =
+                                        newOrModifiedTracks.filter(
+                                            (t) => !existingIds.has(t.assetId)
                                         );
-                                        // Update existing in-place
-                                        next = next.map((t) =>
-                                            newMap.has(t.assetId)
-                                                ? newMap.get(t.assetId)!
-                                                : t
-                                        );
-                                        // Append purely new ones
-                                        const existingIds = new Set(
-                                            next.map((t) => t.assetId)
-                                        );
-                                        const purelyNew =
-                                            newOrModifiedTracks.filter(
-                                                (t) =>
-                                                    !existingIds.has(t.assetId)
-                                            );
-                                        next = [...next, ...purelyNew];
-                                    }
+                                    next = [...next, ...purelyNew];
+                                }
 
-                                    return next;
-                                });
-
-                                setIsLoading(false); // Make sure to remove loading spinner when we get updates
+                                setLibraryTracks(next);
+                                setLibraryLoading(false);
                             }
                         );
                     } catch (syncError) {
@@ -348,14 +365,13 @@ export function useMusicTracks(limit = Infinity) {
                             syncError
                         );
                     } finally {
-                        if (isActive) setIsLoading(false);
+                        if (isActive) setLibraryLoading(false);
                     }
                 }, 500); // 500ms delay debounce
             } catch (err) {
                 log.error("Помилка ініціалізації бази треків:", err);
                 if (isActive) {
-                    setError("Не вдалося завантажити музику.");
-                    setIsLoading(false);
+                    setLibraryLoading(false);
                 }
             }
         }
@@ -365,8 +381,9 @@ export function useMusicTracks(limit = Infinity) {
         const sub = DeviceEventEmitter.addListener(
             "track_updated",
             (updatedTrack: Partial<MusicTrack> & { assetId: string }) => {
-                setTracks((prev) =>
-                    prev.map((t) =>
+                const currentTracks = usePlayerStore.getState().libraryTracks;
+                setLibraryTracks(
+                    currentTracks.map((t) =>
                         t.assetId === updatedTrack.assetId
                             ? { ...t, ...updatedTrack }
                             : t
@@ -381,8 +398,6 @@ export function useMusicTracks(limit = Infinity) {
             sub.remove();
         };
     }, [limit]);
-
-    return { tracks, isLoading, error };
 }
 
 export const musicSections: MusicSection[] = [{ href: "/", label: "Songs" }];

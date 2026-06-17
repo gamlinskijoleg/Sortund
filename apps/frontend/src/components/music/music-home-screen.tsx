@@ -7,7 +7,7 @@ import {
     featureCards,
     musicSections,
     type MusicTrack,
-    useMusicTracks,
+    useMusicLibrary,
 } from "../../data/music";
 import { useAppTheme } from "../../theme/app-theme";
 import { usePlayerStore } from "@/store/usePlayerStore";
@@ -159,7 +159,10 @@ function ActionBar() {
 
 export default function MusicHomeScreen() {
     const theme = useAppTheme();
-    const { tracks, isLoading, error } = useMusicTracks();
+    // Initialize library in background once
+    useMusicLibrary();
+    const tracks = usePlayerStore((state) => state.libraryTracks);
+    const isLoading = usePlayerStore((state) => state.isLibraryLoading);
 
     // Отримуємо поточний трек із глобального стору!
     const playerInstance = usePlayerStore((state) => state.playerInstance);
@@ -241,7 +244,7 @@ export default function MusicHomeScreen() {
     const renderEmptyOrStatus = () => (
         <AsyncListState
             isLoading={isLoading}
-            error={error}
+            error={null}
             loadingMessage="Loading local music files..."
             emptyMessage="No local audio files found."
         />
@@ -251,7 +254,7 @@ export default function MusicHomeScreen() {
         <AppScreen>
             <YStack flex={1} paddingTop={8} position="relative">
                 <FlatList
-                    data={isLoading || error ? [] : tracks}
+                    data={isLoading ? [] : tracks}
                     keyExtractor={(item, index) =>
                         item.sourceUri ?? `${item.title}-${index}`
                     }
