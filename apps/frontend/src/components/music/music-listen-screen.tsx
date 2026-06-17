@@ -55,11 +55,9 @@ const PlaybackSlider = React.memo(
 
         // Спрацьовує при кожному русі пальця
         const handleValueChange = useCallback((values: number[]) => {
-            if (values[0] !== undefined) {
-                // Вмикаємо режим "ігнорування плеєра" і фіксуємо координату пальця
-                setIsSliding(true);
-                setSlidingValue(values[0]);
-            }
+            // Вмикаємо режим "ігнорування плеєра" і фіксуємо координату пальця
+            setIsSliding(true);
+            setSlidingValue(values[0]);
         }, []);
 
         // Спрацьовує ТІЛЬКИ коли відпустили палець

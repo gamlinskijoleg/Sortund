@@ -1,45 +1,25 @@
 import { useTheme } from "tamagui";
 
-export type AppTheme = {
-    background: string;
-    surface: string;
-    surfaceStrong: string;
-    text: string;
-    textMuted: string;
-    textSubtle: string;
-    border: string;
-    accent: string;
-    accentSoft: string;
-    accentStrong: string;
-    inverseText: string;
-    inverseTextMuted: string;
-    shadow: string;
-};
-
-function readThemeValue(
-    theme: Record<string, { val?: string } | undefined>,
-    key: string,
-    fallback: string
-) {
-    return theme[key]?.val ?? fallback;
-}
-
-export function useAppTheme(): AppTheme {
+export function useAppTheme() {
     const theme = useTheme();
 
     return {
-        background: readThemeValue(theme, "background", "#ffffff"),
-        surface: readThemeValue(theme, "backgroundHover", "#f4f4f4"),
-        surfaceStrong: readThemeValue(theme, "backgroundPress", "#ededed"),
-        text: readThemeValue(theme, "color", "#111111"),
-        textMuted: readThemeValue(theme, "colorHover", "#6f6f6f"),
-        textSubtle: readThemeValue(theme, "colorPress", "#8f8f8f"),
-        border: readThemeValue(theme, "borderColor", "#d2d2d2"),
-        accent: readThemeValue(theme, "CUSTOM", "#ad748d"),
-        accentSoft: readThemeValue(theme, "CUSTOM", "#d9e6eb"),
-        accentStrong: readThemeValue(theme, "CUSTOM", "#2f7bb4"),
-        inverseText: readThemeValue(theme, "background", "#ffffff"),
-        inverseTextMuted: readThemeValue(theme, "CUSTOM", "#ffffff99"),
-        shadow: readThemeValue(theme, "shadowColor", "rgba(0,0,0,0.12)"),
+        background: theme.background.val,
+        surface: theme.backgroundHover.val,
+        surfaceStrong: theme.backgroundPress.val,
+        text: theme.color.val,
+        textMuted: theme.colorHover.val,
+        textSubtle: theme.colorPress.val,
+        border: theme.borderColor.val,
+
+        accent: theme.brandPink.val,
+        accentSoft: theme.brandSoft.val,
+        accentStrong: theme.brandBlue.val,
+
+        inverseText: theme.background.val,
+        inverseTextMuted: "$brandPink",
+        shadow: theme.shadowColor.val,
     };
 }
+
+export type AppTheme = ReturnType<typeof useAppTheme>;
