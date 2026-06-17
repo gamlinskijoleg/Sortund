@@ -272,26 +272,19 @@ export async function syncMusicLibrary(
     }
 }
 
-export function useMusicLibrary(limit = 20) {
-    const {
-        libraryTracks,
-        setLibraryTracks,
-        setLibraryLoading,
-        hasSynced,
-        setHasSynced,
-    } = usePlayerStore();
-
+export function useMusicLibrary(limit = 6) {
     useEffect(() => {
         let isActive = true;
         let syncTimeout: NodeJS.Timeout;
 
         async function initAndSync() {
-            if (hasSynced) return;
+            const store = usePlayerStore.getState();
+            if (store.hasSynced) return;
 
             // Запобігаємо повторному запуску в межах сесії
-            setHasSynced(true);
+            store.setHasSynced(true);
 
-            let cached = usePlayerStore.getState().libraryTracks;
+            let cached = store.libraryTracks;
 
             try {
                 if (cached.length === 0) {
@@ -301,9 +294,9 @@ export function useMusicLibrary(limit = 20) {
                     // 2. Миттєво беремо локальний кеш з SQLite
                     cached = getCachedTracks();
                     if (isActive) {
-                        setLibraryTracks(cached);
+                        store.setLibraryTracks(cached);
                         if (cached.length > 0) {
-                            setLibraryLoading(false);
+                            store.setLibraryLoading(false);
                         }
                     }
                 }
@@ -318,9 +311,8 @@ export function useMusicLibrary(limit = 20) {
                                 if (!isActive) return;
 
                                 // Оновлюємо глобальний стан
-                                const currentTracks =
-                                    usePlayerStore.getState().libraryTracks;
-                                let next = [...currentTracks];
+                                const currentStore = usePlayerStore.getState();
+                                let next = [...currentStore.libraryTracks];
 
                                 // Remove deleted
                                 if (deletedIds.length > 0) {
@@ -355,8 +347,8 @@ export function useMusicLibrary(limit = 20) {
                                     next = [...next, ...purelyNew];
                                 }
 
-                                setLibraryTracks(next);
-                                setLibraryLoading(false);
+                                currentStore.setLibraryTracks(next);
+                                currentStore.setLibraryLoading(false);
                             }
                         );
                     } catch (syncError) {
@@ -365,13 +357,14 @@ export function useMusicLibrary(limit = 20) {
                             syncError
                         );
                     } finally {
-                        if (isActive) setLibraryLoading(false);
+                        if (isActive)
+                            usePlayerStore.getState().setLibraryLoading(false);
                     }
                 }, 500); // 500ms delay debounce
             } catch (err) {
                 log.error("Помилка ініціалізації бази треків:", err);
                 if (isActive) {
-                    setLibraryLoading(false);
+                    usePlayerStore.getState().setLibraryLoading(false);
                 }
             }
         }
@@ -381,9 +374,9 @@ export function useMusicLibrary(limit = 20) {
         const sub = DeviceEventEmitter.addListener(
             "track_updated",
             (updatedTrack: Partial<MusicTrack> & { assetId: string }) => {
-                const currentTracks = usePlayerStore.getState().libraryTracks;
-                setLibraryTracks(
-                    currentTracks.map((t) =>
+                const currentStore = usePlayerStore.getState();
+                currentStore.setLibraryTracks(
+                    currentStore.libraryTracks.map((t) =>
                         t.assetId === updatedTrack.assetId
                             ? { ...t, ...updatedTrack }
                             : t
