@@ -1,23 +1,33 @@
-import React, { useState, useCallback } from "react";
+import React, { useState } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { YStack, XStack, Text, Image, Button, View, Slider } from "tamagui";
+import { YStack, XStack, Text, Image, Button, View } from "tamagui";
 
 import { AppScreen } from "../app-screen";
 import { getPlayerInstance, togglePlayback } from "../../player/music-player";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { AppTheme, useAppTheme } from "@/theme/app-theme";
 import { AudioPlayer, useAudioPlayerStatus } from "expo-audio";
+import Animated, {
+    useAnimatedStyle,
+    useSharedValue,
+} from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import { runOnJS } from "react-native-worklets";
 
 function formatTime(milliseconds: number) {
     const safeSeconds = Math.max(0, Math.floor(milliseconds / 1000));
     const minutes = Math.floor(safeSeconds / 60);
     const hours = Math.floor(minutes / 60);
     const remainder = safeSeconds % 60;
+
+    const formattedMins = String(minutes % 60).padStart(2, "0");
+    const formattedSecs = String(remainder).padStart(2, "0");
+
     if (hours > 0) {
-        return `${hours}:${String(minutes % 60).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
+        return `${hours}:${formattedMins}:${formattedSecs}`;
     }
-    return `${String(minutes % 60).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
+    return `${formattedMins}:${formattedSecs}`;
 }
 
 interface SliderProps {
@@ -26,72 +36,86 @@ interface SliderProps {
     theme: AppTheme;
 }
 
-// Isolated tracker component for maximum smoothness (60+ FPS)
 const PlaybackSlider = React.memo(
     ({ player, fallbackDuration, theme }: SliderProps) => {
         const { currentTime, duration } = useAudioPlayerStatus(player);
 
-        // Local state for finger tracking
-        const [isSliding, setIsSliding] = useState(false);
-        const [slidingValue, setSlidingValue] = useState(0);
-
         const playedMs = currentTime ? currentTime * 1000 : 0;
         const totalMs = duration > 0 ? duration * 1000 : fallbackDuration;
 
-        // Real track progress from player
-        const currentProgressPercent =
-            totalMs > 0 ? (playedMs / totalMs) * 100 : 0;
+        // 1. UI-Thread values for the 60fps gesture
+        const width = useSharedValue(0);
+        const progressMs = useSharedValue(0);
+        const isSliding = useSharedValue(false);
 
-        // FLICKER FIX: Show EITHER finger value OR player progress
-        const activeProgress = isSliding
-            ? slidingValue
-            : currentProgressPercent;
+        // 2. JS-Thread state specifically to override text ONLY when dragging
+        const [slidingTimeMs, setSlidingTimeMs] = useState<number | null>(null);
 
-        // Determine time for counter
-        const displayPlayedMs = isSliding
-            ? (slidingValue / 100) * totalMs
-            : playedMs;
+        const updateSlidingTime = (newTimeMs: number) => {
+            setSlidingTimeMs(newTimeMs);
+        };
 
-        // Triggers on every finger movement
-        const handleValueChange = useCallback((values: number[]) => {
-            // Turn on "ignore player" mode and fix finger coordinate
-            setIsSliding(true);
-            setSlidingValue(values[0]);
-        }, []);
+        const finalizeSeek = (newTimeMs: number) => {
+            player.seekTo(newTimeMs / 1000);
 
-        // Triggers ONLY when finger is released
-        const handleSlidingComplete = useCallback(
-            (event: any, value: number) => {
-                if (totalMs <= 0 || value === undefined) {
-                    setIsSliding(false);
-                    return;
-                }
+            // Delay the "release" of the slider to ensure the player has time to update its currentTime and avoid janky jumps
+            setTimeout(() => {
+                isSliding.value = false;
+                setSlidingTimeMs(null);
+            }, 100);
+        };
 
-                const newPositionSec = (value / 100) * (totalMs / 1000);
+        const gesture = Gesture.Pan()
+            .minDistance(0)
+            .onBegin((e) => {
+                isSliding.value = true;
+                const percent = Math.max(0, Math.min(e.x / width.value, 1));
+                const newTimeMs = percent * totalMs;
 
-                if (player && typeof player.seekTo === "function") {
-                    player.seekTo(newPositionSec);
-                }
+                progressMs.value = newTimeMs;
+                runOnJS(updateSlidingTime)(newTimeMs);
+            })
+            .onUpdate((e) => {
+                const percent = Math.max(0, Math.min(e.x / width.value, 1));
+                const newTimeMs = percent * totalMs;
 
-                // Small hack: leave local finger value active for another 100ms,
-                // so the player has time to seek and does not return the old time for one frame
-                setTimeout(() => {
-                    setIsSliding(false);
-                }, 1);
-            },
-            [player, totalMs]
-        );
+                progressMs.value = newTimeMs;
+                runOnJS(updateSlidingTime)(newTimeMs);
+            })
+            .onFinalize(() => {
+                // Whether it was a long drag or a quick tap, progressMs.value
+                // holds the exact right coordinate. Just seek to it!
+                runOnJS(finalizeSeek)(progressMs.value);
+            });
+
+        // 4. Dynamically pick whether to animate based on the gesture OR real time
+        const animatedStyle = useAnimatedStyle(() => {
+            const activeTimeMs = isSliding.value ? progressMs.value : playedMs;
+            // Avoid division by zero
+            const percent = totalMs > 0 ? (activeTimeMs / totalMs) * 100 : 0;
+
+            return {
+                width: `${percent}%`,
+            };
+        });
+
+        // 5. Pick the text time
+        const displayTimeMs = slidingTimeMs !== null ? slidingTimeMs : playedMs;
 
         return (
             <YStack marginBottom={20}>
-                {/* Track time */}
+                {/* Track Time Text */}
                 <XStack justifyContent="space-between" marginBottom={8}>
                     <Text
-                        color={isSliding ? theme.accent : theme.textMuted}
+                        color={
+                            slidingTimeMs !== null
+                                ? theme.accent
+                                : theme.textMuted
+                        }
                         fontSize={13}
                         fontWeight="600"
                     >
-                        {formatTime(displayPlayedMs)}
+                        {formatTime(displayTimeMs)}
                     </Text>
                     <Text
                         color={theme.textMuted}
@@ -102,61 +126,72 @@ const PlaybackSlider = React.memo(
                     </Text>
                 </XStack>
 
-                <View height={20} justifyContent="center">
-                    {/* 1. BACKGROUND PHANTOM TRACK */}
-                    {isSliding && (
-                        <View
-                            position="absolute"
-                            left={0}
-                            right={0}
-                            height={8}
-                            borderRadius={999}
-                            backgroundColor="transparent"
-                            pointerEvents="none"
-                            zIndex={1}
-                        >
-                            <View
-                                width={`${slidingValue}%`}
-                                height="100%"
-                                backgroundColor={theme.accent}
-                                borderRadius={999}
-                                opacity={0.3}
-                            />
-                        </View>
-                    )}
-
-                    {/* 2. MAIN SLIDER */}
-                    <Slider
-                        value={[activeProgress]} // Using flicker-free value
-                        onValueChange={handleValueChange}
-                        onSlideEnd={handleSlidingComplete}
-                        max={100}
-                        step={0.5}
+                {/* Reanimated Custom Slider Track */}
+                <GestureDetector gesture={gesture}>
+                    <View
+                        onLayout={(e) => {
+                            width.value = e.nativeEvent.layout.width;
+                        }}
+                        height={24}
+                        justifyContent="center"
                         width="100%"
-                        size="$2"
                     >
-                        <Slider.Track
-                            backgroundColor={theme.surfaceStrong}
+                        {/* Background Track */}
+                        <View
                             height={8}
+                            width="100%"
+                            backgroundColor={theme.surfaceStrong}
                             borderRadius={999}
-                        >
-                            <Slider.TrackActive
-                                backgroundColor={
-                                    isSliding ? theme.textMuted : theme.accent
-                                }
-                            />
-                        </Slider.Track>
-                        <Slider.Thumb
-                            index={0}
-                            circular
-                            size={16}
-                            backgroundColor={theme.accent}
-                            elevate
-                            borderColor={theme.background}
-                            borderWidth={2}
                         />
-                    </Slider>
-                </View>
+
+                        {/* Active Track */}
+                        <Animated.View
+                            style={[
+                                {
+                                    position: "absolute",
+                                    height: 8,
+                                    borderRadius: 999,
+                                    backgroundColor: theme.accent,
+                                },
+                                animatedStyle,
+                            ]}
+                        />
+
+                        {/* Thumb / Marker */}
+                        <Animated.View
+                            style={[
+                                {
+                                    position: "absolute",
+                                    width: 16,
+                                    height: 16,
+                                    borderRadius: 8,
+                                    backgroundColor: theme.accent,
+                                    borderWidth: 2,
+                                    borderColor: theme.background,
+                                    elevation: 2,
+                                    shadowColor: "#000",
+                                    shadowOffset: { width: 0, height: 1 },
+                                    shadowOpacity: 0.2,
+                                    shadowRadius: 1.41,
+                                    // Offset the thumb so its center aligns with the end of the active track
+                                    transform: [{ translateX: -8 }],
+                                    // Anchor to the left side
+                                },
+                                // We map the width percentage to the left position of the thumb
+                                useAnimatedStyle(() => {
+                                    const activeTimeMs = isSliding.value
+                                        ? progressMs.value
+                                        : playedMs;
+                                    const percent =
+                                        totalMs > 0
+                                            ? (activeTimeMs / totalMs) * 100
+                                            : 0;
+                                    return { left: `${percent}%` };
+                                }),
+                            ]}
+                        />
+                    </View>
+                </GestureDetector>
             </YStack>
         );
     }
@@ -377,7 +412,7 @@ export default function MusicListenScreen() {
                     </Text>
                 </YStack>
 
-                {/* FIXED: Here goes a 100% solid player instance */}
+                {/* 100% Solid Custom Reanimated Player */}
                 <PlaybackSlider
                     player={player}
                     fallbackDuration={activeTrack.duration || 0}
