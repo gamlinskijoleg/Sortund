@@ -321,8 +321,6 @@ export function getPlayerInstance(): AudioPlayer | null {
 }
 
 export async function initPlayer() {
-    await configureAudioMode();
-
     let activePlayer = usePlayerStore.getState().playerInstance;
     if (!activePlayer) {
         log.debug("⚙️ Player: Pre-initializing global audio player...");

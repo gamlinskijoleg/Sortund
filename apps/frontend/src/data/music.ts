@@ -267,7 +267,7 @@ export async function syncMusicLibrary(
     }
 }
 
-export function useMusicLibrary(limit = 50) {
+export function useMusicLibrary(limit = Infinity) {
     useEffect(() => {
         let isActive = true;
         let syncTimeout: NodeJS.Timeout;

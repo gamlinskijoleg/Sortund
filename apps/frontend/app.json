@@ -27,8 +27,7 @@
             [
                 "expo-media-control",
                 {
-                    "enableBackgroundAudio": true,
-                    "notificationIcon": "./assets/icon.png"
+                    "enableBackgroundAudio": true
                 }
             ],
             "expo-router",
