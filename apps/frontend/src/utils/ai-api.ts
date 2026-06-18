@@ -40,7 +40,13 @@ export async function analyzeTrackAPI(
     if (sourceUri.toLowerCase().endsWith(".mp3")) {
         try {
             log.debug(`Attempting fast byte-slicing for MP3...`);
-            const targetUri = `${cacheDirectory}sliced_${Date.now()}.mp3`;
+            const originalFilename =
+                sourceUri.split("/").pop() || `sliced_${Date.now()}.mp3`;
+            const tempDir = `${cacheDirectory}sliced_${Date.now()}/`;
+            await makeDirectoryAsync(tempDir, { intermediates: true }).catch(
+                () => {}
+            );
+            const targetUri = `${tempDir}${originalFilename}`;
             const chunk = await readAsStringAsync(sourceUri, {
                 encoding: "base64",
                 position: 0,
@@ -66,7 +72,8 @@ export async function analyzeTrackAPI(
     });
 
     if (isTrimmed) {
-        await deleteAsync(finalUri, { idempotent: true }).catch(() => {});
+        const tempDir = finalUri.substring(0, finalUri.lastIndexOf("/") + 1);
+        await deleteAsync(tempDir, { idempotent: true }).catch(() => {});
     }
 
     if (response.status !== 200) {
