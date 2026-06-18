@@ -48,6 +48,7 @@ jobs:
                       docker rm ai-worker || true
                       docker run -d \
                       --name ai-worker \
+                      --pull always \
                       -p 8000:8000 \
                       -e HUGGING_FACE_HUB_TOKEN="${{ secrets.HF_TOKEN }}" \
                       --restart unless-stopped \
