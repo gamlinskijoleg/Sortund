@@ -119,7 +119,7 @@ export async function playTrack(track: MusicTrack) {
             log.debug("Player: Creating player instance on-demand (fallback)");
             activePlayer = createAudioPlayer(
                 { uri: playerUri },
-                { updateInterval: 500 }
+                { updateInterval: 250 }
             );
             usePlayerStore.getState().setPlayerInstance(activePlayer);
             setupNotificationListeners();
@@ -324,7 +324,7 @@ export async function initPlayer() {
     let activePlayer = usePlayerStore.getState().playerInstance;
     if (!activePlayer) {
         log.debug("⚙️ Player: Pre-initializing global audio player...");
-        activePlayer = createAudioPlayer({ uri: "" }, { updateInterval: 1000 });
+        activePlayer = createAudioPlayer({ uri: "" }, { updateInterval: 250 });
         usePlayerStore.getState().setPlayerInstance(activePlayer);
         setupNotificationListeners();
         setupPlaybackStatusListener(activePlayer);

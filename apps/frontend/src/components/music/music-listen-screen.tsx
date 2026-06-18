@@ -11,6 +11,8 @@ import { AudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import Animated, {
     useAnimatedStyle,
     useSharedValue,
+    withTiming,
+    Easing,
 } from "react-native-reanimated";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-worklets";
@@ -95,7 +97,11 @@ const PlaybackSlider = React.memo(
             const percent = totalMs > 0 ? (activeTimeMs / totalMs) * 100 : 0;
 
             return {
-                width: `${percent}%`,
+                // Smooth linear transition during playback, instant movement while dragging
+                width: withTiming(`${percent}%`, {
+                    duration: 100,
+                    easing: Easing.linear,
+                }),
             };
         });
 
@@ -177,7 +183,7 @@ const PlaybackSlider = React.memo(
                                     transform: [{ translateX: -8 }],
                                     // Anchor to the left side
                                 },
-                                // We map the width percentage to the left position of the thumb
+                                // Update this animated style to match the track's timing
                                 useAnimatedStyle(() => {
                                     const activeTimeMs = isSliding.value
                                         ? progressMs.value
@@ -186,7 +192,13 @@ const PlaybackSlider = React.memo(
                                         totalMs > 0
                                             ? (activeTimeMs / totalMs) * 100
                                             : 0;
-                                    return { left: `${percent}%` };
+
+                                    return {
+                                        left: withTiming(`${percent}%`, {
+                                            duration: 100,
+                                            easing: Easing.linear,
+                                        }),
+                                    };
                                 }),
                             ]}
                         />
