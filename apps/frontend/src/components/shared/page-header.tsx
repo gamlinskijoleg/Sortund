@@ -24,7 +24,7 @@ export function PageHeader({
                     {showBackButton && (
                         <XStack
                             pressStyle={{ opacity: 0.7 }}
-                            onPress={() => router.back()}
+                            onPress={router.back}
                         >
                             <MaterialCommunityIcons
                                 name="chevron-left"

@@ -40,10 +40,7 @@ export default function SearchScreen() {
                 position="relative"
             >
                 <XStack alignItems="center" marginBottom={16} gap={12}>
-                    <XStack
-                        pressStyle={{ opacity: 0.7 }}
-                        onPress={() => router.back()}
-                    >
+                    <XStack pressStyle={{ opacity: 0.7 }} onPress={router.back}>
                         <MaterialCommunityIcons
                             name="chevron-left"
                             size={30}

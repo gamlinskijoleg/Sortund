@@ -36,8 +36,7 @@ const PlaybackSlider = React.memo(
         const [slidingValue, setSlidingValue] = useState(0);
 
         const playedMs = currentTime ? currentTime * 1000 : 0;
-        const totalMs =
-            duration && duration > 0 ? duration * 1000 : fallbackDuration;
+        const totalMs = duration > 0 ? duration * 1000 : fallbackDuration;
 
         // Real track progress from player
         const currentProgressPercent =
@@ -175,7 +174,7 @@ const PlayPauseButton = ({
     const { playing } = useAudioPlayerStatus(player);
     return (
         <Button
-            onPress={() => togglePlayback()}
+            onPress={togglePlayback}
             width={84}
             height={84}
             borderRadius={42}
@@ -201,9 +200,10 @@ export default function MusicListenScreen() {
     const theme = useAppTheme();
     const player = getPlayerInstance();
     const activeTrack = usePlayerStore((state) => state.activeTrack);
-    const { playNext, playPrevious } = usePlayerStore();
 
-    // FIXED: If there is no track OR the player is not yet created in initPlayer
+    const playNext = usePlayerStore((state) => state.playNext);
+    const playPrevious = usePlayerStore((state) => state.playPrevious);
+
     if (!activeTrack || !player) {
         return (
             <AppScreen backgroundColor={theme.background} statusBarStyle="dark">
@@ -232,7 +232,7 @@ export default function MusicListenScreen() {
                     marginBottom={20}
                 >
                     <Button
-                        onPress={() => router.back()}
+                        onPress={router.back}
                         width={42}
                         height={42}
                         borderRadius={21}
@@ -307,7 +307,7 @@ export default function MusicListenScreen() {
                         width={280}
                         height={280}
                         borderRadius={140}
-                        backgroundColor={activeTrack.color || theme.accentSoft}
+                        backgroundColor={activeTrack.color}
                         opacity={0.2}
                         transform={[{ scale: 1.2 }]}
                         style={{ filter: "blur(40px)" }}
@@ -317,9 +317,7 @@ export default function MusicListenScreen() {
                         width={254}
                         height={254}
                         borderRadius={42}
-                        backgroundColor={
-                            activeTrack.color || theme.surfaceStrong
-                        }
+                        backgroundColor={activeTrack.color}
                         justifyContent="center"
                         alignItems="center"
                         overflow="hidden"
