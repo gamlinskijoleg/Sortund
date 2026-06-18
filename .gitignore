@@ -42,3 +42,4 @@ yarn-error.log*
 *.pem
 __pycache__/
 *.pyc
+temp/*

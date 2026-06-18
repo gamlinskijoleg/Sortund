@@ -21,6 +21,12 @@ def clean_youtube_trash(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def is_cover_track(filename: str) -> bool:
+    """Checks if the filename implies the track is a cover."""
+    name_without_ext = os.path.splitext(filename)[0]
+    return bool(re.search(r"\b(cover|кавер)\b", name_without_ext, flags=re.IGNORECASE))
+
+
 def parse_filename_fallback(filename: str) -> Tuple[str, str]:
     """Local filename parser with enhanced processing for covers and hieroglyphs"""
     name_without_ext = os.path.splitext(filename)[0]

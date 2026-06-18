@@ -20,6 +20,7 @@ from app.core.utils import (
     parse_filename_fallback,
     get_epoch_tag_by_year,
     extract_year_from_filename,
+    is_cover_track,
 )
 from app.services.shazam import recognize_via_shazam_local
 from app.services.youtube import fetch_and_validate_youtube_metadata, YTMetadata
@@ -89,7 +90,12 @@ async def get_base_metadata(
     temp_file_path: str, original_filename: str
 ) -> Tuple[str, str, str, YTMetadata, Optional[str], Optional[str]]:
     """Determines base metadata (Artist, Title) from Shazam or local parser."""
-    shazam_match = await recognize_via_shazam_local(temp_file_path)
+    is_cover = is_cover_track(original_filename)
+    
+    shazam_match = None
+    if not is_cover:
+        shazam_match = await recognize_via_shazam_local(temp_file_path)
+        
     artwork = None
     isrc = None
 

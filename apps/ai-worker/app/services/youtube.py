@@ -30,10 +30,32 @@ async def fetch_and_validate_youtube_metadata(
     }
 
     try:
-        search_query = f"{artist} - {title}" if artist != "Unknown Artist" else title
-        yt_search = await asyncio.to_thread(
-            yt_music_client.search, search_query, filter="songs"
+        fn_lower = original_filename.lower()
+        is_cover_or_local = any(
+            m in fn_lower
+            for m in [
+                "cover",
+                "українською",
+                "ukrainian",
+                "ukr",
+                "ua",
+                "шмальцгаузен",
+                "schmalgauzen",
+            ]
         )
+
+        if is_cover_or_local:
+            search_query = original_filename.rsplit('.', 1)[0].replace('_', ' ')
+            logger.info(f"🔍 Searching YouTube Music specifically for cover/local track: '{search_query}'")
+            # Covers are often "videos", not official "songs", so we search everything
+            yt_search = await asyncio.to_thread(
+                yt_music_client.search, search_query
+            )
+        else:
+            search_query = f"{artist} - {title}" if artist != "Unknown Artist" else title
+            yt_search = await asyncio.to_thread(
+                yt_music_client.search, search_query, filter="songs"
+            )
 
         if yt_search:
             top_hit = yt_search[0]
@@ -42,22 +64,6 @@ async def fetch_and_validate_youtube_metadata(
                 top_hit["artists"][0].get("name", "")
                 if top_hit.get("artists")
                 else "Unknown Artist"
-            )
-
-            # --- 🛡️ STRICT UNDERGROUND PROTECTION (Schmalgauzen Case) ---
-            # Check if the original file has markers of specific local tracks
-            fn_lower = original_filename.lower()
-            is_special_local = any(
-                m in fn_lower
-                for m in [
-                    "cover",
-                    "українською",
-                    "ukrainian",
-                    "ukr",
-                    "ua",
-                    "шмальцгаузен",
-                    "schmalgauzen",
-                ]
             )
 
             # Title similarity calculation (Fuzzy Matching)
@@ -69,23 +75,13 @@ async def fetch_and_validate_youtube_metadata(
                 source_analysis == "Filename Local Parser"
                 and artist == "Unknown Artist"
             ):
-                # If search engine found a completely different artist for an ultra-short query (e.g. "unochi")
-                # and title has cover/indie markers, or weak title match — BLOCK artist auto-replacement!
-                if (
-                    is_special_local
-                    and found_artist.lower() != "schmalgauzen"
-                    and found_artist.lower() != "shmalgauzen"
-                ):
-                    logger.info(
-                        f"🛡️ Validator blocked auto-replacement for '{title}': found pop track by {found_artist}"
-                    )
-                    # Keep original parser data, not allowing pop music
-                elif len(title) <= 5 and similarity < 0.9:
+                if len(title) <= 5 and similarity < 0.9:
                     logger.info(
                         f"🛡️ Query too short ({title}), low match. YouTube result ignored."
                     )
                 else:
                     # Safe metadata import
+                    logger.info(f"✅ Auto-replacing with YouTube Music metadata for '{title}'")
                     enrichment["title"] = found_title
                     enrichment["artist"] = found_artist
                     enrichment["source"] = "YouTube Music Search Engine"
