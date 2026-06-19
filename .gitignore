@@ -43,3 +43,5 @@ yarn-error.log*
 __pycache__/
 *.pyc
 temp/*
+*.apk
+assembleRelease.sh
