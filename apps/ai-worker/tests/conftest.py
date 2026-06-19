@@ -13,21 +13,14 @@ def client():
 
 
 @pytest.fixture(autouse=True)
-def mock_onnx_models(
-    monkeypatch,
-):
+def mock_onnx_models(monkeypatch):
     """Mocks ONNX model loading to prevent slow tests."""
     # Since load_onnx_models might be called, we patch it
-    monkeypatch.setattr(
-        "app.ml.models.load_onnx_models",
-        lambda: None,
-    )
+    monkeypatch.setattr("app.ml.models.load_onnx_models", lambda: None)
 
 
 @pytest.fixture
-def mock_shazam_client(
-    mocker,
-):
+def mock_shazam_client(mocker):
     """Mocks the Shazam client."""
     mock = mocker.patch("app.services.shazam.Shazam")
     mock_instance = mock.return_value

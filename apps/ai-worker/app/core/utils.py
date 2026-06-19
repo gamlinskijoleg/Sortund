@@ -60,9 +60,7 @@ EMOJI_PATTERN = re.compile(
 )
 
 
-def clean_trash_name_from_youtube(
-    text: str,
-) -> str:
+def clean_trash_name_from_youtube(text: str) -> str:
     """
     Production-safe cleaner for media filenames.
     - Normalizes separators to standard spacing.
@@ -73,56 +71,29 @@ def clean_trash_name_from_youtube(
         return ""
 
     # Strip emojis and unicode trash
-    text = EMOJI_PATTERN.sub(
-        "",
-        text,
-    )
+    text = EMOJI_PATTERN.sub("", text)
 
     # Normalize internal separators early
-    text = re.sub(
-        r"_+-_+",
-        " - ",
-        text,
-    )
-    text = re.sub(
-        r"_+",
-        " ",
-        text,
-    )
+    text = re.sub(r"_+-_+", " - ", text)
+    text = re.sub(r"_+", " ", text)
 
     # Strip metadata
-    text = METADATA_RE.sub(
-        "",
-        text,
-    )
+    text = METADATA_RE.sub("", text)
 
     # Trim leading/trailing garbage
-    text = TRIM_RE.sub(
-        "",
-        text,
-    )
+    text = TRIM_RE.sub("", text)
 
     # Normalize remaining whitespace and return
-    return WHITESPACE_RE.sub(
-        " ",
-        text,
-    ).strip()
+    return WHITESPACE_RE.sub(" ", text).strip()
 
 
-def is_cover_track(
-    filename: str,
-) -> bool:
+def is_cover_track(filename: str) -> bool:
     """Checks if the filename implies the track is a cover."""
     name_without_ext = os.path.splitext(filename)[0]
     return bool(COVER_PATTERN.search(name_without_ext))
 
 
-def parse_filename_fallback(
-    filename: str,
-) -> Tuple[
-    str,
-    str,
-]:
+def parse_filename_fallback(filename: str) -> Tuple[str, str]:
     """Local filename parser with enhanced processing for covers and hieroglyphs"""
     name_without_ext = os.path.splitext(filename)[0]
     name_cleaned = clean_trash_name_from_youtube(name_without_ext)
@@ -132,14 +103,8 @@ def parse_filename_fallback(
     if cover_match:
         potential_title = cover_match.group(1).strip()
         potential_artist = cover_match.group(2).strip()
-        potential_artist = OST_PATTERN.sub(
-            "",
-            potential_artist,
-        ).strip()
-        return (
-            (potential_artist if potential_artist else "Unknown Artist"),
-            potential_title,
-        )
+        potential_artist = OST_PATTERN.sub("", potential_artist).strip()
+        return ((potential_artist if potential_artist else "Unknown Artist"), potential_title)
 
     # 2. Processing Japanese/round brackets ONLY AT THE VERY BEGINNING of the string (e.g. 【Ado】MIRROR)
     if BRACKET_START_PATTERN.match(name_cleaned):
@@ -148,14 +113,8 @@ def parse_filename_fallback(
             potential_artist = brackets_match.group(1).strip()
             potential_title = brackets_match.group(2).strip()
             if potential_title:
-                potential_title = STRIP_START_PATTERN.sub(
-                    "",
-                    potential_title,
-                ).strip()
-                return (
-                    potential_artist,
-                    potential_title,
-                )
+                potential_title = STRIP_START_PATTERN.sub("", potential_title).strip()
+                return (potential_artist, potential_title)
 
     # 3. Strict separator rule
     for separator in [
@@ -165,32 +124,18 @@ def parse_filename_fallback(
         " ｜ ",
     ]:
         if separator in name_cleaned:
-            parts = name_cleaned.split(
-                separator,
-                1,
-            )
+            parts = name_cleaned.split(separator, 1)
             artist_part = parts[0].strip()
             title_part = parts[1].strip()
             if artist_part and title_part:
-                return (
-                    artist_part,
-                    title_part,
-                )
+                return (artist_part, title_part)
 
     # 4. If nothing matches - return the name as Title
-    name_cleaned = STRIP_END_PATTERN.sub(
-        "",
-        name_cleaned,
-    ).strip()
-    return (
-        "Unknown Artist",
-        (name_cleaned if name_cleaned else "Unknown Title"),
-    )
+    name_cleaned = STRIP_END_PATTERN.sub("", name_cleaned).strip()
+    return ("Unknown Artist", (name_cleaned if name_cleaned else "Unknown Title"))
 
 
-def extract_year_from_filename(
-    filename: str,
-) -> int | None:
+def extract_year_from_filename(filename: str) -> int | None:
     """Extracts the year from the filename (1900-2099) as Fallback."""
     match = YEAR_PATTERN.search(filename)
     if match:
@@ -198,9 +143,7 @@ def extract_year_from_filename(
     return None
 
 
-def get_epoch_tag_by_year(
-    year: int,
-) -> str:
+def get_epoch_tag_by_year(year: int) -> str:
     """Determines the epoch (e.g. '80s', 'Early 2000s') by release year."""
     if year < 1900:
         return "really really REALLY old"
@@ -219,10 +162,7 @@ def get_epoch_tag_by_year(
     }
 
     last_digit = year % 10
-    period = human_periods.get(
-        last_digit,
-        "Mid",
-    )
+    period = human_periods.get(last_digit, "Mid")
 
     if year < 1950:
         return "Pre-1950s"

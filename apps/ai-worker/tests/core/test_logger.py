@@ -22,10 +22,7 @@ def test_setup_logging_exception_handling():
     logger.handlers = []
 
     # Mock sys.stdout.fileno to raise an Exception, triggering lines 22-23
-    with patch(
-        "sys.stdout.fileno",
-        side_effect=Exception("Mock Exception"),
-    ):
+    with patch("sys.stdout.fileno", side_effect=Exception("Mock Exception")):
         setup_logging()
 
     # Assert handlers were still added despite exception

@@ -14,9 +14,7 @@ musicbrainzngs.set_useragent(
 )
 
 
-async def fetch_release_year_from_musicbrainz_by_isrc(
-    isrc: str,
-) -> Optional[int]:
+async def fetch_release_year_from_musicbrainz_by_isrc(isrc: str) -> Optional[int]:
     """Searches for track release year by ISRC code via MusicBrainz API."""
     if not isrc:
         return None
@@ -34,34 +32,20 @@ async def fetch_release_year_from_musicbrainz_by_isrc(
                 break
             except musicbrainzngs.ResponseError as e:
                 try:
-                    if (
-                        hasattr(
-                            e,
-                            "cause",
-                        )
-                        and hasattr(
-                            e.cause,
-                            "code",
-                        )
-                        and e.cause.code == 404
-                    ):
+                    if hasattr(e, "cause") and hasattr(e.cause, "code") and e.cause.code == 404:
                         return None
                 except Exception:
                     pass
                 if attempt < max_retries - 1:
                     await asyncio.sleep(2)
                 else:
-                    logger.warning(
-                        f"⚠️ Final MusicBrainz ISRC failure after {max_retries} attempts: {e}"
-                    )
+                    logger.warning(f"⚠️ Final MusicBrainz ISRC failure after {max_retries} attempts: {e}")
                     return None
             except Exception as e:
                 if attempt < max_retries - 1:
                     await asyncio.sleep(2)
                 else:
-                    logger.warning(
-                        f"⚠️ Final MusicBrainz ISRC failure after {max_retries} attempts: {e}"
-                    )
+                    logger.warning(f"⚠️ Final MusicBrainz ISRC failure after {max_retries} attempts: {e}")
                     return None
 
         if not result or "isrc" not in result or "recording-list" not in result["isrc"]:
@@ -71,10 +55,7 @@ async def fetch_release_year_from_musicbrainz_by_isrc(
         best_year = None
 
         for recording in recordings:
-            releases = recording.get(
-                "release-list",
-                [],
-            )
+            releases = recording.get("release-list", [])
             for release in releases:
                 date = release.get("date")
                 if date:
@@ -90,10 +71,7 @@ async def fetch_release_year_from_musicbrainz_by_isrc(
         return None
 
 
-async def fetch_release_year_from_musicbrainz(
-    artist: str,
-    title: str,
-) -> Optional[int]:
+async def fetch_release_year_from_musicbrainz(artist: str, title: str) -> Optional[int]:
     """Searches for track release year using MusicBrainz API."""
     if artist == "Unknown Artist":
         return None
@@ -119,35 +97,21 @@ async def fetch_release_year_from_musicbrainz(
 
         for attempt in range(max_retries):
             try:
-                result = await asyncio.to_thread(
-                    musicbrainzngs.search_recordings,
-                    query=query,
-                    limit=50,
-                )
+                result = await asyncio.to_thread(musicbrainzngs.search_recordings, query=query, limit=50)
                 break
             except Exception as e:
                 if attempt < max_retries - 1:
-                    logger.warning(
-                        f"⚠️ MusicBrainz error (attempt {attempt+1}/{max_retries}): {e}. Retrying in 2s..."
-                    )
+                    logger.warning(f"⚠️ MusicBrainz error (attempt {attempt+1}/{max_retries}): {e}. Retrying in 2s...")
                     await asyncio.sleep(2)
                 else:
-                    logger.warning(
-                        f"⚠️ Final MusicBrainz failure after {max_retries} attempts: {e}"
-                    )
+                    logger.warning(f"⚠️ Final MusicBrainz failure after {max_retries} attempts: {e}")
                     return None
 
-        recordings = result.get(
-            "recording-list",
-            [],
-        )
+        recordings = result.get("recording-list", [])
         best_year = None
 
         for recording in recordings:
-            releases = recording.get(
-                "release-list",
-                [],
-            )
+            releases = recording.get("release-list", [])
             for release in releases:
                 date = release.get("date")
                 if date:
@@ -160,9 +124,7 @@ async def fetch_release_year_from_musicbrainz(
                         continue
 
         if best_year:
-            logger.info(
-                f"🎵 MusicBrainz found release year {best_year} for {artist} - {clean_title}"
-            )
+            logger.info(f"🎵 MusicBrainz found release year {best_year} for {artist} - {clean_title}")
         return best_year
     except Exception as e:
         logger.warning(f"⚠️ MusicBrainz subsystem failure: {e}")

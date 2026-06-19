@@ -14,18 +14,9 @@ async def test_fetch_and_validate_youtube_metadata_success(
             "album": {"name": "Test Album"},
         }
     ]
-    mocker.patch(
-        "asyncio.to_thread",
-        new_callable=AsyncMock,
-        return_value=mock_search,
-    )
+    mocker.patch("asyncio.to_thread", new_callable=AsyncMock, return_value=mock_search)
 
-    result = await fetch_and_validate_youtube_metadata(
-        "Test Artist",
-        "Test Title",
-        "Local",
-        "artist - title.mp3",
-    )
+    result = await fetch_and_validate_youtube_metadata("Test Artist", "Test Title", "Local", "artist - title.mp3")
 
     assert result.title == "Test Title"
     assert result.artist == "Test Artist"
@@ -34,9 +25,7 @@ async def test_fetch_and_validate_youtube_metadata_success(
 
 
 @pytest.mark.asyncio
-async def test_fetch_and_validate_youtube_metadata_unknown_artist(
-    mocker,
-):
+async def test_fetch_and_validate_youtube_metadata_unknown_artist(mocker):
     mock_search = [
         {
             "title": "Real Title",
@@ -44,11 +33,7 @@ async def test_fetch_and_validate_youtube_metadata_unknown_artist(
             "album": {"name": "Real Album"},
         }
     ]
-    mocker.patch(
-        "asyncio.to_thread",
-        new_callable=AsyncMock,
-        return_value=mock_search,
-    )
+    mocker.patch("asyncio.to_thread", new_callable=AsyncMock, return_value=mock_search)
 
     result = await fetch_and_validate_youtube_metadata(
         "Unknown Artist",
@@ -64,21 +49,10 @@ async def test_fetch_and_validate_youtube_metadata_unknown_artist(
 
 
 @pytest.mark.asyncio
-async def test_fetch_and_validate_youtube_metadata_exception(
-    mocker,
-):
-    mocker.patch(
-        "asyncio.to_thread",
-        new_callable=AsyncMock,
-        side_effect=Exception("YT Error"),
-    )
+async def test_fetch_and_validate_youtube_metadata_exception(mocker):
+    mocker.patch("asyncio.to_thread", new_callable=AsyncMock, side_effect=Exception("YT Error"))
 
-    result = await fetch_and_validate_youtube_metadata(
-        "Artist",
-        "Title",
-        "Local",
-        "artist - title.mp3",
-    )
+    result = await fetch_and_validate_youtube_metadata("Artist", "Title", "Local", "artist - title.mp3")
 
     assert result.title == "Title"
     assert result.artist == "Artist"

@@ -1,11 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, patch
 
-from app.services.pipeline import (
-    format_zero_shot_text_tags,
-    parse_youtube_extra_info,
-    execute_analysis_pipeline,
-)
+from app.services.pipeline import format_zero_shot_text_tags, parse_youtube_extra_info, execute_analysis_pipeline
 from app.schemas.analysis import YTMetadata
 from app.core.constants import GENRE_LABELS
 
@@ -28,15 +24,8 @@ def test_format_zero_shot_text_tags():
 
 
 def test_parse_youtube_extra_info():
-    info = [
-        "Album: Test Album",
-        "Official Video",
-        "Remastered",
-    ]
-    (
-        album,
-        tags,
-    ) = parse_youtube_extra_info(info)
+    info = ["Album: Test Album", "Official Video", "Remastered"]
+    album, tags = parse_youtube_extra_info(info)
     assert album == "Test Album"
     assert tags == [
         "Official Video",
@@ -45,9 +34,7 @@ def test_parse_youtube_extra_info():
 
 
 @pytest.mark.asyncio
-async def test_execute_analysis_pipeline_with_shazam(
-    mocker,
-):
+async def test_execute_analysis_pipeline_with_shazam(mocker):
     # Mock all the background tasks and services
     mocker.patch(
         "app.services.pipeline.predict_audio_tags",
@@ -63,12 +50,7 @@ async def test_execute_analysis_pipeline_with_shazam(
     mocker.patch(
         "app.services.pipeline.recognize_via_shazam_local",
         new_callable=AsyncMock,
-        return_value=(
-            "Artist",
-            "Title",
-            "http://art",
-            "ISRC123",
-        ),
+        return_value=("Artist", "Title", "http://art", "ISRC123"),
     )
     mocker.patch(
         "app.services.pipeline.fetch_and_validate_youtube_metadata",
@@ -99,10 +81,7 @@ async def test_execute_analysis_pipeline_with_shazam(
         return_value=2020,
     )
 
-    result = await execute_analysis_pipeline(
-        "dummy/path",
-        "Artist - Title.mp3",
-    )
+    result = await execute_analysis_pipeline("dummy/path", "Artist - Title.mp3")
 
     assert result.artist == "Artist"
     assert result.title == "Title"
@@ -112,17 +91,12 @@ async def test_execute_analysis_pipeline_with_shazam(
 
 
 @pytest.mark.asyncio
-async def test_execute_analysis_pipeline_fallback(
-    mocker,
-):
+async def test_execute_analysis_pipeline_fallback(mocker):
     # Mock no shazam
     mocker.patch(
         "app.services.pipeline.predict_audio_tags",
         new_callable=AsyncMock,
-        return_value=(
-            ["Piano"],
-            None,
-        ),
+        return_value=(["Piano"], None),
     )
     mocker.patch(
         "app.services.pipeline.recognize_via_shazam_local",
@@ -139,26 +113,11 @@ async def test_execute_analysis_pipeline_fallback(
             extra_info=[],
         ),
     )
-    mocker.patch(
-        "app.services.pipeline.predict_text_zero_shot",
-        new_callable=AsyncMock,
-        return_value=[],
-    )
-    mocker.patch(
-        "app.services.pipeline.fetch_release_year_from_theaudiodb",
-        new_callable=AsyncMock,
-        return_value=None,
-    )
-    mocker.patch(
-        "app.services.pipeline.fetch_release_year_from_musicbrainz",
-        new_callable=AsyncMock,
-        return_value=None,
-    )
+    mocker.patch("app.services.pipeline.predict_text_zero_shot", new_callable=AsyncMock, return_value=[])
+    mocker.patch("app.services.pipeline.fetch_release_year_from_theaudiodb", new_callable=AsyncMock, return_value=None)
+    mocker.patch("app.services.pipeline.fetch_release_year_from_musicbrainz", new_callable=AsyncMock, return_value=None)
 
-    result = await execute_analysis_pipeline(
-        "dummy/path",
-        "Fallback Artist - Fallback Title.mp3",
-    )
+    result = await execute_analysis_pipeline("dummy/path", "Fallback Artist - Fallback Title.mp3")
 
     assert result.artist == "Fallback Artist"
     assert result.title == "Fallback Title"

@@ -27,18 +27,9 @@ def test_is_cover_track():
 
 def test_parse_filename_fallback():
     # Regular artist - title
-    assert parse_filename_fallback("Artist - Title.mp3") == (
-        "Artist",
-        "Title",
-    )
-    assert parse_filename_fallback("Artist – Title.mp3") == (
-        "Artist",
-        "Title",
-    )
-    assert parse_filename_fallback("Artist — Title.mp3") == (
-        "Artist",
-        "Title",
-    )
+    assert parse_filename_fallback("Artist - Title.mp3") == ("Artist", "Title")
+    assert parse_filename_fallback("Artist – Title.mp3") == ("Artist", "Title")
+    assert parse_filename_fallback("Artist — Title.mp3") == ("Artist", "Title")
 
     # Cover track that hits COVER_MATCH_PATTERN
     assert parse_filename_fallback("My Awesome Song cover by The Great Artist.mp3") == (
@@ -47,70 +38,31 @@ def test_parse_filename_fallback():
     )
 
     # Cover track where artist gets stripped by OST_PATTERN
-    assert parse_filename_fallback("Anime Theme cover by OST.mp3") == (
-        "Unknown Artist",
-        "Anime Theme",
-    )
+    assert parse_filename_fallback("Anime Theme cover by OST.mp3") == ("Unknown Artist", "Anime Theme")
 
     # Legacy tests that fall back to Unknown Artist due to METADATA_RE stripping "ukr cover"
-    assert parse_filename_fallback("Title ukr cover by Artist.mp3") == (
-        "Unknown Artist",
-        "Title by Artist",
-    )
+    assert parse_filename_fallback("Title ukr cover by Artist.mp3") == ("Unknown Artist", "Title by Artist")
 
     # Brackets track
-    assert parse_filename_fallback("【artist】Title.mp3") == (
-        "artist",
-        "Title",
-    )
-    assert parse_filename_fallback("[Artist] Title.mp3") == (
-        "Artist",
-        "Title",
-    )
-    assert parse_filename_fallback("(Artist) Title.mp3") == (
-        "Artist",
-        "Title",
-    )
-    assert parse_filename_fallback("「Artist」 Title.mp3") == (
-        "Artist",
-        "Title",
-    )
-    assert parse_filename_fallback("『Artist』 Title.mp3") == (
-        "Artist",
-        "Title",
-    )
-    assert parse_filename_fallback("＂Artist＂ Title.mp3") == (
-        "Artist",
-        "Title",
-    )
+    assert parse_filename_fallback("【artist】Title.mp3") == ("artist", "Title")
+    assert parse_filename_fallback("[Artist] Title.mp3") == ("Artist", "Title")
+    assert parse_filename_fallback("(Artist) Title.mp3") == ("Artist", "Title")
+    assert parse_filename_fallback("「Artist」 Title.mp3") == ("Artist", "Title")
+    assert parse_filename_fallback("『Artist』 Title.mp3") == ("Artist", "Title")
+    assert parse_filename_fallback("＂Artist＂ Title.mp3") == ("Artist", "Title")
 
     # Unknown artist fallback
-    assert parse_filename_fallback("Just A Title.mp3") == (
-        "Unknown Artist",
-        "Just A Title",
-    )
-    assert parse_filename_fallback("Ado-FREEDOM.mp3") == (
-        "Unknown Artist",
-        "Ado-FREEDOM",
-    )
-    assert parse_filename_fallback("Spider-Man.mp3") == (
-        "Unknown Artist",
-        "Spider-Man",
-    )
+    assert parse_filename_fallback("Just A Title.mp3") == ("Unknown Artist", "Just A Title")
+    assert parse_filename_fallback("Ado-FREEDOM.mp3") == ("Unknown Artist", "Ado-FREEDOM")
+    assert parse_filename_fallback("Spider-Man.mp3") == ("Unknown Artist", "Spider-Man")
 
 
 def test_clean_trash_name_from_youtube_edge_cases():
     # Emojis
-    assert (
-        clean_trash_name_from_youtube("🦇 ZWYNTAR — Кажани 1983 [LYRICS VIDEO]")
-        == "ZWYNTAR — Кажани 1983"
-    )
+    assert clean_trash_name_from_youtube("🦇 ZWYNTAR — Кажани 1983 [LYRICS VIDEO]") == "ZWYNTAR — Кажани 1983"
 
     # X2Download and kbps
-    assert (
-        clean_trash_name_from_youtube("X2Download.app - A Silent Voice (128 kbps)")
-        == "A Silent Voice"
-    )
+    assert clean_trash_name_from_youtube("X2Download.app - A Silent Voice (128 kbps)") == "A Silent Voice"
     assert (
         clean_trash_name_from_youtube("Y2meta.app - NOTHING'S NEW - RIO ROMEO (128 kbps)")
         == "NOTHING'S NEW - RIO ROMEO"
@@ -118,9 +70,7 @@ def test_clean_trash_name_from_youtube_edge_cases():
 
     # Anime tags
     assert (
-        clean_trash_name_from_youtube(
-            "Boku_no_Hero_Academia_Season_4_Ending_Full『Sayuri_Koukai_no_Uta』【ENG"
-        )
+        clean_trash_name_from_youtube("Boku_no_Hero_Academia_Season_4_Ending_Full『Sayuri_Koukai_no_Uta』【ENG")
         == "Boku no Hero Academia Season 4 『Sayuri Koukai no Uta』【ENG"
     )
 

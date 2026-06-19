@@ -33,9 +33,7 @@ async def shutdown_event() -> None:
     await TheAudioDBClient.close()
 
 
-def cleanup_temp_file(
-    path: str,
-):
+def cleanup_temp_file(path: str):
     """Deletes temporary file safely."""
     try:
         if os.path.exists(path):
@@ -74,36 +72,21 @@ async def analyze_track(
 
     try:
         # Create a temp file to allow async pipeline processing
-        (
-            fd,
-            temp_file_path,
-        ) = tempfile.mkstemp(suffix=clean_ext)
+        fd, temp_file_path = tempfile.mkstemp(suffix=clean_ext)
         os.close(fd)
 
         # Guarantee file cleanup after request response
-        background_tasks.add_task(
-            cleanup_temp_file,
-            temp_file_path,
-        )
+        background_tasks.add_task(cleanup_temp_file, temp_file_path)
 
         contents = await file.read()
-        with open(
-            temp_file_path,
-            "wb",
-        ) as buffer:
+        with open(temp_file_path, "wb") as buffer:
             buffer.write(contents)
 
-        result = await execute_analysis_pipeline(
-            temp_file_path,
-            filename,
-        )
+        result = await execute_analysis_pipeline(temp_file_path, filename)
         return result
 
     except Exception as general_error:
-        logger.critical(
-            f"🚨 Critical pipeline failure: {general_error}",
-            exc_info=True,
-        )
+        logger.critical(f"🚨 Critical pipeline failure: {general_error}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An internal error occurred during track analysis.",

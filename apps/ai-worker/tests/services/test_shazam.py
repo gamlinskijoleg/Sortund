@@ -21,18 +21,11 @@ async def test_recognize_via_shazam_local_success(
     )
 
     result = await recognize_via_shazam_local("dummy.mp3")
-    assert result == (
-        "Test Artist",
-        "Test Title",
-        "http://example.com/art.jpg",
-        "TEST12345",
-    )
+    assert result == ("Test Artist", "Test Title", "http://example.com/art.jpg", "TEST12345")
 
 
 @pytest.mark.asyncio
-async def test_recognize_via_shazam_local_not_found(
-    mocker,
-):
+async def test_recognize_via_shazam_local_not_found(mocker):
     mock_shazam = mocker.patch("app.services.shazam.shazam_client")
     mock_shazam.recognize = AsyncMock(return_value={})  # No track key
 
@@ -41,9 +34,7 @@ async def test_recognize_via_shazam_local_not_found(
 
 
 @pytest.mark.asyncio
-async def test_recognize_via_shazam_local_exception(
-    mocker,
-):
+async def test_recognize_via_shazam_local_exception(mocker):
     mock_shazam = mocker.patch("app.services.shazam.shazam_client")
     mock_shazam.recognize = AsyncMock(side_effect=Exception("API Error"))
 

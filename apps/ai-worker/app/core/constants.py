@@ -36,10 +36,7 @@ GENRE_LABELS: Set[str] = {
 }
 
 
-AUDIO_LABELS: Dict[
-    str,
-    str,
-] = {
+AUDIO_LABELS: Dict[str, str] = {
     "0": "Speech",
     "1": "Male speech, man speaking",
     "2": "Female speech, woman speaking",

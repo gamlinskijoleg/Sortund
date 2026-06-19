@@ -11,25 +11,11 @@ def test_settings_defaults():
     assert settings.LOG_LEVEL == "INFO"
 
 
-def test_settings_env_override(
-    monkeypatch,
-):
-    monkeypatch.setenv(
-        "HF_TOKEN",
-        "new_token",
-    )
-    monkeypatch.setenv(
-        "HOST",
-        "127.0.0.1",
-    )
-    monkeypatch.setenv(
-        "PORT",
-        "9000",
-    )
-    monkeypatch.setenv(
-        "LOG_LEVEL",
-        "DEBUG",
-    )
+def test_settings_env_override(monkeypatch):
+    monkeypatch.setenv("HF_TOKEN", "new_token")
+    monkeypatch.setenv("HOST", "127.0.0.1")
+    monkeypatch.setenv("PORT", "9000")
+    monkeypatch.setenv("LOG_LEVEL", "DEBUG")
 
     settings = Settings()
     assert settings.HF_TOKEN == "new_token"

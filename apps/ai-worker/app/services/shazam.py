@@ -38,12 +38,7 @@ async def recognize_via_shazam_local(
                 .get("coverart")
             )
             isrc = out["track"].get("isrc")
-            return (
-                artist,
-                title,
-                artwork,
-                isrc,
-            )
+            return (artist, title, artwork, isrc)
     except Exception as e:
         logger.warning(f"⚠️ Shazam Core subsystem failure: {e}")
     return None

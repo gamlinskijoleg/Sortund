@@ -10,10 +10,7 @@ yt_music_client = YTMusic()
 
 
 async def fetch_and_validate_youtube_metadata(
-    artist: str,
-    title: str,
-    source_analysis: str,
-    original_filename: str,
+    artist: str, title: str, source_analysis: str, original_filename: str
 ) -> YTMetadata:
     """Searches for a track on YouTube Music and validates the match to protect local releases."""
     enrichment = YTMetadata(
@@ -40,48 +37,19 @@ async def fetch_and_validate_youtube_metadata(
         )
 
         if is_cover_or_local:
-            search_query = original_filename.rsplit(
-                ".",
-                1,
-            )[0].replace(
-                "_",
-                " ",
-            )
-            logger.info(
-                f"🔍 Searching YouTube Music specifically for cover/local track: '{search_query}'"
-            )
-            yt_search = await asyncio.to_thread(
-                yt_music_client.search,
-                search_query,
-            )
+            search_query = original_filename.rsplit(".", 1)[0].replace("_", " ")
+            logger.info(f"🔍 Searching YouTube Music specifically for cover/local track: '{search_query}'")
+            yt_search = await asyncio.to_thread(yt_music_client.search, search_query)
         else:
             search_query = f"{artist} - {title}" if artist != "Unknown Artist" else title
-            yt_search = await asyncio.to_thread(
-                yt_music_client.search,
-                search_query,
-                filter="songs",
-            )
+            yt_search = await asyncio.to_thread(yt_music_client.search, search_query, filter="songs")
 
         if yt_search:
             top_hit = yt_search[0]
-            found_title = top_hit.get(
-                "title",
-                "",
-            )
-            found_artist = (
-                top_hit["artists"][0].get(
-                    "name",
-                    "",
-                )
-                if top_hit.get("artists")
-                else "Unknown Artist"
-            )
+            found_title = top_hit.get("title", "")
+            found_artist = top_hit["artists"][0].get("name", "") if top_hit.get("artists") else "Unknown Artist"
 
-            similarity = difflib.SequenceMatcher(
-                None,
-                title.lower(),
-                found_title.lower(),
-            ).ratio()
+            similarity = difflib.SequenceMatcher(None, title.lower(), found_title.lower()).ratio()
 
             if source_analysis == "Filename Local Parser" and artist == "Unknown Artist":
                 if len(title) <= 5 and similarity < 0.9:
