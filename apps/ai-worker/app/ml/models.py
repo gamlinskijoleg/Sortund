@@ -5,21 +5,9 @@ import logging
 import numpy as np
 import librosa
 import onnxruntime as ort
-from transformers import (
-    AutoTokenizer,
-    PreTrainedTokenizerBase,
-)
-from typing import (
-    Tuple,
-    List,
-    Dict,
-    Union,
-    Optional,
-    Any,
-)
-from huggingface_hub import (
-    snapshot_download,
-)
+from transformers import AutoTokenizer, PreTrainedTokenizerBase
+from typing import Tuple, List, Dict, Union, Optional, Any
+from huggingface_hub import snapshot_download
 
 from app.core.settings import (
     settings,

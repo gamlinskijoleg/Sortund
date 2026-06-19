@@ -1,11 +1,6 @@
 import pytest
-from unittest.mock import (
-    AsyncMock,
-    MagicMock,
-)
-from app.services.shazam import (
-    recognize_via_shazam_local,
-)
+from unittest.mock import AsyncMock, MagicMock
+from app.services.shazam import recognize_via_shazam_local
 
 
 @pytest.mark.asyncio

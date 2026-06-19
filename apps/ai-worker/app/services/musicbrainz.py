@@ -2,9 +2,7 @@ import logging
 import asyncio
 import musicbrainzngs
 import re
-from typing import (
-    Optional,
-)
+from typing import Optional
 
 logger = logging.getLogger("sortund-ai-pipeline")
 

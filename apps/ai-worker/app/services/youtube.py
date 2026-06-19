@@ -1,16 +1,9 @@
 import asyncio
 import logging
 import difflib
-from ytmusicapi import (
-    YTMusic,
-)
-from typing import (
-    List,
-    Optional,
-)
-from app.schemas.analysis import (
-    YTMetadata,
-)
+from ytmusicapi import YTMusic
+from typing import List, Optional
+from app.schemas.analysis import YTMetadata
 
 logger = logging.getLogger("sortund-ai-pipeline")
 yt_music_client = YTMusic()

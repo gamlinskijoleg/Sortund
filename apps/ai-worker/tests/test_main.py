@@ -1,7 +1,5 @@
 import pytest
-from unittest.mock import (
-    AsyncMock,
-)
+from unittest.mock import AsyncMock
 
 
 def test_health_check(

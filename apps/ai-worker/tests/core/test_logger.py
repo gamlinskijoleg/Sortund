@@ -1,13 +1,8 @@
 import pytest
 import logging
 import sys
-from unittest.mock import (
-    patch,
-    MagicMock,
-)
-from app.core.logger import (
-    setup_logging,
-)
+from unittest.mock import patch, MagicMock
+from app.core.logger import setup_logging
 
 
 def test_setup_logging_success():

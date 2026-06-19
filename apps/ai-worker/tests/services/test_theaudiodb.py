@@ -1,12 +1,7 @@
 import pytest
 import aiohttp
-from unittest.mock import (
-    AsyncMock,
-)
-from app.services.theaudiodb import (
-    fetch_release_year_from_theaudiodb,
-    TheAudioDBClient,
-)
+from unittest.mock import AsyncMock
+from app.services.theaudiodb import fetch_release_year_from_theaudiodb, TheAudioDBClient
 
 
 class MockResponse:

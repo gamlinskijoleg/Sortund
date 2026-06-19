@@ -1,8 +1,5 @@
 import pytest
-from unittest.mock import (
-    patch,
-    MagicMock,
-)
+from unittest.mock import patch, MagicMock
 from app.ml.models import (
     load_onnx_models,
     _sync_predict_text_zero_shot,

@@ -1,20 +1,13 @@
 import pytest
-from unittest.mock import (
-    AsyncMock,
-    patch,
-)
+from unittest.mock import AsyncMock, patch
 
 from app.services.pipeline import (
     format_zero_shot_text_tags,
     parse_youtube_extra_info,
     execute_analysis_pipeline,
 )
-from app.schemas.analysis import (
-    YTMetadata,
-)
-from app.core.constants import (
-    GENRE_LABELS,
-)
+from app.schemas.analysis import YTMetadata
+from app.core.constants import GENRE_LABELS
 
 
 def test_format_zero_shot_text_tags():

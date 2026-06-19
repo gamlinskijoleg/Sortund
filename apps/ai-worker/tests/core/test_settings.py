@@ -1,10 +1,6 @@
 import os
-from pydantic_settings import (
-    BaseSettings,
-)
-from app.core.settings import (
-    Settings,
-)
+from pydantic_settings import BaseSettings
+from app.core.settings import Settings
 
 
 def test_settings_defaults():

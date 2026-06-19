@@ -1,7 +1,5 @@
 import pytest
-from unittest.mock import (
-    AsyncMock,
-)
+from unittest.mock import AsyncMock
 from app.services.musicbrainz import (
     fetch_release_year_from_musicbrainz_by_isrc,
     fetch_release_year_from_musicbrainz,

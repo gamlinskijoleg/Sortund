@@ -1,8 +1,4 @@
-from typing import (
-    List,
-    Dict,
-    Set,
-)
+from typing import List, Dict, Set
 
 CANDIDATE_LABELS: List[str] = [
     "rock music",

@@ -1,13 +1,7 @@
 import os
 import asyncio
 import logging
-from typing import (
-    List,
-    Tuple,
-    Optional,
-    Any,
-    Dict,
-)
+from typing import List, Tuple, Optional, Any, Dict
 
 from app.core.constants import (
     GENRE_LABELS,

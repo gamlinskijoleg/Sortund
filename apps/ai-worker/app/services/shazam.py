@@ -1,11 +1,6 @@
 import logging
-from typing import (
-    Tuple,
-    Optional,
-)
-from shazamio import (
-    Shazam,
-)
+from typing import Tuple, Optional
+from shazamio import Shazam
 import re
 
 logger = logging.getLogger("sortund-ai-pipeline")

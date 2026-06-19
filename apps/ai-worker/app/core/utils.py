@@ -1,8 +1,6 @@
 import os
 import re
-from typing import (
-    Tuple,
-)
+from typing import Tuple
 
 UNDERSCORE_DASH_PATTERN = re.compile(r"_+-_+")
 UNDERSCORE_PATTERN = re.compile(r"_+")

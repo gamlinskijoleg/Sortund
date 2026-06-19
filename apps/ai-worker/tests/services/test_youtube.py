@@ -1,10 +1,6 @@
 import pytest
-from unittest.mock import (
-    AsyncMock,
-)
-from app.services.youtube import (
-    fetch_and_validate_youtube_metadata,
-)
+from unittest.mock import AsyncMock
+from app.services.youtube import fetch_and_validate_youtube_metadata
 
 
 @pytest.mark.asyncio

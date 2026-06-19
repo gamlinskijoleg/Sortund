@@ -1,15 +1,8 @@
 import pytest
-from fastapi.testclient import (
-    TestClient,
-)
-from unittest.mock import (
-    AsyncMock,
-    patch,
-)
+from fastapi.testclient import TestClient
+from unittest.mock import AsyncMock, patch
 
-from app.main import (
-    app,
-)
+from app.main import app
 
 
 @pytest.fixture

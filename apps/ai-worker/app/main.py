@@ -1,36 +1,15 @@
 import os
 import logging
 import tempfile
-from fastapi import (
-    FastAPI,
-    UploadFile,
-    File,
-    HTTPException,
-    status,
-    BackgroundTasks,
-)
-from typing import (
-    Dict,
-)
+from fastapi import FastAPI, UploadFile, File, HTTPException, status, BackgroundTasks
+from typing import Dict
 
-from app.core.logger import (
-    setup_logging,
-)
-from app.core.settings import (
-    settings,
-)
-from app.ml.models import (
-    load_onnx_models,
-)
-from app.services.pipeline import (
-    execute_analysis_pipeline,
-)
-from app.schemas.analysis import (
-    AnalyzeResult,
-)
-from app.services.theaudiodb import (
-    TheAudioDBClient,
-)
+from app.core.logger import setup_logging
+from app.core.settings import settings
+from app.ml.models import load_onnx_models
+from app.services.pipeline import execute_analysis_pipeline
+from app.schemas.analysis import AnalyzeResult
+from app.services.theaudiodb import TheAudioDBClient
 
 setup_logging()
 logger = logging.getLogger("sortund-ai-pipeline")
