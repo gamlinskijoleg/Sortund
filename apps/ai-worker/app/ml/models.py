@@ -9,31 +9,14 @@ from transformers import AutoTokenizer, PreTrainedTokenizerBase
 from typing import Tuple, List, Dict, Union, Optional, Any
 from huggingface_hub import snapshot_download
 
-from app.core.settings import (
-    settings,
-)
-from app.core.constants import (
-    CANDIDATE_LABELS,
-    AUDIO_LABELS,
-    ENERGETIC_TRIGGERS,
-)
+from app.core.settings import settings
+from app.core.constants import CANDIDATE_LABELS, AUDIO_LABELS, ENERGETIC_TRIGGERS
 
 logger = logging.getLogger("sortund-ai-pipeline")
 
-BASE_MODEL_DIR = os.path.join(
-    os.path.dirname(__file__),
-    "model",
-)
-TEXT_MODEL_PATH = os.path.join(
-    BASE_MODEL_DIR,
-    "text_zero_shot",
-    "model.onnx",
-)
-AUDIO_MODEL_PATH = os.path.join(
-    BASE_MODEL_DIR,
-    "audio_tagger",
-    "model.onnx",
-)
+BASE_MODEL_DIR = os.path.join(os.path.dirname(__file__), "model")
+TEXT_MODEL_PATH = os.path.join(BASE_MODEL_DIR, "text_zero_shot", "model.onnx")
+AUDIO_MODEL_PATH = os.path.join(BASE_MODEL_DIR, "audio_tagger", "model.onnx")
 
 text_session: Optional[ort.InferenceSession] = None
 text_tokenizer: Optional[PreTrainedTokenizerBase] = None
@@ -48,7 +31,7 @@ def load_onnx_models():
     if not os.path.exists(TEXT_MODEL_PATH) or not os.path.exists(AUDIO_MODEL_PATH):
         logger.info("⚠️ Local models not found. Starting download from Hugging Face Model Hub...")
         try:
-            hf_token = settings.HF_TOKEN
+            hf_token = settings.HF_TOKEN or None
 
             # Download the entire model repository to system cache
             downloaded_dir = snapshot_download(
@@ -57,16 +40,8 @@ def load_onnx_models():
             )
 
             # Reassign paths to downloaded files
-            TEXT_MODEL_PATH = os.path.join(
-                downloaded_dir,
-                "text_zero_shot",
-                "model.onnx",
-            )
-            AUDIO_MODEL_PATH = os.path.join(
-                downloaded_dir,
-                "audio_tagger",
-                "model.onnx",
-            )
+            TEXT_MODEL_PATH = os.path.join(downloaded_dir, "text_zero_shot", "model.onnx")
+            AUDIO_MODEL_PATH = os.path.join(downloaded_dir, "audio_tagger", "model.onnx")
             logger.info(f"✅ Models successfully loaded into cache: {downloaded_dir}")
         except Exception as e:
             logger.error(

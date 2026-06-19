@@ -1,8 +1,9 @@
+import os
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    HF_TOKEN: str = ""
+    HF_TOKEN: str = os.getenv("HF_TOKEN")
     HOST: str = "0.0.0.0"
     PORT: int = 8000
     LOG_LEVEL: str = "INFO"
