@@ -1,5 +1,18 @@
-node_modules
-dist
-.git
-.turbo
-*.log
+# Local dev tools and dependency lists
+requirements-dev.txt
+venv
+.venv
+env
+
+# Python byte-compiled/optimized files
+__pycache__
+*.py[cod]
+*$py.class
+
+# IDE and Editor files
+.vscode
+.idea
+*.swp
+
+# Tests
+tests

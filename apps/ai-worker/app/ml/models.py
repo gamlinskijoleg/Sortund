@@ -9,7 +9,8 @@ from transformers import AutoTokenizer, PreTrainedTokenizerBase
 from typing import Tuple, List, Dict, Union, Optional, Any
 from huggingface_hub import snapshot_download
 
-from app.core.config import CANDIDATE_LABELS, AUDIO_LABELS, ENERGETIC_TRIGGERS
+from app.core.settings import settings
+from app.core.constants import CANDIDATE_LABELS, AUDIO_LABELS, ENERGETIC_TRIGGERS
 
 logger = logging.getLogger("sortund-ai-pipeline")
 
@@ -32,8 +33,7 @@ def load_onnx_models():
             "⚠️ Local models not found. Starting download from Hugging Face Model Hub..."
         )
         try:
-            # Pull token from secrets (on HF Spaces it will be pulled automatically if added in Settings)
-            hf_token = os.getenv("HF_TOKEN")
+            hf_token = settings.HF_TOKEN
 
             # Download the entire model repository to system cache
             downloaded_dir = snapshot_download(

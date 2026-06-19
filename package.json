@@ -28,6 +28,9 @@
     "lint-staged": {
         "**/*.{js,ts,jsx,tsx,json,css,md}": [
             "prettier --write"
+        ],
+        "**/*.py": [
+            "apps/ai-worker/venv/Scripts/black.exe"
         ]
     }
 }

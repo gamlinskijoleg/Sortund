@@ -7,6 +7,21 @@ from typing import Optional
 logger = logging.getLogger("sortund-ai-pipeline")
 
 
+class TheAudioDBClient:
+    session: Optional[aiohttp.ClientSession] = None
+
+    @classmethod
+    def get_session(cls) -> aiohttp.ClientSession:
+        if cls.session is None:
+            cls.session = aiohttp.ClientSession()
+        return cls.session
+
+    @classmethod
+    async def close(cls):
+        if cls.session:
+            await cls.session.close()
+
+
 async def fetch_release_year_from_theaudiodb(artist: str, title: str) -> Optional[int]:
     """Searches for track release year using TheAudioDB API."""
     if artist == "Unknown Artist":
@@ -20,53 +35,52 @@ async def fetch_release_year_from_theaudiodb(artist: str, title: str) -> Optiona
         clean_title = title
 
     try:
-        async with aiohttp.ClientSession() as session:
-            # 1. Search for the track
-            search_url = f"https://www.theaudiodb.com/api/v1/json/2/searchtrack.php?s={artist}&t={clean_title}"
-            async with session.get(search_url) as track_res:
-                if track_res.status != 200:
-                    return None
+        session = TheAudioDBClient.get_session()
 
-                track_data = await track_res.json()
-                tracks = track_data.get("track")
+        # 1. Search for the track
+        search_url = f"https://www.theaudiodb.com/api/v1/json/2/searchtrack.php?s={artist}&t={clean_title}"
+        async with session.get(search_url) as track_res:
+            if track_res.status != 200:
+                return None
 
-                if not tracks:
-                    return None
+            track_data = await track_res.json()
+            tracks = track_data.get("track")
 
-                # Look for the first track that has an album id
-                id_album = None
-                for track in tracks:
-                    if track.get("idAlbum"):
-                        id_album = track["idAlbum"]
-                        break
+            if not tracks:
+                return None
 
-                if not id_album:
-                    return None
+            # Look for the first track that has an album id
+            id_album = None
+            for track in tracks:
+                if track.get("idAlbum"):
+                    id_album = track["idAlbum"]
+                    break
 
-            # 2. Fetch the album details to get the year
-            album_url = (
-                f"https://www.theaudiodb.com/api/v1/json/2/album.php?m={id_album}"
-            )
-            async with session.get(album_url) as album_res:
-                if album_res.status != 200:
-                    return None
+            if not id_album:
+                return None
 
-                album_data = await album_res.json()
-                albums = album_data.get("album")
+        # 2. Fetch the album details to get the year
+        album_url = f"https://www.theaudiodb.com/api/v1/json/2/album.php?m={id_album}"
+        async with session.get(album_url) as album_res:
+            if album_res.status != 200:
+                return None
 
-                if not albums:
-                    return None
+            album_data = await album_res.json()
+            albums = album_data.get("album")
 
-                year_str = albums[0].get("intYearReleased")
-                if year_str and year_str != "0":
-                    try:
-                        year = int(year_str)
-                        logger.info(
-                            f"🎵 TheAudioDB found release year {year} for {artist} - {clean_title}"
-                        )
-                        return year
-                    except ValueError:
-                        pass
+            if not albums:
+                return None
+
+            year_str = albums[0].get("intYearReleased")
+            if year_str and year_str != "0":
+                try:
+                    year = int(year_str)
+                    logger.info(
+                        f"🎵 TheAudioDB found release year {year} for {artist} - {clean_title}"
+                    )
+                    return year
+                except ValueError:
+                    pass
 
         return None
     except Exception as e:

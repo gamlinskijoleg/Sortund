@@ -11,3 +11,4 @@ transformers>=4.30.0
 soundfile
 huggingface_hub
 musicbrainzngs>=0.7.1
+pydantic-settings>=2.0.0
