@@ -1,6 +1,7 @@
 name: Deploy to Server
 
 on:
+    workflow_dispatch:
     push:
         branches: [main]
         paths:
@@ -12,11 +13,13 @@ jobs:
         steps:
             - uses: actions/checkout@v4
 
-            # 1. Connect to Tailscale network
+            # 1. Connect to Tailscale network via OAuth
             - name: Connect to Tailscale
               uses: tailscale/github-action@v2
               with:
-                  authkey: ${{ secrets.TS_API_KEY }}
+                  oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+                  oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+                  tags: tag:ci
 
             # 2. Login to Docker Hub
             - name: Login to Docker Hub
@@ -53,3 +56,8 @@ jobs:
                       -e HUGGING_FACE_HUB_TOKEN="${{ secrets.HF_TOKEN }}" \
                       --restart unless-stopped \
                       ${{ secrets.DOCKERHUB_USERNAME }}/ai-worker:latest
+
+            # 5. Cleanup Tailscale connection
+            - name: Disconnect Tailscale
+              if: always()
+              run: sudo tailscale logout
