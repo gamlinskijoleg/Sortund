@@ -51,18 +51,9 @@ function MusicFeatureCard({
                 justifyContent="center"
                 alignItems="center"
             >
-                <MaterialCommunityIcons
-                    name={iconName}
-                    size={20}
-                    color={theme.inverseText}
-                />
+                <MaterialCommunityIcons name={iconName} size={20} color={theme.inverseText} />
             </XStack>
-            <Text
-                fontSize={16}
-                fontWeight="700"
-                lineHeight={24}
-                color={theme.inverseText}
-            >
+            <Text fontSize={16} fontWeight="700" lineHeight={24} color={theme.inverseText}>
                 {title}
             </Text>
         </YStack>
@@ -98,9 +89,7 @@ function SectionTabs() {
                         <Text
                             fontSize={18}
                             fontWeight="500"
-                            color={
-                                isActive ? theme.inverseText : theme.textMuted
-                            }
+                            color={isActive ? theme.inverseText : theme.textMuted}
                         >
                             {section.label}
                         </Text>
@@ -130,11 +119,7 @@ function ActionBar() {
                     justifyContent="center"
                     alignItems="center"
                 >
-                    <MaterialCommunityIcons
-                        name="play"
-                        size={20}
-                        color={theme.inverseText}
-                    />
+                    <MaterialCommunityIcons name="play" size={20} color={theme.inverseText} />
                 </XStack>
                 <Text fontSize={16} color={theme.text}>
                     Shuffle playback
@@ -142,16 +127,8 @@ function ActionBar() {
             </XStack>
 
             <XStack alignItems="center" gap={18}>
-                <MaterialCommunityIcons
-                    name="swap-vertical"
-                    size={24}
-                    color={theme.text}
-                />
-                <MaterialCommunityIcons
-                    name="format-list-bulleted"
-                    size={24}
-                    color={theme.text}
-                />
+                <MaterialCommunityIcons name="swap-vertical" size={24} color={theme.text} />
+                <MaterialCommunityIcons name="format-list-bulleted" size={24} color={theme.text} />
             </XStack>
         </XStack>
     );
@@ -190,17 +167,8 @@ export default function MusicHomeScreen() {
         <YStack gap={18} marginBottom={16}>
             {/* Search */}
             <XStack paddingHorizontal={16} alignItems="center" gap={12}>
-                <XStack
-                    width={28}
-                    height={28}
-                    justifyContent="center"
-                    alignItems="center"
-                >
-                    <MaterialCommunityIcons
-                        name="tune-variant"
-                        size={30}
-                        color={theme.text}
-                    />
+                <XStack width={28} height={28} justifyContent="center" alignItems="center">
+                    <MaterialCommunityIcons name="tune-variant" size={30} color={theme.text} />
                 </XStack>
                 <View flex={1}>
                     <SearchBar />
@@ -216,11 +184,7 @@ export default function MusicHomeScreen() {
                         pressStyle={{ opacity: 0.8 }}
                         onPress={() => router.push("/debug-db")}
                     >
-                        <MaterialCommunityIcons
-                            name="database"
-                            size={20}
-                            color={theme.text}
-                        />
+                        <MaterialCommunityIcons name="database" size={20} color={theme.text} />
                     </XStack>
                 )}
             </XStack>
@@ -255,9 +219,7 @@ export default function MusicHomeScreen() {
             <YStack flex={1} paddingTop={8} position="relative">
                 <FlatList
                     data={isLoading ? [] : tracks}
-                    keyExtractor={(item, index) =>
-                        item.sourceUri ?? `${item.title}-${index}`
-                    }
+                    keyExtractor={(item, index) => item.sourceUri ?? `${item.title}-${index}`}
                     // Header that scrolls with the list of tracks
                     ListHeaderComponent={renderHeader}
                     // Track rows themselves (ONLY what the user sees is rendered!)

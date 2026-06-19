@@ -1,9 +1,6 @@
 import { useState, useEffect } from "react";
 
-export function useDebouncedValue<T>(
-    value: T,
-    delay: number = 1000
-): [T, boolean] {
+export function useDebouncedValue<T>(value: T, delay: number = 1000): [T, boolean] {
     const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
     const isInstant = typeof value === "string" && value.trim() === "";

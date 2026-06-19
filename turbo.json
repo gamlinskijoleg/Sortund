@@ -17,6 +17,10 @@
             "cache": false,
             "persistent": true,
             "env": ["ANDROID_HOME"]
+        },
+        "format": {
+            "inputs": ["src/**/*.py", "pyproject.toml"],
+            "outputs": []
         }
     }
 }

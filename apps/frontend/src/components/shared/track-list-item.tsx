@@ -74,12 +74,7 @@ export const TrackListItem = React.memo(
                     >
                         {title}
                     </Text>
-                    <Text
-                        fontSize={15}
-                        lineHeight={19}
-                        color={theme.textMuted}
-                        numberOfLines={1}
-                    >
+                    <Text fontSize={15} lineHeight={19} color={theme.textMuted} numberOfLines={1}>
                         {artist}
                     </Text>
                 </YStack>
@@ -87,11 +82,7 @@ export const TrackListItem = React.memo(
                 {trailingActionSlot ? (
                     trailingActionSlot
                 ) : (
-                    <MaterialCommunityIcons
-                        name="dots-vertical"
-                        size={28}
-                        color={theme.border}
-                    />
+                    <MaterialCommunityIcons name="dots-vertical" size={28} color={theme.border} />
                 )}
             </XStack>
         );

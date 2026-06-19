@@ -5,7 +5,7 @@
         "build": "turbo run build",
         "dev": "turbo run dev",
         "lint": "turbo run lint",
-        "format": "prettier --write .",
+        "format": "prettier --write . && turbo run format",
         "check-types": "turbo run check-types",
         "prepare": "husky"
     },
@@ -30,7 +30,7 @@
             "prettier --write"
         ],
         "**/*.py": [
-            "apps/ai-worker/venv/Scripts/black.exe"
+            "black"
         ]
     }
 }

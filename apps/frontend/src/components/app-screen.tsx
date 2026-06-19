@@ -24,10 +24,7 @@ export function AppScreen({
 
     return (
         <SafeAreaView
-            style={[
-                styles.safeArea,
-                { backgroundColor: backgroundColor ?? theme.background },
-            ]}
+            style={[styles.safeArea, { backgroundColor: backgroundColor ?? theme.background }]}
             edges={edges}
         >
             <StatusBar style={statusBarStyle} />

@@ -33,19 +33,10 @@ export default function SearchScreen() {
 
     return (
         <AppScreen>
-            <YStack
-                flex={1}
-                paddingHorizontal={16}
-                paddingTop={8}
-                position="relative"
-            >
+            <YStack flex={1} paddingHorizontal={16} paddingTop={8} position="relative">
                 <XStack alignItems="center" marginBottom={16} gap={12}>
                     <XStack pressStyle={{ opacity: 0.7 }} onPress={router.back}>
-                        <MaterialCommunityIcons
-                            name="chevron-left"
-                            size={30}
-                            color={theme.text}
-                        />
+                        <MaterialCommunityIcons name="chevron-left" size={30} color={theme.text} />
                     </XStack>
                     <SearchBar
                         value={searchQuery}
@@ -63,10 +54,7 @@ export default function SearchScreen() {
                     initialStateMessage="Enter song or artist name"
                     keyExtractor={(item) => item.sourceUri}
                     renderItem={({ item, index }) => (
-                        <TrackListItem
-                            track={item}
-                            onPress={() => handleTrackPress(item, index)}
-                        />
+                        <TrackListItem track={item} onPress={() => handleTrackPress(item, index)} />
                     )}
                 />
             </YStack>

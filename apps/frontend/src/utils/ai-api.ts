@@ -23,9 +23,7 @@ export type AnalyzeResult = {
     artwork: string | null;
 };
 
-export async function analyzeTrackAPI(
-    sourceUri: string
-): Promise<AnalyzeResult> {
+export async function analyzeTrackAPI(sourceUri: string): Promise<AnalyzeResult> {
     const aiServiceUrl = process.env.EXPO_PUBLIC_AI_SERVICE_URL;
     if (!aiServiceUrl) {
         throw new Error("EXPO_PUBLIC_AI_SERVICE_URL is not set");
@@ -40,12 +38,9 @@ export async function analyzeTrackAPI(
     if (sourceUri.toLowerCase().endsWith(".mp3")) {
         try {
             log.debug(`Attempting fast byte-slicing for MP3...`);
-            const originalFilename =
-                sourceUri.split("/").pop() || `sliced_${Date.now()}.mp3`;
+            const originalFilename = sourceUri.split("/").pop() || `sliced_${Date.now()}.mp3`;
             const tempDir = `${cacheDirectory}sliced_${Date.now()}/`;
-            await makeDirectoryAsync(tempDir, { intermediates: true }).catch(
-                () => {}
-            );
+            await makeDirectoryAsync(tempDir, { intermediates: true }).catch(() => {});
             const targetUri = `${tempDir}${originalFilename}`;
             const chunk = await readAsStringAsync(sourceUri, {
                 encoding: "base64",
@@ -85,15 +80,10 @@ export async function analyzeTrackAPI(
     return data;
 }
 
-export async function downloadArtworkAsync(
-    url: string,
-    assetId: string
-): Promise<string | null> {
+export async function downloadArtworkAsync(url: string, assetId: string): Promise<string | null> {
     try {
         const artworkDir = `${cacheDirectory}artwork/`;
-        await makeDirectoryAsync(artworkDir, { intermediates: true }).catch(
-            () => {}
-        );
+        await makeDirectoryAsync(artworkDir, { intermediates: true }).catch(() => {});
 
         const extMatch = url.match(/\.(jpg|jpeg|png|webp|gif)/i);
         const ext = extMatch ? extMatch[1] : "jpg";

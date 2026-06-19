@@ -35,11 +35,7 @@ export default function DebugDbScreen() {
     return (
         <AppScreen>
             <YStack flex={1} padding={16} paddingTop={32}>
-                <XStack
-                    justifyContent="space-between"
-                    alignItems="center"
-                    marginBottom={16}
-                >
+                <XStack justifyContent="space-between" alignItems="center" marginBottom={16}>
                     <Text fontSize={24} fontWeight="bold" color={theme.text}>
                         DB Debug (Tracks)
                     </Text>
@@ -51,9 +47,7 @@ export default function DebugDbScreen() {
 
                 <FlatList
                     data={tracks}
-                    keyExtractor={(item, index) =>
-                        item.assetId || String(index)
-                    }
+                    keyExtractor={(item, index) => item.assetId || String(index)}
                     renderItem={({ item }) => (
                         <YStack
                             padding={12}
@@ -63,11 +57,7 @@ export default function DebugDbScreen() {
                             borderWidth={1}
                             borderColor={theme.border || "#e0e0e0"}
                         >
-                            <Text
-                                color={theme.text}
-                                fontSize={14}
-                                fontFamily="$mono"
-                            >
+                            <Text color={theme.text} fontSize={14} fontFamily="$mono">
                                 {JSON.stringify(item, null, 2)}
                             </Text>
                         </YStack>

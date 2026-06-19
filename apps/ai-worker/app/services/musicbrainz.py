@@ -2,15 +2,23 @@ import logging
 import asyncio
 import musicbrainzngs
 import re
-from typing import Optional
+from typing import (
+    Optional,
+)
 
 logger = logging.getLogger("sortund-ai-pipeline")
 
 # MusicBrainz requires a useragent to be set
-musicbrainzngs.set_useragent("SortundAIPipeline", "1.5.0", "sortund@example.com")
+musicbrainzngs.set_useragent(
+    "SortundAIPipeline",
+    "1.5.0",
+    "sortund@example.com",
+)
 
 
-async def fetch_release_year_from_musicbrainz_by_isrc(isrc: str) -> Optional[int]:
+async def fetch_release_year_from_musicbrainz_by_isrc(
+    isrc: str,
+) -> Optional[int]:
     """Searches for track release year by ISRC code via MusicBrainz API."""
     if not isrc:
         return None
@@ -21,14 +29,22 @@ async def fetch_release_year_from_musicbrainz_by_isrc(isrc: str) -> Optional[int
         for attempt in range(max_retries):
             try:
                 result = await asyncio.to_thread(
-                    musicbrainzngs.get_recordings_by_isrc, isrc, includes=["releases"]
+                    musicbrainzngs.get_recordings_by_isrc,
+                    isrc,
+                    includes=["releases"],
                 )
                 break
             except musicbrainzngs.ResponseError as e:
                 try:
                     if (
-                        hasattr(e, "cause")
-                        and hasattr(e.cause, "code")
+                        hasattr(
+                            e,
+                            "cause",
+                        )
+                        and hasattr(
+                            e.cause,
+                            "code",
+                        )
                         and e.cause.code == 404
                     ):
                         return None
@@ -57,7 +73,10 @@ async def fetch_release_year_from_musicbrainz_by_isrc(isrc: str) -> Optional[int
         best_year = None
 
         for recording in recordings:
-            releases = recording.get("release-list", [])
+            releases = recording.get(
+                "release-list",
+                [],
+            )
             for release in releases:
                 date = release.get("date")
                 if date:
@@ -73,13 +92,20 @@ async def fetch_release_year_from_musicbrainz_by_isrc(isrc: str) -> Optional[int
         return None
 
 
-async def fetch_release_year_from_musicbrainz(artist: str, title: str) -> Optional[int]:
+async def fetch_release_year_from_musicbrainz(
+    artist: str,
+    title: str,
+) -> Optional[int]:
     """Searches for track release year using MusicBrainz API."""
     if artist == "Unknown Artist":
         return None
 
     # Clean the title: remove anything in parentheses or brackets, and extra spaces
-    clean_title = re.sub(r"\(.*?\)|\[.*?\]", "", title).strip()
+    clean_title = re.sub(
+        r"\(.*?\)|\[.*?\]",
+        "",
+        title,
+    ).strip()
     clean_title = clean_title.split(" - ")[0].strip()
 
     # If cleaning removes everything, fallback to original
@@ -96,7 +122,9 @@ async def fetch_release_year_from_musicbrainz(artist: str, title: str) -> Option
         for attempt in range(max_retries):
             try:
                 result = await asyncio.to_thread(
-                    musicbrainzngs.search_recordings, query=query, limit=50
+                    musicbrainzngs.search_recordings,
+                    query=query,
+                    limit=50,
                 )
                 break
             except Exception as e:
@@ -111,11 +139,17 @@ async def fetch_release_year_from_musicbrainz(artist: str, title: str) -> Option
                     )
                     return None
 
-        recordings = result.get("recording-list", [])
+        recordings = result.get(
+            "recording-list",
+            [],
+        )
         best_year = None
 
         for recording in recordings:
-            releases = recording.get("release-list", [])
+            releases = recording.get(
+                "release-list",
+                [],
+            )
             for release in releases:
                 date = release.get("date")
                 if date:

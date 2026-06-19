@@ -27,10 +27,7 @@ const handleAnalyzeTrack = async (
 
         let finalArtwork = result.artwork;
         if (finalArtwork && finalArtwork.startsWith("http")) {
-            const localUri = await downloadArtworkAsync(
-                finalArtwork,
-                track.assetId
-            );
+            const localUri = await downloadArtworkAsync(finalArtwork, track.assetId);
             if (localUri) {
                 finalArtwork = localUri;
             }
@@ -95,17 +92,9 @@ function AiTrackRow({ track }: { track: MusicTrack }) {
                     {isAnalyzing ? (
                         <Spinner size="small" color={theme.text} />
                     ) : trackData.isAnalyzed ? (
-                        <MaterialCommunityIcons
-                            name="check-circle"
-                            size={28}
-                            color={theme.text}
-                        />
+                        <MaterialCommunityIcons name="check-circle" size={28} color={theme.text} />
                     ) : (
-                        <MaterialCommunityIcons
-                            name="cloud-upload"
-                            size={28}
-                            color={theme.text}
-                        />
+                        <MaterialCommunityIcons name="cloud-upload" size={28} color={theme.text} />
                     )}
                 </XStack>
             }

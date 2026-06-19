@@ -6,9 +6,7 @@ interface UseTrackSearchOptions {
     returnEmptyOnBlank?: boolean;
 }
 
-export function useLocalTrackSearch({
-    returnEmptyOnBlank = false,
-}: UseTrackSearchOptions = {}) {
+export function useLocalTrackSearch({ returnEmptyOnBlank = false }: UseTrackSearchOptions = {}) {
     const tracks = usePlayerStore((state) => state.libraryTracks);
     const isLoading = usePlayerStore((state) => state.isLibraryLoading);
     const error = null;

@@ -16,11 +16,7 @@ interface PlayerState {
 
     // Actions
     setPlayerInstance: (player: AudioPlayer) => void;
-    setQueue: (
-        tracks: MusicTrack[],
-        startIndex: number,
-        shouldPlay?: boolean
-    ) => void;
+    setQueue: (tracks: MusicTrack[], startIndex: number, shouldPlay?: boolean) => void;
     playNext: () => void;
     playPrevious: () => void;
     selectTrackById: (assetId: string) => void;
@@ -89,8 +85,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
             const { tracks, currentIndex } = get();
             if (tracks.length === 0) return;
 
-            const prevIndex =
-                (currentIndex - 1 + tracks.length) % tracks.length;
+            const prevIndex = (currentIndex - 1 + tracks.length) % tracks.length;
             const prevTrack = tracks[prevIndex];
 
             set({

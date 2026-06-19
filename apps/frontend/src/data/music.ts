@@ -1,10 +1,4 @@
-import {
-    Album,
-    AssetField,
-    MediaType,
-    Query,
-    requestPermissionsAsync,
-} from "expo-media-library";
+import { Album, AssetField, MediaType, Query, requestPermissionsAsync } from "expo-media-library";
 import { useEffect } from "react";
 import { DeviceEventEmitter } from "react-native";
 import { getArtwork, getMetadata } from "react-native-audio-metadata";
@@ -103,9 +97,7 @@ export async function syncMusicLibrary(
         }
 
         // 1. Get all assets quickly
-        let query = new Query()
-            .album(album)
-            .eq(AssetField.MEDIA_TYPE, MediaType.AUDIO);
+        let query = new Query().album(album).eq(AssetField.MEDIA_TYPE, MediaType.AUDIO);
 
         if (limit !== Infinity) {
             query = query.limit(limit);
@@ -113,9 +105,7 @@ export async function syncMusicLibrary(
 
         const queryMedia = await query.exe();
 
-        log.debug(
-            `🎵 Found tracks in album ${await album.getTitle()}: ${queryMedia.length}`
-        );
+        log.debug(`🎵 Found tracks in album ${await album.getTitle()}: ${queryMedia.length}`);
 
         // 2. Identify new, modified, and deleted
         const cachedMap = new Map(cachedTracks.map((t) => [t.assetId, t]));
@@ -125,9 +115,7 @@ export async function syncMusicLibrary(
 
         for (const asset of queryMedia) {
             const rawId = asset.id;
-            const cleanId = rawId.includes("/")
-                ? rawId.split("/").pop()!
-                : rawId;
+            const cleanId = rawId.includes("/") ? rawId.split("/").pop()! : rawId;
             currentAssetIds.add(cleanId);
 
             const cached = cachedMap.get(cleanId);
@@ -155,9 +143,7 @@ export async function syncMusicLibrary(
             return;
         }
 
-        log.debug(
-            `⏳ Processing ${assetsToProcess.length} new/modified tracks...`
-        );
+        log.debug(`⏳ Processing ${assetsToProcess.length} new/modified tracks...`);
 
         // 3. Process in chunks
         const CHUNK_SIZE = 10;
@@ -170,21 +156,15 @@ export async function syncMusicLibrary(
                     try {
                         const uri = await asset.getUri();
                         const filename = await asset.getFilename();
-                        const fileExtension =
-                            filename.split(".").pop() || "mp3";
+                        const fileExtension = filename.split(".").pop() || "mp3";
 
-                        let title: string | undefined = filename.replace(
-                            `.${fileExtension}`,
-                            ""
-                        );
+                        let title: string | undefined = filename.replace(`.${fileExtension}`, "");
                         let artist: string | undefined = "Unknown Artist";
                         let albumName: string | undefined;
                         let artwork: string | undefined;
                         let duration: number | undefined = 0;
 
-                        const cleanMetadataUri = decodeURIComponent(
-                            uri
-                        ).replace("file://", "");
+                        const cleanMetadataUri = decodeURIComponent(uri).replace("file://", "");
 
                         const [metadata, fetchedArtwork] = await Promise.all([
                             getMetadata(cleanMetadataUri),
@@ -197,17 +177,13 @@ export async function syncMusicLibrary(
 
                         let finalArtwork = fetchedArtwork || undefined;
                         if (finalArtwork && finalArtwork.startsWith("data:")) {
-                            const localPath = await saveBase64ArtworkAsync(
-                                finalArtwork,
-                                cleanId
-                            );
+                            const localPath = await saveBase64ArtworkAsync(finalArtwork, cleanId);
                             if (localPath) {
                                 finalArtwork = localPath;
                             }
                         }
                         artwork = finalArtwork;
-                        duration =
-                            parseDurationToMs(metadata.duration) || undefined;
+                        duration = parseDurationToMs(metadata.duration) || undefined;
 
                         // Merge with existing metadata if analyzed
                         const existing = cachedMap.get(cleanId);
@@ -247,10 +223,7 @@ export async function syncMusicLibrary(
 
                         processedChunk.push(newTrack);
                     } catch (error) {
-                        log.error(
-                            `❌ Error processing track ${cleanId}:`,
-                            error
-                        );
+                        log.error(`❌ Error processing track ${cleanId}:`, error);
                     }
                 })
             );
@@ -299,58 +272,43 @@ export function useMusicLibrary(limit = Infinity) {
                 // 3. Run background scan with delay
                 syncTimeout = setTimeout(async () => {
                     try {
-                        await syncMusicLibrary(
-                            limit,
-                            cached,
-                            (newOrModifiedTracks, deletedIds) => {
-                                if (!isActive) return;
+                        await syncMusicLibrary(limit, cached, (newOrModifiedTracks, deletedIds) => {
+                            if (!isActive) return;
 
-                                // Update global state
-                                const currentStore = usePlayerStore.getState();
-                                let next = [...currentStore.libraryTracks];
+                            // Update global state
+                            const currentStore = usePlayerStore.getState();
+                            let next = [...currentStore.libraryTracks];
 
-                                // Remove deleted
-                                if (deletedIds.length > 0) {
-                                    const deletedSet = new Set(deletedIds);
-                                    next = next.filter(
-                                        (t) => !deletedSet.has(t.assetId)
-                                    );
-                                }
-
-                                // Update or Add new
-                                if (newOrModifiedTracks.length > 0) {
-                                    const newMap = new Map(
-                                        newOrModifiedTracks.map((t) => [
-                                            t.assetId,
-                                            t,
-                                        ])
-                                    );
-                                    // Update existing in-place
-                                    next = next.map((t) =>
-                                        newMap.has(t.assetId)
-                                            ? newMap.get(t.assetId)!
-                                            : t
-                                    );
-                                    // Append purely new ones
-                                    const existingIds = new Set(
-                                        next.map((t) => t.assetId)
-                                    );
-                                    const purelyNew =
-                                        newOrModifiedTracks.filter(
-                                            (t) => !existingIds.has(t.assetId)
-                                        );
-                                    next = [...next, ...purelyNew];
-                                }
-
-                                currentStore.setLibraryTracks(next);
-                                currentStore.setLibraryLoading(false);
+                            // Remove deleted
+                            if (deletedIds.length > 0) {
+                                const deletedSet = new Set(deletedIds);
+                                next = next.filter((t) => !deletedSet.has(t.assetId));
                             }
-                        );
+
+                            // Update or Add new
+                            if (newOrModifiedTracks.length > 0) {
+                                const newMap = new Map(
+                                    newOrModifiedTracks.map((t) => [t.assetId, t])
+                                );
+                                // Update existing in-place
+                                next = next.map((t) =>
+                                    newMap.has(t.assetId) ? newMap.get(t.assetId)! : t
+                                );
+                                // Append purely new ones
+                                const existingIds = new Set(next.map((t) => t.assetId));
+                                const purelyNew = newOrModifiedTracks.filter(
+                                    (t) => !existingIds.has(t.assetId)
+                                );
+                                next = [...next, ...purelyNew];
+                            }
+
+                            currentStore.setLibraryTracks(next);
+                            currentStore.setLibraryLoading(false);
+                        });
                     } catch (syncError) {
                         log.error("Error during syncMusicLibrary:", syncError);
                     } finally {
-                        if (isActive)
-                            usePlayerStore.getState().setLibraryLoading(false);
+                        if (isActive) usePlayerStore.getState().setLibraryLoading(false);
                     }
                 }, 500); // 500ms delay debounce
             } catch (err) {
@@ -369,9 +327,7 @@ export function useMusicLibrary(limit = Infinity) {
                 const currentStore = usePlayerStore.getState();
                 currentStore.setLibraryTracks(
                     currentStore.libraryTracks.map((t) =>
-                        t.assetId === updatedTrack.assetId
-                            ? { ...t, ...updatedTrack }
-                            : t
+                        t.assetId === updatedTrack.assetId ? { ...t, ...updatedTrack } : t
                     )
                 );
             }
@@ -399,10 +355,7 @@ export const featureCards = [
     { title: "Recent", color: "#5b4db3", href: "/library/recent" as const },
 ];
 
-export const librarySectionCopy: Record<
-    LibrarySectionKey,
-    { title: string; subtitle: string }
-> = {
+export const librarySectionCopy: Record<LibrarySectionKey, { title: string; subtitle: string }> = {
     favourites: {
         title: "Favourites",
         subtitle: "Tracks you starred most recently.",

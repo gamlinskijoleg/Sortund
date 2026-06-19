@@ -17,12 +17,7 @@ export function AsyncListState({
 
     if (isLoading) {
         return (
-            <Text
-                fontSize={15}
-                padding={16}
-                textAlign="center"
-                color={theme.textMuted}
-            >
+            <Text fontSize={15} padding={16} textAlign="center" color={theme.textMuted}>
                 {loadingMessage}
             </Text>
         );
@@ -30,24 +25,14 @@ export function AsyncListState({
 
     if (error) {
         return (
-            <Text
-                fontSize={15}
-                padding={16}
-                textAlign="center"
-                color={theme.textMuted}
-            >
+            <Text fontSize={15} padding={16} textAlign="center" color={theme.textMuted}>
                 {error}
             </Text>
         );
     }
 
     return (
-        <Text
-            fontSize={15}
-            padding={16}
-            textAlign="center"
-            color={theme.textMuted}
-        >
+        <Text fontSize={15} padding={16} textAlign="center" color={theme.textMuted}>
             {emptyMessage}
         </Text>
     );

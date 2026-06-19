@@ -34,9 +34,7 @@ export function getCachedTracks(): MusicTrack[] {
     const startTime = Date.now();
     const tracks = db.getAllSync("SELECT * FROM tracks") as any[];
     const endTime = Date.now();
-    log.debug(
-        `SQLite: Fetching ${tracks.length} tracks took ${endTime - startTime} ms`
-    );
+    log.debug(`SQLite: Fetching ${tracks.length} tracks took ${endTime - startTime} ms`);
     return tracks.map((track) => ({
         ...track,
         tags: track.tags ? JSON.parse(track.tags) : undefined,
@@ -82,9 +80,7 @@ export async function insertOrReplaceTracksAsync(tracks: MusicTrack[]) {
 export async function deleteTracksByIdAsync(assetIds: string[]) {
     if (assetIds.length === 0) return;
     await db.withTransactionAsync(async () => {
-        const statement = await db.prepareAsync(
-            `DELETE FROM tracks WHERE assetId = $assetId`
-        );
+        const statement = await db.prepareAsync(`DELETE FROM tracks WHERE assetId = $assetId`);
         try {
             for (const id of assetIds) {
                 await statement.executeAsync({ $assetId: id });
@@ -132,15 +128,12 @@ export async function updateTrackAfterAnalysisInDbAsync(
                 $artwork: metadata.artwork || null,
                 $genre: metadata.genre || null,
                 $date: metadata.date || null,
-                $rating:
-                    metadata.rating != null ? String(metadata.rating) : null,
+                $rating: metadata.rating != null ? String(metadata.rating) : null,
                 $analysis_source: metadata.analysis_source || null,
                 $tags: metadata.tags ? JSON.stringify(metadata.tags) : null,
                 $assetId: assetId,
             });
-            log.debug(
-                `✅ Track ${assetId} metadata updated in DB (analysis complete)`
-            );
+            log.debug(`✅ Track ${assetId} metadata updated in DB (analysis complete)`);
         } catch (error) {
             log.error(`❌ Error updating track metadata in DB:`, error);
         } finally {

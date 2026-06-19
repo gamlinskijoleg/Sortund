@@ -2,7 +2,9 @@ import logging
 import asyncio
 import aiohttp
 import re
-from typing import Optional
+from typing import (
+    Optional,
+)
 
 logger = logging.getLogger("sortund-ai-pipeline")
 
@@ -11,24 +13,35 @@ class TheAudioDBClient:
     session: Optional[aiohttp.ClientSession] = None
 
     @classmethod
-    def get_session(cls) -> aiohttp.ClientSession:
+    def get_session(
+        cls,
+    ) -> aiohttp.ClientSession:
         if cls.session is None:
             cls.session = aiohttp.ClientSession()
         return cls.session
 
     @classmethod
-    async def close(cls):
+    async def close(
+        cls,
+    ):
         if cls.session:
             await cls.session.close()
 
 
-async def fetch_release_year_from_theaudiodb(artist: str, title: str) -> Optional[int]:
+async def fetch_release_year_from_theaudiodb(
+    artist: str,
+    title: str,
+) -> Optional[int]:
     """Searches for track release year using TheAudioDB API."""
     if artist == "Unknown Artist":
         return None
 
     # Clean the title: remove anything in parentheses or brackets, and extra spaces
-    clean_title = re.sub(r"\(.*?\)|\[.*?\]", "", title).strip()
+    clean_title = re.sub(
+        r"\(.*?\)|\[.*?\]",
+        "",
+        title,
+    ).strip()
     clean_title = clean_title.split(" - ")[0].strip()
 
     if not clean_title:
@@ -38,7 +51,9 @@ async def fetch_release_year_from_theaudiodb(artist: str, title: str) -> Optiona
         session = TheAudioDBClient.get_session()
 
         # 1. Search for the track
-        search_url = f"https://www.theaudiodb.com/api/v1/json/2/searchtrack.php?s={artist}&t={clean_title}"
+        search_url = (
+            f"https://www.theaudiodb.com/api/v1/json/2/searchtrack.php?s={artist}&t={clean_title}"
+        )
         async with session.get(search_url) as track_res:
             if track_res.status != 200:
                 return None

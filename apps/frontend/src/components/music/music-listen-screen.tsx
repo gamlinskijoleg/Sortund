@@ -38,186 +38,165 @@ interface SliderProps {
     theme: AppTheme;
 }
 
-const PlaybackSlider = React.memo(
-    ({ player, fallbackDuration, theme }: SliderProps) => {
-        const { currentTime, duration } = useAudioPlayerStatus(player);
+const PlaybackSlider = React.memo(({ player, fallbackDuration, theme }: SliderProps) => {
+    const { currentTime, duration } = useAudioPlayerStatus(player);
 
-        const playedMs = currentTime ? currentTime * 1000 : 0;
-        const totalMs = duration > 0 ? duration * 1000 : fallbackDuration;
+    const playedMs = currentTime ? currentTime * 1000 : 0;
+    const totalMs = duration > 0 ? duration * 1000 : fallbackDuration;
 
-        // 1. UI-Thread values for the 60fps gesture
-        const width = useSharedValue(0);
-        const progressMs = useSharedValue(0);
-        const isSliding = useSharedValue(false);
+    // 1. UI-Thread values for the 60fps gesture
+    const width = useSharedValue(0);
+    const progressMs = useSharedValue(0);
+    const isSliding = useSharedValue(false);
 
-        // 2. JS-Thread state specifically to override text ONLY when dragging
-        const [slidingTimeMs, setSlidingTimeMs] = useState<number | null>(null);
+    // 2. JS-Thread state specifically to override text ONLY when dragging
+    const [slidingTimeMs, setSlidingTimeMs] = useState<number | null>(null);
 
-        const updateSlidingTime = (newTimeMs: number) => {
-            setSlidingTimeMs(newTimeMs);
-        };
+    const updateSlidingTime = (newTimeMs: number) => {
+        setSlidingTimeMs(newTimeMs);
+    };
 
-        const finalizeSeek = (newTimeMs: number) => {
-            player.seekTo(newTimeMs / 1000);
+    const finalizeSeek = (newTimeMs: number) => {
+        player.seekTo(newTimeMs / 1000);
 
-            // Delay the "release" of the slider to ensure the player has time to update its currentTime and avoid janky jumps
-            setTimeout(() => {
-                isSliding.value = false;
-                setSlidingTimeMs(null);
-            }, 100);
-        };
+        // Delay the "release" of the slider to ensure the player has time to update its currentTime and avoid janky jumps
+        setTimeout(() => {
+            isSliding.value = false;
+            setSlidingTimeMs(null);
+        }, 100);
+    };
 
-        const gesture = Gesture.Pan()
-            .minDistance(0)
-            .onBegin((e) => {
-                isSliding.value = true;
-                const percent = Math.max(0, Math.min(e.x / width.value, 1));
-                const newTimeMs = percent * totalMs;
+    const gesture = Gesture.Pan()
+        .minDistance(0)
+        .onBegin((e) => {
+            isSliding.value = true;
+            const percent = Math.max(0, Math.min(e.x / width.value, 1));
+            const newTimeMs = percent * totalMs;
 
-                progressMs.value = newTimeMs;
-                runOnJS(updateSlidingTime)(newTimeMs);
-            })
-            .onUpdate((e) => {
-                const percent = Math.max(0, Math.min(e.x / width.value, 1));
-                const newTimeMs = percent * totalMs;
+            progressMs.value = newTimeMs;
+            runOnJS(updateSlidingTime)(newTimeMs);
+        })
+        .onUpdate((e) => {
+            const percent = Math.max(0, Math.min(e.x / width.value, 1));
+            const newTimeMs = percent * totalMs;
 
-                progressMs.value = newTimeMs;
-                runOnJS(updateSlidingTime)(newTimeMs);
-            })
-            .onFinalize(() => {
-                // Whether it was a long drag or a quick tap, progressMs.value
-                // holds the exact right coordinate. Just seek to it!
-                runOnJS(finalizeSeek)(progressMs.value);
-            });
-
-        // 4. Dynamically pick whether to animate based on the gesture OR real time
-        const animatedStyle = useAnimatedStyle(() => {
-            const activeTimeMs = isSliding.value ? progressMs.value : playedMs;
-            // Avoid division by zero
-            const percent = totalMs > 0 ? (activeTimeMs / totalMs) * 100 : 0;
-
-            return {
-                // Smooth linear transition during playback, instant movement while dragging
-                width: withTiming(`${percent}%`, {
-                    duration: 100,
-                    easing: Easing.linear,
-                }),
-            };
+            progressMs.value = newTimeMs;
+            runOnJS(updateSlidingTime)(newTimeMs);
+        })
+        .onFinalize(() => {
+            // Whether it was a long drag or a quick tap, progressMs.value
+            // holds the exact right coordinate. Just seek to it!
+            runOnJS(finalizeSeek)(progressMs.value);
         });
 
-        // 5. Pick the text time
-        const displayTimeMs = slidingTimeMs !== null ? slidingTimeMs : playedMs;
+    // 4. Dynamically pick whether to animate based on the gesture OR real time
+    const animatedStyle = useAnimatedStyle(() => {
+        const activeTimeMs = isSliding.value ? progressMs.value : playedMs;
+        // Avoid division by zero
+        const percent = totalMs > 0 ? (activeTimeMs / totalMs) * 100 : 0;
 
-        return (
-            <YStack marginBottom={20}>
-                {/* Track Time Text */}
-                <XStack justifyContent="space-between" marginBottom={8}>
-                    <Text
-                        color={
-                            slidingTimeMs !== null
-                                ? theme.accent
-                                : theme.textMuted
-                        }
-                        fontSize={13}
-                        fontWeight="600"
-                    >
-                        {formatTime(displayTimeMs)}
-                    </Text>
-                    <Text
-                        color={theme.textMuted}
-                        fontSize={13}
-                        fontWeight="600"
-                    >
-                        {formatTime(totalMs)}
-                    </Text>
-                </XStack>
+        return {
+            // Smooth linear transition during playback, instant movement while dragging
+            width: withTiming(`${percent}%`, {
+                duration: 100,
+                easing: Easing.linear,
+            }),
+        };
+    });
 
-                {/* Reanimated Custom Slider Track */}
-                <GestureDetector gesture={gesture}>
+    // 5. Pick the text time
+    const displayTimeMs = slidingTimeMs !== null ? slidingTimeMs : playedMs;
+
+    return (
+        <YStack marginBottom={20}>
+            {/* Track Time Text */}
+            <XStack justifyContent="space-between" marginBottom={8}>
+                <Text
+                    color={slidingTimeMs !== null ? theme.accent : theme.textMuted}
+                    fontSize={13}
+                    fontWeight="600"
+                >
+                    {formatTime(displayTimeMs)}
+                </Text>
+                <Text color={theme.textMuted} fontSize={13} fontWeight="600">
+                    {formatTime(totalMs)}
+                </Text>
+            </XStack>
+
+            {/* Reanimated Custom Slider Track */}
+            <GestureDetector gesture={gesture}>
+                <View
+                    onLayout={(e) => {
+                        width.value = e.nativeEvent.layout.width;
+                    }}
+                    height={24}
+                    justifyContent="center"
+                    width="100%"
+                >
+                    {/* Background Track */}
                     <View
-                        onLayout={(e) => {
-                            width.value = e.nativeEvent.layout.width;
-                        }}
-                        height={24}
-                        justifyContent="center"
+                        height={8}
                         width="100%"
-                    >
-                        {/* Background Track */}
-                        <View
-                            height={8}
-                            width="100%"
-                            backgroundColor={theme.surfaceStrong}
-                            borderRadius={999}
-                        />
+                        backgroundColor={theme.surfaceStrong}
+                        borderRadius={999}
+                    />
 
-                        {/* Active Track */}
-                        <Animated.View
-                            style={[
-                                {
-                                    position: "absolute",
-                                    height: 8,
-                                    borderRadius: 999,
-                                    backgroundColor: theme.accent,
-                                },
-                                animatedStyle,
-                            ]}
-                        />
+                    {/* Active Track */}
+                    <Animated.View
+                        style={[
+                            {
+                                position: "absolute",
+                                height: 8,
+                                borderRadius: 999,
+                                backgroundColor: theme.accent,
+                            },
+                            animatedStyle,
+                        ]}
+                    />
 
-                        {/* Thumb / Marker */}
-                        <Animated.View
-                            style={[
-                                {
-                                    position: "absolute",
-                                    width: 16,
-                                    height: 16,
-                                    borderRadius: 8,
-                                    backgroundColor: theme.accent,
-                                    borderWidth: 2,
-                                    borderColor: theme.background,
-                                    elevation: 2,
-                                    shadowColor: "#000",
-                                    shadowOffset: { width: 0, height: 1 },
-                                    shadowOpacity: 0.2,
-                                    shadowRadius: 1.41,
-                                    // Offset the thumb so its center aligns with the end of the active track
-                                    transform: [{ translateX: -8 }],
-                                    // Anchor to the left side
-                                },
-                                // Update this animated style to match the track's timing
-                                useAnimatedStyle(() => {
-                                    const activeTimeMs = isSliding.value
-                                        ? progressMs.value
-                                        : playedMs;
-                                    const percent =
-                                        totalMs > 0
-                                            ? (activeTimeMs / totalMs) * 100
-                                            : 0;
+                    {/* Thumb / Marker */}
+                    <Animated.View
+                        style={[
+                            {
+                                position: "absolute",
+                                width: 16,
+                                height: 16,
+                                borderRadius: 8,
+                                backgroundColor: theme.accent,
+                                borderWidth: 2,
+                                borderColor: theme.background,
+                                elevation: 2,
+                                shadowColor: "#000",
+                                shadowOffset: { width: 0, height: 1 },
+                                shadowOpacity: 0.2,
+                                shadowRadius: 1.41,
+                                // Offset the thumb so its center aligns with the end of the active track
+                                transform: [{ translateX: -8 }],
+                                // Anchor to the left side
+                            },
+                            // Update this animated style to match the track's timing
+                            useAnimatedStyle(() => {
+                                const activeTimeMs = isSliding.value ? progressMs.value : playedMs;
+                                const percent = totalMs > 0 ? (activeTimeMs / totalMs) * 100 : 0;
 
-                                    return {
-                                        left: withTiming(`${percent}%`, {
-                                            duration: 100,
-                                            easing: Easing.linear,
-                                        }),
-                                    };
-                                }),
-                            ]}
-                        />
-                    </View>
-                </GestureDetector>
-            </YStack>
-        );
-    }
-);
+                                return {
+                                    left: withTiming(`${percent}%`, {
+                                        duration: 100,
+                                        easing: Easing.linear,
+                                    }),
+                                };
+                            }),
+                        ]}
+                    />
+                </View>
+            </GestureDetector>
+        </YStack>
+    );
+});
 
 PlaybackSlider.displayName = "PlaybackSlider";
 
-const PlayPauseButton = ({
-    player,
-    theme,
-}: {
-    player: AudioPlayer;
-    theme: AppTheme;
-}) => {
+const PlayPauseButton = ({ player, theme }: { player: AudioPlayer; theme: AppTheme }) => {
     const { playing } = useAudioPlayerStatus(player);
     return (
         <Button
@@ -265,12 +244,7 @@ export default function MusicListenScreen() {
 
     return (
         <AppScreen backgroundColor={theme.background} statusBarStyle="dark">
-            <YStack
-                flex={1}
-                paddingHorizontal={16}
-                paddingTop={8}
-                paddingBottom={16}
-            >
+            <YStack flex={1} paddingHorizontal={16} paddingTop={8} paddingBottom={16}>
                 {/* Top panel */}
                 <XStack
                     alignItems="center"
@@ -290,18 +264,10 @@ export default function MusicListenScreen() {
                         padding={0}
                         chromeless
                     >
-                        <MaterialCommunityIcons
-                            name="chevron-left"
-                            size={30}
-                            color={theme.text}
-                        />
+                        <MaterialCommunityIcons name="chevron-left" size={30} color={theme.text} />
                     </Button>
 
-                    <YStack
-                        flex={1}
-                        alignItems="center"
-                        justifyContent="center"
-                    >
+                    <YStack flex={1} alignItems="center" justifyContent="center">
                         <Text
                             color={theme.textMuted}
                             fontSize={12}
@@ -450,11 +416,7 @@ export default function MusicListenScreen() {
                         padding={0}
                         chromeless
                     >
-                        <MaterialCommunityIcons
-                            name="skip-previous"
-                            size={28}
-                            color={theme.text}
-                        />
+                        <MaterialCommunityIcons name="skip-previous" size={28} color={theme.text} />
                     </Button>
 
                     <PlayPauseButton player={player} theme={theme} />
@@ -471,11 +433,7 @@ export default function MusicListenScreen() {
                         padding={0}
                         chromeless
                     >
-                        <MaterialCommunityIcons
-                            name="skip-next"
-                            size={28}
-                            color={theme.text}
-                        />
+                        <MaterialCommunityIcons name="skip-next" size={28} color={theme.text} />
                     </Button>
                 </XStack>
             </YStack>

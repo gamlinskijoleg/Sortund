@@ -35,14 +35,8 @@ export function MusicBottomNav() {
                 }}
                 style={styles.navItem}
             >
-                <MaterialCommunityIcons
-                    name="headphones"
-                    size={20}
-                    color={theme.text}
-                />
-                <Text style={[styles.navLabel, { color: theme.text }]}>
-                    My music
-                </Text>
+                <MaterialCommunityIcons name="headphones" size={20} color={theme.text} />
+                <Text style={[styles.navLabel, { color: theme.text }]}>My music</Text>
             </Pressable>
 
             <Pressable

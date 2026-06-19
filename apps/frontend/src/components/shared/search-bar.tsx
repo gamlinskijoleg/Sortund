@@ -32,11 +32,7 @@ export function SearchBar({
             gap={4}
             onPress={onPress ?? (() => router.push("/search"))}
         >
-            <MaterialCommunityIcons
-                name="magnify"
-                size={20}
-                color={theme.textMuted}
-            />
+            <MaterialCommunityIcons name="magnify" size={20} color={theme.textMuted} />
             {isInteractive ? (
                 <Input
                     marginLeft={8}
@@ -56,12 +52,7 @@ export function SearchBar({
                     focusStyle={{ outlineWidth: 0 }}
                 />
             ) : (
-                <Text
-                    flex={1}
-                    fontSize={12}
-                    color={theme.textSubtle}
-                    numberOfLines={1}
-                >
+                <Text flex={1} fontSize={12} color={theme.textSubtle} numberOfLines={1}>
                     {placeholder}
                 </Text>
             )}
@@ -75,16 +66,8 @@ export function SearchBar({
                     />
                 </XStack>
             )}
-            <View
-                width={1}
-                height={"50%"}
-                backgroundColor={theme.textPlaceholder}
-            />
-            <MaterialCommunityIcons
-                name="microphone"
-                size={20}
-                color={theme.textPlaceholder}
-            />
+            <View width={1} height={"50%"} backgroundColor={theme.textPlaceholder} />
+            <MaterialCommunityIcons name="microphone" size={20} color={theme.textPlaceholder} />
         </XStack>
     );
 }

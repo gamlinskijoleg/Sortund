@@ -25,12 +25,8 @@ let onPreviousTrackHandler: (() => void) | null = null;
 
 let lastTrack: MusicTrack | null = null;
 
-const resolvedAsset = Image.resolveAssetSource(
-    require("../../assets/icon.png")
-);
-const fallbackArtworkUrl = resolvedAsset?.uri?.startsWith("data:")
-    ? undefined
-    : resolvedAsset?.uri;
+const resolvedAsset = Image.resolveAssetSource(require("../../assets/icon.png"));
+const fallbackArtworkUrl = resolvedAsset?.uri?.startsWith("data:") ? undefined : resolvedAsset?.uri;
 
 async function configureAudioMode() {
     if (initialized) return;
@@ -50,11 +46,7 @@ async function configureAudioMode() {
                 Command.PREVIOUS_TRACK,
                 Command.SEEK,
             ],
-            compactCapabilities: [
-                Command.PREVIOUS_TRACK,
-                Command.PLAY,
-                Command.NEXT_TRACK,
-            ],
+            compactCapabilities: [Command.PREVIOUS_TRACK, Command.PLAY, Command.NEXT_TRACK],
         });
 
         initialized = true;
@@ -64,10 +56,7 @@ async function configureAudioMode() {
     }
 }
 
-export function setTrackNavigationCallbacks(
-    onNext: () => void,
-    onPrev: () => void
-) {
+export function setTrackNavigationCallbacks(onNext: () => void, onPrev: () => void) {
     onNextTrackHandler = onNext;
     onPreviousTrackHandler = onPrev;
 }
@@ -75,16 +64,10 @@ export function setTrackNavigationCallbacks(
 export async function playTrack(track: MusicTrack) {
     await configureAudioMode();
 
-    const playerUri = track.sourceUri.includes("%")
-        ? track.sourceUri
-        : encodeURI(track.sourceUri);
+    const playerUri = track.sourceUri.includes("%") ? track.sourceUri : encodeURI(track.sourceUri);
     const currentToken = ++playbackToken;
 
-    if (
-        track.artwork &&
-        typeof track.artwork === "string" &&
-        track.artwork.startsWith("data:")
-    ) {
+    if (track.artwork && typeof track.artwork === "string" && track.artwork.startsWith("data:")) {
         const cachedFileUri = await saveBase64ArtworkAsync(
             track.artwork,
             track.assetId || `unknown_${Date.now()}`
@@ -117,10 +100,7 @@ export async function playTrack(track: MusicTrack) {
     try {
         if (!activePlayer) {
             log.debug("Player: Creating player instance on-demand (fallback)");
-            activePlayer = createAudioPlayer(
-                { uri: playerUri },
-                { updateInterval: 250 }
-            );
+            activePlayer = createAudioPlayer({ uri: playerUri }, { updateInterval: 250 });
             usePlayerStore.getState().setPlayerInstance(activePlayer);
             setupNotificationListeners();
             setupPlaybackStatusListener(activePlayer);
@@ -145,8 +125,7 @@ export async function playTrack(track: MusicTrack) {
 
             void getArtwork(cleanMetadataUri)
                 .then(async (artworkResult) => {
-                    const latestPlayer =
-                        usePlayerStore.getState().playerInstance;
+                    const latestPlayer = usePlayerStore.getState().playerInstance;
                     if (
                         !artworkResult ||
                         playbackToken !== currentToken ||
@@ -169,10 +148,7 @@ export async function playTrack(track: MusicTrack) {
                         finalArtworkUri = artworkResult;
                     }
 
-                    if (
-                        finalArtworkUri &&
-                        !finalArtworkUri.startsWith("data:")
-                    ) {
+                    if (finalArtworkUri && !finalArtworkUri.startsWith("data:")) {
                         track.artwork = finalArtworkUri;
 
                         const updatedMetadata: MediaMetadata = {
@@ -185,24 +161,16 @@ export async function playTrack(track: MusicTrack) {
                         };
 
                         try {
-                            log.debug(
-                                "Player: Updating MediaControl with newly extracted artwork"
-                            );
+                            log.debug("Player: Updating MediaControl with newly extracted artwork");
                             currentMediaMetadata = updatedMetadata;
                             updateMetadata(updatedMetadata);
                         } catch (e) {
-                            log.warn(
-                                "Player: Dynamic artwork update failed",
-                                e
-                            );
+                            log.warn("Player: Dynamic artwork update failed", e);
                         }
                     }
                 })
                 .catch((error) => {
-                    log.warn(
-                        `Player: Artwork extraction failed:`,
-                        error.message
-                    );
+                    log.warn(`Player: Artwork extraction failed:`, error.message);
                 });
         }
 
@@ -227,18 +195,14 @@ function setupNotificationListeners() {
                     log.debug("MediaControl: Hardware Next Track triggered");
                     onNextTrackHandler();
                 } else {
-                    log.warn(
-                        "MediaControl: Next track triggered, but onNextTrackHandler is null"
-                    );
+                    log.warn("MediaControl: Next track triggered, but onNextTrackHandler is null");
                 }
                 break;
 
             case Command.PREVIOUS_TRACK:
             case "previousTrack":
                 if (onPreviousTrackHandler) {
-                    log.debug(
-                        "MediaControl: Hardware Previous Track triggered"
-                    );
+                    log.debug("MediaControl: Hardware Previous Track triggered");
                     onPreviousTrackHandler();
                 } else {
                     log.warn(
@@ -283,9 +247,7 @@ function setupNotificationListeners() {
 
 function setupPlaybackStatusListener(player: AudioPlayer) {
     player.addListener("playbackStatusUpdate", (status) => {
-        let state = status.playing
-            ? PlaybackState.PLAYING
-            : PlaybackState.PAUSED;
+        let state = status.playing ? PlaybackState.PLAYING : PlaybackState.PAUSED;
         if (status.isBuffering) state = PlaybackState.BUFFERING;
 
         updatePlaybackState(state, status.currentTime, status.playbackRate);

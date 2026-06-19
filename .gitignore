@@ -45,3 +45,5 @@ __pycache__/
 temp/*
 *.apk
 assembleRelease.sh
+.coverage
+filenames.txt

@@ -25,8 +25,7 @@ export function SearchList<T>({
 }: SearchListProps<T>) {
     const theme = useAppTheme();
 
-    const showNoResults =
-        !showInitialState && !isDebouncing && !isLoading && data.length === 0;
+    const showNoResults = !showInitialState && !isDebouncing && !isLoading && data.length === 0;
 
     return (
         <FlatList
@@ -35,11 +34,7 @@ export function SearchList<T>({
             contentContainerStyle={{ paddingBottom: 160 }}
             ListEmptyComponent={
                 showInitialState ? (
-                    <Text
-                        color={theme.textSubtle}
-                        textAlign="center"
-                        marginTop={20}
-                    >
+                    <Text color={theme.textSubtle} textAlign="center" marginTop={20}>
                         {initialStateMessage}
                     </Text>
                 ) : isDebouncing || isLoading ? (
@@ -47,14 +42,8 @@ export function SearchList<T>({
                         <ActivityIndicator size="large" color={theme.text} />
                     </YStack>
                 ) : showNoResults ? (
-                    <Text
-                        color={theme.textSubtle}
-                        textAlign="center"
-                        marginTop={20}
-                    >
-                        {searchQuery
-                            ? `No results found for ${searchQuery}`
-                            : noResultsMessage}
+                    <Text color={theme.textSubtle} textAlign="center" marginTop={20}>
+                        {searchQuery ? `No results found for ${searchQuery}` : noResultsMessage}
                     </Text>
                 ) : null
             }

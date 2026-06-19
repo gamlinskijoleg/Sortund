@@ -11,13 +11,14 @@ def setup_logging():
         # Force stream to write in UTF-8
         stream_handler = logging.StreamHandler(sys.stdout)
         stream_handler.setFormatter(
-            logging.Formatter(
-                "%(asctime)s [%(levelname)s] %(message)s (%(filename)s:%(lineno)d)"
-            )
+            logging.Formatter("%(asctime)s [%(levelname)s] %(message)s (%(filename)s:%(lineno)d)")
         )
         try:
             stream_handler.stream = open(
-                sys.stdout.fileno(), mode="w", encoding="utf-8", closefd=False
+                sys.stdout.fileno(),
+                mode="w",
+                encoding="utf-8",
+                closefd=False,
             )
         except Exception:
             pass
