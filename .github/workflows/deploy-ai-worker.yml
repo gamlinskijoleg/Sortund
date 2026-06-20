@@ -15,7 +15,7 @@ jobs:
 
             # 1. Connect to Tailscale network via OAuth
             - name: Connect to Tailscale
-              uses: tailscale/github-action@v2
+              uses: tailscale/github-action@v4
               with:
                   oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
                   oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
@@ -23,18 +23,18 @@ jobs:
 
             # 2. Set up the Buildx engine with the correct driver for caching
             - name: Set up Docker Buildx
-              uses: docker/setup-buildx-action@v3
+              uses: docker/setup-buildx-action@v4
 
             # 3. Login to Docker Hub
             - name: Login to Docker Hub
-              uses: docker/login-action@v3
+              uses: docker/login-action@v4
               with:
                   username: ${{ secrets.DOCKERHUB_USERNAME }}
                   password: ${{ secrets.DOCKERHUB_TOKEN }}
 
             # 4. Build and push image to Docker Hub
             - name: Build and push
-              uses: docker/build-push-action@v5
+              uses: docker/build-push-action@v7
               with:
                   context: ./apps/ai-worker
                   push: true
@@ -61,10 +61,11 @@ jobs:
                       --pull always \
                       -p 8000:8000 \
                       -e HUGGING_FACE_HUB_TOKEN="${{ secrets.HF_TOKEN }}" \
+                      -v hf-cache:/root/.cache/huggingface \
                       --restart unless-stopped \
                       ${{ secrets.DOCKERHUB_USERNAME }}/ai-worker:latest
 
-            # 6. Cleanup Tailscale connection
+            # 7. Cleanup Tailscale connection
             - name: Disconnect Tailscale
               if: always()
               run: sudo tailscale logout
