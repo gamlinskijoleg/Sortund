@@ -1,4 +1,4 @@
-name: Deploy to Server
+name: Deploy AI-worker to Server
 
 on:
     workflow_dispatch:
