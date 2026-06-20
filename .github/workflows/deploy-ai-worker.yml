@@ -35,6 +35,8 @@ jobs:
                   context: ./apps/ai-worker
                   push: true
                   tags: ${{ secrets.DOCKERHUB_USERNAME }}/ai-worker:latest
+                  cache-from: type=gha
+                  cache-to: type=gha,mode=max
 
             - name: Test Ping to Server
               run: ping -c 4 ${{ secrets.SERVER_IP }}
