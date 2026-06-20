@@ -24,7 +24,7 @@
         },
         "test": {
             "dependsOn": ["^test"],
-            "inputs": ["src/**/*.ts", "tsconfig.json", "jest.config.js"],
+            "inputs": ["src/**/*.ts", "**/*.py", "tsconfig.json", "jest.config.js", "pytest.ini"],
             "outputs": []
         }
     }

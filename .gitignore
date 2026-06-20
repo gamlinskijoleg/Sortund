@@ -47,3 +47,4 @@ temp/*
 assembleRelease.sh
 .coverage
 filenames.txt
+.pytest_cache/
