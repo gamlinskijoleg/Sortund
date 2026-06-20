@@ -22,7 +22,6 @@ const tamaguiConfig = createTamagui({
 
 type AppConfig = typeof tamaguiConfig;
 declare module "tamagui" {
-    // eslint-disable-next-line
     interface TamaguiCustomConfig extends AppConfig {}
 }
 

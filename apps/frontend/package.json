@@ -45,6 +45,8 @@
         "zustand": "^5.0.13"
     },
     "devDependencies": {
+        "@repo/eslint-config": "*",
+        "@repo/typescript-config": "*",
         "@jest/types": "^29.6.3",
         "@react-native/jest-preset": "^0.86.0",
         "@tamagui/babel-plugin": "^1.131.13",
