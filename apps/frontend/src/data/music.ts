@@ -76,7 +76,7 @@ export async function syncMusicLibrary(
     onProgress: (newTracks: MusicTrack[], deletedIds: string[]) => void
 ) {
     if (isSyncingLibrary) {
-        log.debug("⚡️ Synchronization is already running. Skipping...");
+        log.debug("️Synchronization is already running. Skipping...");
         return;
     }
 
@@ -85,14 +85,14 @@ export async function syncMusicLibrary(
         const permission = await requestPermissionsAsync(false, ["audio"]);
 
         if (!permission.granted) {
-            log.error("❌ Access to audio files denied.");
+            log.error("Access to audio files denied.");
             return;
         }
 
         const album = await Album.get("Music");
 
         if (!album) {
-            log.error("❌ Album 'Music' not found.");
+            log.error("Album 'Music' not found.");
             return;
         }
 
@@ -105,7 +105,7 @@ export async function syncMusicLibrary(
 
         const queryMedia = await query.exe();
 
-        log.debug(`🎵 Found tracks in album ${await album.getTitle()}: ${queryMedia.length}`);
+        log.debug(`Found tracks in album ${await album.getTitle()}: ${queryMedia.length}`);
 
         // 2. Identify new, modified, and deleted
         const cachedMap = new Map(cachedTracks.map((t) => [t.assetId, t]));
@@ -133,17 +133,17 @@ export async function syncMusicLibrary(
 
         // Handle deletions
         if (deletedIds.length > 0) {
-            log.debug(`🗑 Deleting ${deletedIds.length} tracks...`);
+            log.debug(`Deleting ${deletedIds.length} tracks...`);
             await deleteTracksByIdAsync(deletedIds);
             onProgress([], deletedIds);
         }
 
         if (assetsToProcess.length === 0) {
-            log.debug("⚡️ No new or modified tracks to process.");
+            log.debug("️ No new or modified tracks to process.");
             return;
         }
 
-        log.debug(`⏳ Processing ${assetsToProcess.length} new/modified tracks...`);
+        log.debug(`Processing ${assetsToProcess.length} new/modified tracks...`);
 
         // 3. Process in chunks
         const CHUNK_SIZE = 10;
@@ -223,7 +223,7 @@ export async function syncMusicLibrary(
 
                         processedChunk.push(newTrack);
                     } catch (error) {
-                        log.error(`❌ Error processing track ${cleanId}:`, error);
+                        log.error(`Error processing track ${cleanId}:`, error);
                     }
                 })
             );
@@ -234,7 +234,7 @@ export async function syncMusicLibrary(
             }
         }
 
-        log.debug("✅ Library synchronization completed.");
+        log.debug("Library synchronization completed.");
     } finally {
         isSyncingLibrary = false;
     }

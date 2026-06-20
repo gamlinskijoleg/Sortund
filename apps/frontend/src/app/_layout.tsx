@@ -18,7 +18,7 @@ SplashScreen.setOptions({
 export default function RootLayout() {
     useEffect(() => {
         initPlayer()
-            .then(() => log.debug("🚀 Audio service successfully ready for work"))
+            .then(() => log.debug("Audio service successfully ready for work"))
             .catch((err) => log.error("Failed to initialize audio mode:", err));
     }, []);
 

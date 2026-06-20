@@ -2,7 +2,7 @@
 
 **Sortund** is an innovative mobile music manager that uses AI to automatically tag and organize your local media library. Forget about messy tracks — we analyze music on your device and structure it by genres, mood, and other parameters.
 
-## 🏗 Project Architecture
+## Project Architecture
 
 The project is built on the principles of a monorepo and microservices architecture.
 
@@ -10,7 +10,7 @@ The project is built on the principles of a monorepo and microservices architect
 - **Backend (NestJS):** Central API for authorization, profile synchronization, and user data management.
 - **AI Worker (FastAPI on Hugging Face):** Service for audio classification based on neural networks.
 
-## 🚀 Key Components
+## Key Components
 
 ### 1. Mobile Client (Expo)
 
@@ -49,7 +49,7 @@ The project is built on the principles of a monorepo and microservices architect
 
 ---
 
-## 🏗 Development Setup
+## Development Setup
 
 ```bash
 # Install dependencies

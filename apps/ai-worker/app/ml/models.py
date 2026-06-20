@@ -29,7 +29,7 @@ def load_onnx_models():
 
     # 1. CHECK: If local files are missing, download from Hugging Face
     if not os.path.exists(TEXT_MODEL_PATH) or not os.path.exists(AUDIO_MODEL_PATH):
-        logger.info("⚠️ Local models not found. Starting download from Hugging Face Model Hub...")
+        logger.info("️Local models not found. Starting download from Hugging Face Model Hub...")
         try:
             hf_token = settings.HF_TOKEN or None
 
@@ -42,9 +42,9 @@ def load_onnx_models():
             # Reassign paths to downloaded files
             TEXT_MODEL_PATH = os.path.join(downloaded_dir, "text_zero_shot", "model.onnx")
             AUDIO_MODEL_PATH = os.path.join(downloaded_dir, "audio_tagger", "model.onnx")
-            logger.info(f"✅ Models successfully loaded into cache: {downloaded_dir}")
+            logger.info(f"Models successfully loaded into cache: {downloaded_dir}")
         except Exception as e:
-            logger.error(f"❌ Failed to download models from Hugging Face Hub: {e}", exc_info=True)
+            logger.error(f"Failed to download models from Hugging Face Hub: {e}", exc_info=True)
             return
 
     # 2. SESSION INITIALIZATION (Original code, but with new paths)
@@ -58,10 +58,10 @@ def load_onnx_models():
             text_session = ort.InferenceSession(TEXT_MODEL_PATH, sess_options=opts, providers=["CPUExecutionProvider"])
             # Tokenizer is expected in the same folder as the ONNX model
             text_tokenizer = AutoTokenizer.from_pretrained(os.path.dirname(TEXT_MODEL_PATH))
-            logger.info("✅ Text Zero-Shot ONNX successfully loaded.")
+            logger.info("Text Zero-Shot ONNX successfully loaded.")
         except Exception as e:
             logger.error(
-                f"❌ Error initializing text model: {e}",
+                f"Error initializing text model: {e}",
                 exc_info=True,
             )
 
@@ -72,9 +72,9 @@ def load_onnx_models():
                 sess_options=opts,
                 providers=["CPUExecutionProvider"],
             )
-            logger.info("✅ Audio AST ONNX successfully loaded.")
+            logger.info("Audio AST ONNX successfully loaded.")
         except Exception as e:
-            logger.error(f"❌ Error initializing audio model: {e}", exc_info=True)
+            logger.error(f"Error initializing audio model: {e}", exc_info=True)
 
 
 def _sync_predict_text_zero_shot(text: str) -> List[Dict[str, Union[str, float]]]:
@@ -122,7 +122,7 @@ def _sync_predict_text_zero_shot(text: str) -> List[Dict[str, Union[str, float]]
                 if entail_prob > 85.0:
                     raw_results.append({"label": label, "prob": entail_prob})
     except Exception as e:
-        logger.error(f"❌ Text Zero-Shot calculation failure: {e}")
+        logger.error(f"Text Zero-Shot calculation failure: {e}")
     return raw_results
 
 
@@ -143,7 +143,7 @@ def _sync_predict_audio_tags(
         # Since the frontend already trims the audio, we process it from the beginning
         y, sr = librosa.load(file_path, sr=16000, offset=0.0, duration=10)
         if y.size == 0:
-            logger.warning(f"⚠️ Audio file loaded as an empty array. Skipping processing.")
+            logger.warning(f"️ Audio file loaded as an empty array. Skipping processing.")
             return ([], "Unknown")
         if np.max(np.abs(y)) < 1e-4:
             return ([], "Calm")
@@ -198,7 +198,7 @@ def _sync_predict_audio_tags(
             primary_mood,
         )
     except Exception as e:
-        logger.error(f"❌ Audio AST Engine computation failure: {e}")
+        logger.error(f"Audio AST Engine computation failure: {e}")
         return ([], "Unknown")
 
 

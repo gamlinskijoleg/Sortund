@@ -53,7 +53,7 @@ async def analyze_track(
 ) -> AnalyzeResult:
     """Processes the uploaded audio file, extracts tags and metadata from various sources."""
     filename = file.filename or "unknown.mp3"
-    logger.info(f"📥 Received file for analysis: {filename}")
+    logger.info(f"Received file for analysis: {filename}")
     if not filename.endswith(
         (
             ".mp3",
@@ -86,7 +86,7 @@ async def analyze_track(
         return result
 
     except Exception as general_error:
-        logger.critical(f"🚨 Critical pipeline failure: {general_error}", exc_info=True)
+        logger.critical(f"Critical pipeline failure: {general_error}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An internal error occurred during track analysis.",

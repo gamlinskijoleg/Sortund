@@ -285,7 +285,7 @@ export function getPlayerInstance(): AudioPlayer | null {
 export async function initPlayer() {
     let activePlayer = usePlayerStore.getState().playerInstance;
     if (!activePlayer) {
-        log.debug("⚙️ Player: Pre-initializing global audio player...");
+        log.debug("️Player: Pre-initializing global audio player...");
         activePlayer = createAudioPlayer({ uri: "" }, { updateInterval: 250 });
         usePlayerStore.getState().setPlayerInstance(activePlayer);
         setupNotificationListeners();

@@ -38,7 +38,7 @@ async def fetch_and_validate_youtube_metadata(
 
         if is_cover_or_local:
             search_query = original_filename.rsplit(".", 1)[0].replace("_", " ")
-            logger.info(f"🔍 Searching YouTube Music specifically for cover/local track: '{search_query}'")
+            logger.info(f"Searching YouTube Music specifically for cover/local track: '{search_query}'")
             yt_search = await asyncio.to_thread(yt_music_client.search, search_query)
         else:
             search_query = f"{artist} - {title}" if artist != "Unknown Artist" else title
@@ -53,9 +53,9 @@ async def fetch_and_validate_youtube_metadata(
 
             if source_analysis == "Filename Local Parser" and artist == "Unknown Artist":
                 if len(title) <= 5 and similarity < 0.9:
-                    logger.info(f"🛡️ Query too short ({title}), low match. YouTube result ignored.")
+                    logger.info(f"️Query too short ({title}), low match. YouTube result ignored.")
                 else:
-                    logger.info(f"✅ Auto-replacing with YouTube Music metadata for '{title}'")
+                    logger.info(f"Auto-replacing with YouTube Music metadata for '{title}'")
                     enrichment.title = found_title
                     enrichment.artist = found_artist
                     enrichment.source = "YouTube Music Search Engine"
@@ -75,6 +75,6 @@ async def fetch_and_validate_youtube_metadata(
                 enrichment.extra_info.append(f"Album: {album_name}")
 
     except Exception as e:
-        logger.warning(f"⚠️ Failed to enrich metadata from YouTube: {e}")
+        logger.warning(f"️Failed to enrich metadata from YouTube: {e}")
 
     return enrichment

@@ -123,7 +123,7 @@ async def execute_analysis_pipeline(temp_file_path: str, original_filename: str)
     if isrc:
         final_year = await fetch_release_year_from_musicbrainz_by_isrc(isrc)
         if final_year:
-            logger.info(f"🧠 ISRC-Priority: MusicBrainz found year {final_year} via ISRC {isrc}")
+            logger.info(f"ISRC-Priority: MusicBrainz found year {final_year} via ISRC {isrc}")
 
     if not final_year:
         theaudiodb_year_task = asyncio.create_task(fetch_release_year_from_theaudiodb(artist, title))
@@ -135,7 +135,7 @@ async def execute_analysis_pipeline(temp_file_path: str, original_filename: str)
         if years:
             final_year = min(years)
             logger.info(
-                f"🧠 Smart Cascade chose final year: {final_year} (TheAudioDB: {adb_year}, MusicBrainz: {mb_year})"
+                f"Smart Cascade chose final year: {final_year} (TheAudioDB: {adb_year}, MusicBrainz: {mb_year})"
             )
         else:
             final_year = extract_year_from_filename(original_filename)
@@ -162,6 +162,6 @@ async def execute_analysis_pipeline(temp_file_path: str, original_filename: str)
         tags=final_tags,
     )
 
-    logger.info(f"✅ Analysis complete:` {result.model_dump()}")
+    logger.info(f"Analysis complete:` {result.model_dump()}")
 
     return result

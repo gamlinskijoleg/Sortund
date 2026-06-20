@@ -75,12 +75,12 @@ async def fetch_release_year_from_theaudiodb(artist: str, title: str) -> Optiona
             if year_str and year_str != "0":
                 try:
                     year = int(year_str)
-                    logger.info(f"🎵 TheAudioDB found release year {year} for {artist} - {clean_title}")
+                    logger.info(f"TheAudioDB found release year {year} for {artist} - {clean_title}")
                     return year
                 except ValueError:
                     pass
 
         return None
     except Exception as e:
-        logger.warning(f"⚠️ TheAudioDB subsystem failure: {e}")
+        logger.warning(f"️TheAudioDB subsystem failure: {e}")
         return None

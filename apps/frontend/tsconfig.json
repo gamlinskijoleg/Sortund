@@ -6,7 +6,7 @@
         "module": "ESNext",
         "moduleResolution": "Bundler",
         "target": "ESNext",
-        "types": ["react", "react-native", "jest"],
+        "types": ["node", "react", "react-native", "jest"],
         "paths": {
             "@/*": ["./src/*"]
         }

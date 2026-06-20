@@ -133,9 +133,9 @@ export async function updateTrackAfterAnalysisInDbAsync(
                 $tags: metadata.tags ? JSON.stringify(metadata.tags) : null,
                 $assetId: assetId,
             });
-            log.debug(`✅ Track ${assetId} metadata updated in DB (analysis complete)`);
+            log.debug(`Track ${assetId} metadata updated in DB (analysis complete)`);
         } catch (error) {
-            log.error(`❌ Error updating track metadata in DB:`, error);
+            log.error(`Error updating track metadata in DB:`, error);
         } finally {
             await statement.finalizeAsync();
         }
