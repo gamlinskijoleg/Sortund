@@ -51,12 +51,18 @@ export function getCachedTracks(): MusicTrack[] {
     }>("SELECT * FROM tracks");
     const endTime = Date.now();
     log.debug(`SQLite: Fetching ${tracks.length} tracks took ${endTime - startTime} ms`);
-    return tracks.map((track) => ({
-        ...track,
-        tags: track.tags ? (JSON.parse(track.tags) as string[]) : undefined,
-        isAnalyzed: !!track.isAnalyzed,
-        modificationTime: track.modificationTime,
-    }));
+    return tracks.map((track) => {
+        let parsedTags: string[] | undefined;
+        if (track.tags) {
+            parsedTags = JSON.parse(track.tags) as string[];
+        }
+        return {
+            ...track,
+            tags: parsedTags,
+            isAnalyzed: !!track.isAnalyzed,
+            modificationTime: track.modificationTime,
+        };
+    });
 }
 
 export async function insertOrReplaceTracksAsync(tracks: MusicTrack[]) {

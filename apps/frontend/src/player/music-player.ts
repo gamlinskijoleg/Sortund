@@ -1,5 +1,5 @@
 import { AudioPlayer, createAudioPlayer, AudioModule } from "expo-audio";
-import { Image } from "react-native";
+import { Image, ImageSourcePropType } from "react-native";
 import { getArtwork } from "react-native-audio-metadata";
 import { saveBase64ArtworkAsync } from "@/utils/file-utils";
 import {
@@ -25,9 +25,8 @@ let onPreviousTrackHandler: (() => void) | null = null;
 
 let lastTrack: MusicTrack | null = null;
 
-const resolvedAsset = Image.resolveAssetSource(
-    require("../../assets/icon.png") as import("react-native").ImageSourcePropType
-);
+const iconSource = require("../../assets/icon.png") as ImageSourcePropType;
+const resolvedAsset = Image.resolveAssetSource(iconSource);
 const fallbackArtworkUrl = resolvedAsset?.uri?.startsWith("data:") ? undefined : resolvedAsset?.uri;
 
 async function configureAudioMode() {
@@ -169,7 +168,8 @@ export async function playTrack(track: MusicTrack) {
                     }
                 })
                 .catch((error) => {
-                    log.warn(`Player: Artwork extraction failed:`, (error as Error).message);
+                    const errorMessage = error instanceof Error ? error.message : String(error);
+                    log.warn(`Player: Artwork extraction failed:`, errorMessage);
                 });
         }
 
@@ -187,9 +187,9 @@ function setupNotificationListeners() {
     }
 
     mediaControlSubscription = addListener((event: MediaControlEvent) => {
-        switch (event.command) {
+        const command: Command = event.command;
+        switch (command) {
             case Command.NEXT_TRACK:
-            case "nextTrack" as unknown as Command:
                 if (onNextTrackHandler) {
                     log.debug("MediaControl: Hardware Next Track triggered");
                     onNextTrackHandler();
@@ -199,7 +199,6 @@ function setupNotificationListeners() {
                 break;
 
             case Command.PREVIOUS_TRACK:
-            case "previousTrack" as unknown as Command:
                 if (onPreviousTrackHandler) {
                     log.debug("MediaControl: Hardware Previous Track triggered");
                     onPreviousTrackHandler();
@@ -211,21 +210,27 @@ function setupNotificationListeners() {
                 break;
 
             case Command.PLAY:
-            case "play" as unknown as Command:
                 log.debug("MediaControl: Hardware Play triggered");
                 usePlayerStore.getState().playerInstance?.play();
                 break;
 
             case Command.PAUSE:
-            case "pause" as unknown as Command:
                 log.debug("MediaControl: Hardware Pause triggered");
                 usePlayerStore.getState().playerInstance?.pause();
                 break;
 
             case Command.SEEK: {
                 const player = usePlayerStore.getState().playerInstance;
-                const position = (event as unknown as Record<string, { position?: number }>).data
-                    ?.position;
+                let position: number | undefined;
+                if (
+                    "data" in event &&
+                    typeof event.data === "object" &&
+                    event.data !== null &&
+                    "position" in event.data
+                ) {
+                    const pos = (event.data as { position: number }).position;
+                    if (typeof pos === "number") position = pos;
+                }
                 const seekPositionSeconds: number | undefined =
                     typeof position === "number"
                         ? position

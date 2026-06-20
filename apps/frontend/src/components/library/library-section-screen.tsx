@@ -17,9 +17,9 @@ export default function LibrarySectionScreen() {
 
     const params = useLocalSearchParams<{ section?: string | string[] }>();
     const rawSection = Array.isArray(params.section) ? params.section[0] : params.section;
-    const section = (
-        rawSection && rawSection in librarySectionCopy ? rawSection : "favourites"
-    ) as LibrarySectionKey;
+    const isValidSection = (sec: string | undefined): sec is LibrarySectionKey =>
+        !!sec && sec in librarySectionCopy;
+    const section: LibrarySectionKey = isValidSection(rawSection) ? rawSection : "favourites";
     const copy = librarySectionCopy[section];
 
     return (

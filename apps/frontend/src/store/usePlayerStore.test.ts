@@ -4,10 +4,31 @@ import { AudioPlayer } from "expo-audio";
 
 // Mock the tracks data
 const mockTracks: MusicTrack[] = [
-    { assetId: "1", title: "Track 1", artist: "Artist 1", duration: 100 },
-    { assetId: "2", title: "Track 2", artist: "Artist 2", duration: 200 },
-    { assetId: "3", title: "Track 3", artist: "Artist 3", duration: 300 },
-] as MusicTrack[];
+    {
+        assetId: "1",
+        title: "Track 1",
+        artist: "Artist 1",
+        duration: 100,
+        sourceUri: "file://1",
+        color: "#000",
+    },
+    {
+        assetId: "2",
+        title: "Track 2",
+        artist: "Artist 2",
+        duration: 200,
+        sourceUri: "file://2",
+        color: "#000",
+    },
+    {
+        assetId: "3",
+        title: "Track 3",
+        artist: "Artist 3",
+        duration: 300,
+        sourceUri: "file://3",
+        color: "#000",
+    },
+];
 
 describe("usePlayerStore", () => {
     beforeEach(() => {
@@ -82,14 +103,14 @@ describe("usePlayerStore", () => {
         it("should pause if currently playing the same track", () => {
             const pauseMock = jest.fn();
             const playMock = jest.fn();
-            const mockPlayerInstance = {
+            const mockPlayerInstance: Partial<AudioPlayer> = {
                 playing: true,
                 pause: pauseMock,
                 play: playMock,
-            } as unknown as AudioPlayer;
+            };
 
             usePlayerStore.setState({
-                playerInstance: mockPlayerInstance,
+                playerInstance: mockPlayerInstance as AudioPlayer,
                 activeTrack: mockTracks[0],
             });
             usePlayerStore.getState().togglePlayPause(mockTracks[0]!);
@@ -102,14 +123,14 @@ describe("usePlayerStore", () => {
         it("should play if currently paused", () => {
             const pauseMock = jest.fn();
             const playMock = jest.fn();
-            const mockPlayerInstance = {
+            const mockPlayerInstance: Partial<AudioPlayer> = {
                 playing: false,
                 pause: pauseMock,
                 play: playMock,
-            } as unknown as AudioPlayer;
+            };
 
             usePlayerStore.setState({
-                playerInstance: mockPlayerInstance,
+                playerInstance: mockPlayerInstance as AudioPlayer,
                 activeTrack: mockTracks[0],
             });
             usePlayerStore.getState().togglePlayPause(mockTracks[0]!);
@@ -122,14 +143,14 @@ describe("usePlayerStore", () => {
         it("should update activeTrack if a new track is toggled", () => {
             const pauseMock = jest.fn();
             const playMock = jest.fn();
-            const mockPlayerInstance = {
+            const mockPlayerInstance: Partial<AudioPlayer> = {
                 playing: false,
                 pause: pauseMock,
                 play: playMock,
-            } as unknown as AudioPlayer;
+            };
 
             usePlayerStore.setState({
-                playerInstance: mockPlayerInstance,
+                playerInstance: mockPlayerInstance as AudioPlayer,
                 activeTrack: mockTracks[0],
             });
             usePlayerStore.getState().togglePlayPause(mockTracks[1]!);

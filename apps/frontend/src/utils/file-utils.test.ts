@@ -53,7 +53,7 @@ describe("file-utils", () => {
             const mockWrite = jest.fn().mockImplementation(() => {
                 throw new Error("Write failed");
             });
-            (File as unknown as jest.Mock).mockImplementationOnce((dir, filename) => {
+            (File as unknown as jest.Mock).mockImplementationOnce((_, filename) => {
                 return {
                     write: mockWrite,
                     uri: `file://mock-cache-path/artwork/${filename}`,
