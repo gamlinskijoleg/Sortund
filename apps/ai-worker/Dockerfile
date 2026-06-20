@@ -20,7 +20,7 @@ ENV HOME=/home/user \
 WORKDIR $HOME/app
 
 # Install dependencies using uv
-COPY --chown=user pyproject.toml uv.lock ./ 
+COPY --chown=user pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-install-project --no-dev
 
 # Copy code
@@ -31,4 +31,4 @@ RUN uv sync --frozen --no-dev
 EXPOSE 8000
 
 # Run via uv run uvicorn
-CMD ["uv", "run", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "--no-sync", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
