@@ -1,11 +1,18 @@
 {
+    "$schema": "https://json.schemastore.org/tsconfig",
     "compilerOptions": {
-        "target": "ESNext",
-        "module": "CommonJS",
-        "strict": true,
+        "composite": true,
+        "declaration": true,
+        "declarationMap": true,
         "esModuleInterop": true,
-        "skipLibCheck": true,
         "forceConsistentCasingInFileNames": true,
-        "types": ["node", "jest"]
-    }
+        "isolatedModules": true,
+        "skipLibCheck": true,
+        "strict": true,
+        "strictNullChecks": true,
+
+        "experimentalDecorators": true,
+        "emitDecoratorMetadata": true
+    },
+    "exclude": ["node_modules", "dist"]
 }

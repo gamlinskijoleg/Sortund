@@ -3,5 +3,15 @@
     "python.testing.pytestArgs": [],
     "python.testing.cwd": "${workspaceFolder}/apps/ai-worker",
     "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true
+    "python.testing.pytestEnabled": true,
+    "jest.virtualFolders": [
+        {
+            "name": "Frontend",
+            "rootPath": "apps/frontend"
+        },
+        {
+            "name": "Backend",
+            "rootPath": "apps/backend"
+        }
+    ]
 }

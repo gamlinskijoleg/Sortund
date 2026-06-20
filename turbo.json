@@ -5,7 +5,7 @@
         "build": {
             "dependsOn": ["^build"],
             "inputs": ["$TURBO_DEFAULT$", ".env*"],
-            "outputs": [".next/**", "!.next/cache/**"]
+            "outputs": ["dist/**", ".expo/**"]
         },
         "lint": {
             "dependsOn": ["^lint"]
@@ -20,6 +20,11 @@
         },
         "format": {
             "inputs": ["src/**/*.py", "pyproject.toml"],
+            "outputs": []
+        },
+        "test": {
+            "dependsOn": ["^test"],
+            "inputs": ["src/**/*.ts", "tsconfig.json", "jest.config.js"],
             "outputs": []
         }
     }

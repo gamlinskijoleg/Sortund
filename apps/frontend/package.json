@@ -6,7 +6,8 @@
         "dev": "expo run:android",
         "android": "expo run:android",
         "ios": "expo run:ios",
-        "lint": "expo lint"
+        "lint": "expo lint",
+        "test": "jest"
     },
     "dependencies": {
         "@expo/ui": "~56.0.18",
@@ -44,10 +45,16 @@
         "zustand": "^5.0.13"
     },
     "devDependencies": {
+        "@jest/types": "^29.6.3",
+        "@react-native/jest-preset": "^0.86.0",
         "@tamagui/babel-plugin": "^1.131.13",
         "@tamagui/metro-plugin": "^1.131.13",
+        "@testing-library/jest-native": "^5.4.3",
+        "@types/jest": "29.5.14",
         "@types/react": "~19.2.2",
         "eslint-config-expo": "~56.0.4",
+        "jest": "~29.7.0",
+        "jest-expo": "~56.0.5",
         "typescript": "~6.0.3"
     },
     "private": true

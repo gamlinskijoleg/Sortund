@@ -5,12 +5,13 @@
         "build": "turbo run build",
         "dev": "turbo run dev",
         "lint": "turbo run lint",
+        "test": "turbo run test",
         "format": "prettier --write . && turbo run format",
         "check-types": "turbo run check-types",
         "prepare": "husky"
     },
     "devDependencies": {
-        "@types/jest": "29.5.14",
+        "@types/jest": "^29.5.14",
         "husky": "^9.1.7",
         "lint-staged": "^17.0.5",
         "prettier": "^3.8.3",
