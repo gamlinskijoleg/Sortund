@@ -7,7 +7,8 @@
         "android": "expo run:android",
         "ios": "expo run:ios",
         "lint": "expo lint",
-        "test": "jest"
+        "test": "jest",
+        "check-types": "tsc --noEmit"
     },
     "dependencies": {
         "@expo/ui": "~56.0.18",

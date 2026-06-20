@@ -54,7 +54,7 @@ export async function analyzeTrackAPI(sourceUri: string): Promise<AnalyzeResult>
             isTrimmed = true;
             log.debug(`Byte-slicing successful: ${finalUri}`);
         } catch (e) {
-            log.warn(`Byte-slicing failed (falling back to original): ${e}`);
+            log.warn(`Byte-slicing failed (falling back to original): ${String(e)}`);
         }
     }
 
@@ -75,7 +75,7 @@ export async function analyzeTrackAPI(sourceUri: string): Promise<AnalyzeResult>
         throw new Error(`AI API Error (${response.status}): ${response.body}`);
     }
 
-    const data: AnalyzeResult = JSON.parse(response.body);
+    const data = JSON.parse(response.body) as AnalyzeResult;
     log.debug(`AI API Response: ${JSON.stringify(data)}`);
     return data;
 }

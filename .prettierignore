@@ -2,6 +2,7 @@
 package-lock.json
 tamagui.config.json
 venv
+.venv
 android
 htmlcov
 .pytest_cache

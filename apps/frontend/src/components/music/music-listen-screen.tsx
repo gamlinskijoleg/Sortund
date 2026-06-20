@@ -57,7 +57,9 @@ const PlaybackSlider = React.memo(({ player, fallbackDuration, theme }: SliderPr
     };
 
     const finalizeSeek = (newTimeMs: number) => {
-        player.seekTo(newTimeMs / 1000);
+        player.seekTo(newTimeMs / 1000).catch((error) => {
+            console.error("Failed to seek player:", error);
+        });
 
         // Delay the "release" of the slider to ensure the player has time to update its currentTime and avoid janky jumps
         setTimeout(() => {

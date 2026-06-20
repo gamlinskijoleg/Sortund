@@ -1,10 +1,7 @@
 import { Directory, File, Paths } from "expo-file-system";
 import { log } from "./logger";
 
-export async function saveBase64ArtworkAsync(
-    base64WithPrefix: string,
-    assetId?: string
-): Promise<string | null> {
+export function saveBase64ArtworkAsync(base64WithPrefix: string, assetId?: string): string | null {
     try {
         const regex = /^data:image\/\w+;base64,/;
         const base64Data = base64WithPrefix.replace(regex, "");

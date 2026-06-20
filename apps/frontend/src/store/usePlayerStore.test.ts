@@ -80,57 +80,63 @@ describe("usePlayerStore", () => {
 
     describe("togglePlayPause", () => {
         it("should pause if currently playing the same track", () => {
+            const pauseMock = jest.fn();
+            const playMock = jest.fn();
             const mockPlayerInstance = {
                 playing: true,
-                pause: jest.fn(),
-                play: jest.fn(),
+                pause: pauseMock,
+                play: playMock,
             } as unknown as AudioPlayer;
 
             usePlayerStore.setState({
                 playerInstance: mockPlayerInstance,
                 activeTrack: mockTracks[0],
             });
-            usePlayerStore.getState().togglePlayPause(mockTracks[0]);
+            usePlayerStore.getState().togglePlayPause(mockTracks[0]!);
 
             const state = usePlayerStore.getState();
-            expect(mockPlayerInstance.pause).toHaveBeenCalled();
+            expect(pauseMock).toHaveBeenCalled();
             expect(state.isPlaying).toBe(false);
         });
 
         it("should play if currently paused", () => {
+            const pauseMock = jest.fn();
+            const playMock = jest.fn();
             const mockPlayerInstance = {
                 playing: false,
-                pause: jest.fn(),
-                play: jest.fn(),
+                pause: pauseMock,
+                play: playMock,
             } as unknown as AudioPlayer;
 
             usePlayerStore.setState({
                 playerInstance: mockPlayerInstance,
                 activeTrack: mockTracks[0],
             });
-            usePlayerStore.getState().togglePlayPause(mockTracks[0]);
+            usePlayerStore.getState().togglePlayPause(mockTracks[0]!);
 
             const state = usePlayerStore.getState();
-            expect(mockPlayerInstance.play).toHaveBeenCalled();
+            expect(playMock).toHaveBeenCalled();
             expect(state.isPlaying).toBe(true);
         });
 
         it("should update activeTrack if a new track is toggled", () => {
+            const pauseMock = jest.fn();
+            const playMock = jest.fn();
             const mockPlayerInstance = {
                 playing: false,
-                pause: jest.fn(),
-                play: jest.fn(),
+                pause: pauseMock,
+                play: playMock,
             } as unknown as AudioPlayer;
 
             usePlayerStore.setState({
                 playerInstance: mockPlayerInstance,
                 activeTrack: mockTracks[0],
             });
-            usePlayerStore.getState().togglePlayPause(mockTracks[1]);
+            usePlayerStore.getState().togglePlayPause(mockTracks[1]!);
 
             const state = usePlayerStore.getState();
             expect(state.activeTrack).toEqual(mockTracks[1]);
-            expect(mockPlayerInstance.play).toHaveBeenCalled();
+            expect(playMock).toHaveBeenCalled();
             expect(state.isPlaying).toBe(true);
         });
     });

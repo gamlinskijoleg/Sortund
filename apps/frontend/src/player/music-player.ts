@@ -25,7 +25,9 @@ let onPreviousTrackHandler: (() => void) | null = null;
 
 let lastTrack: MusicTrack | null = null;
 
-const resolvedAsset = Image.resolveAssetSource(require("../../assets/icon.png"));
+const resolvedAsset = Image.resolveAssetSource(
+    require("../../assets/icon.png") as import("react-native").ImageSourcePropType
+);
 const fallbackArtworkUrl = resolvedAsset?.uri?.startsWith("data:") ? undefined : resolvedAsset?.uri;
 
 async function configureAudioMode() {
@@ -38,7 +40,7 @@ async function configureAudioMode() {
             shouldRouteThroughEarpiece: false,
         });
 
-        enableMediaControls({
+        await enableMediaControls({
             capabilities: [
                 Command.PLAY,
                 Command.PAUSE,
@@ -68,7 +70,7 @@ export async function playTrack(track: MusicTrack) {
     const currentToken = ++playbackToken;
 
     if (track.artwork && typeof track.artwork === "string" && track.artwork.startsWith("data:")) {
-        const cachedFileUri = await saveBase64ArtworkAsync(
+        const cachedFileUri = saveBase64ArtworkAsync(
             track.artwork,
             track.assetId || `unknown_${Date.now()}`
         );
@@ -90,7 +92,7 @@ export async function playTrack(track: MusicTrack) {
     currentMediaMetadata = mediaControlMetadata;
 
     try {
-        updateMetadata(mediaControlMetadata);
+        await updateMetadata(mediaControlMetadata);
     } catch (metaError) {
         log.warn("Player: Failed to update MediaControl metadata", metaError);
     }
@@ -123,7 +125,7 @@ export async function playTrack(track: MusicTrack) {
 
             const playerForArtwork = activePlayer;
 
-            void getArtwork(cleanMetadataUri)
+            getArtwork(cleanMetadataUri)
                 .then(async (artworkResult) => {
                     const latestPlayer = usePlayerStore.getState().playerInstance;
                     if (
@@ -137,10 +139,7 @@ export async function playTrack(track: MusicTrack) {
 
                     let finalArtworkUri: string | null = null;
                     if (artworkResult.startsWith("data:")) {
-                        finalArtworkUri = await saveBase64ArtworkAsync(
-                            artworkResult,
-                            track.assetId
-                        );
+                        finalArtworkUri = saveBase64ArtworkAsync(artworkResult, track.assetId);
                     } else if (
                         artworkResult.startsWith("file://") ||
                         artworkResult.startsWith("http")
@@ -163,14 +162,14 @@ export async function playTrack(track: MusicTrack) {
                         try {
                             log.debug("Player: Updating MediaControl with newly extracted artwork");
                             currentMediaMetadata = updatedMetadata;
-                            updateMetadata(updatedMetadata);
+                            await updateMetadata(updatedMetadata);
                         } catch (e) {
                             log.warn("Player: Dynamic artwork update failed", e);
                         }
                     }
                 })
                 .catch((error) => {
-                    log.warn(`Player: Artwork extraction failed:`, error.message);
+                    log.warn(`Player: Artwork extraction failed:`, (error as Error).message);
                 });
         }
 
@@ -190,7 +189,7 @@ function setupNotificationListeners() {
     mediaControlSubscription = addListener((event: MediaControlEvent) => {
         switch (event.command) {
             case Command.NEXT_TRACK:
-            case "nextTrack":
+            case "nextTrack" as unknown as Command:
                 if (onNextTrackHandler) {
                     log.debug("MediaControl: Hardware Next Track triggered");
                     onNextTrackHandler();
@@ -200,7 +199,7 @@ function setupNotificationListeners() {
                 break;
 
             case Command.PREVIOUS_TRACK:
-            case "previousTrack":
+            case "previousTrack" as unknown as Command:
                 if (onPreviousTrackHandler) {
                     log.debug("MediaControl: Hardware Previous Track triggered");
                     onPreviousTrackHandler();
@@ -212,29 +211,32 @@ function setupNotificationListeners() {
                 break;
 
             case Command.PLAY:
-            case "play":
+            case "play" as unknown as Command:
                 log.debug("MediaControl: Hardware Play triggered");
                 usePlayerStore.getState().playerInstance?.play();
                 break;
 
             case Command.PAUSE:
-            case "pause":
+            case "pause" as unknown as Command:
                 log.debug("MediaControl: Hardware Pause triggered");
                 usePlayerStore.getState().playerInstance?.pause();
                 break;
 
-            case Command.SEEK:
-            case "seek": {
+            case Command.SEEK: {
                 const player = usePlayerStore.getState().playerInstance;
+                const position = (event as unknown as Record<string, { position?: number }>).data
+                    ?.position;
                 const seekPositionSeconds: number | undefined =
-                    typeof event.data?.position === "number"
-                        ? event.data.position
+                    typeof position === "number"
+                        ? position
                         : typeof event.timestamp === "number"
                           ? event.timestamp / 1000
                           : undefined;
 
                 if (player && typeof seekPositionSeconds === "number") {
-                    player.seekTo(seekPositionSeconds);
+                    player.seekTo(seekPositionSeconds).catch((error) => {
+                        log.warn("Player: seekTo failed inside media control", error);
+                    });
                 }
                 break;
             }
@@ -250,7 +252,9 @@ function setupPlaybackStatusListener(player: AudioPlayer) {
         let state = status.playing ? PlaybackState.PLAYING : PlaybackState.PAUSED;
         if (status.isBuffering) state = PlaybackState.BUFFERING;
 
-        updatePlaybackState(state, status.currentTime, status.playbackRate);
+        updatePlaybackState(state, status.currentTime, status.playbackRate).catch((error) => {
+            log.warn("Player: Failed to update playback state", error);
+        });
 
         if (status.didJustFinish) {
             log.debug("Player: Track finished, playing next");
@@ -258,7 +262,8 @@ function setupPlaybackStatusListener(player: AudioPlayer) {
         }
     });
 }
-export async function pausePlayback() {
+
+export function pausePlayback() {
     try {
         const player = usePlayerStore.getState().playerInstance;
         if (player) player.pause();
@@ -267,7 +272,7 @@ export async function pausePlayback() {
     }
 }
 
-export async function togglePlayback() {
+export function togglePlayback() {
     try {
         const player = usePlayerStore.getState().playerInstance;
         if (!player) return;
@@ -282,7 +287,7 @@ export function getPlayerInstance(): AudioPlayer | null {
     return usePlayerStore.getState().playerInstance;
 }
 
-export async function initPlayer() {
+export function initPlayer() {
     let activePlayer = usePlayerStore.getState().playerInstance;
     if (!activePlayer) {
         log.debug("️Player: Pre-initializing global audio player...");
@@ -302,7 +307,9 @@ export async function initPlayer() {
             if (newTrack) {
                 if (!lastTrack || lastTrack.sourceUri !== newTrack.sourceUri) {
                     lastTrack = newTrack;
-                    playTrack(newTrack);
+                    playTrack(newTrack).catch((error) => {
+                        log.error("Player: Failed to play track from store subscription", error);
+                    });
                 }
             } else {
                 lastTrack = null;

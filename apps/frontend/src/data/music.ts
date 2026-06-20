@@ -160,8 +160,6 @@ export async function syncMusicLibrary(
 
                         let title: string | undefined = filename.replace(`.${fileExtension}`, "");
                         let artist: string | undefined = "Unknown Artist";
-                        let albumName: string | undefined;
-                        let artwork: string | undefined;
                         let duration: number | undefined = 0;
 
                         const cleanMetadataUri = decodeURIComponent(uri).replace("file://", "");
@@ -173,16 +171,16 @@ export async function syncMusicLibrary(
 
                         title = metadata.title?.trim() || title;
                         artist = metadata.artist?.trim() || artist;
-                        albumName = metadata.album?.trim();
+                        const albumName = metadata.album?.trim();
 
                         let finalArtwork = fetchedArtwork || undefined;
                         if (finalArtwork && finalArtwork.startsWith("data:")) {
-                            const localPath = await saveBase64ArtworkAsync(finalArtwork, cleanId);
+                            const localPath = saveBase64ArtworkAsync(finalArtwork, cleanId);
                             if (localPath) {
                                 finalArtwork = localPath;
                             }
                         }
-                        artwork = finalArtwork;
+                        const artwork = finalArtwork;
                         duration = parseDurationToMs(metadata.duration) || undefined;
 
                         // Merge with existing metadata if analyzed
@@ -245,7 +243,7 @@ export function useMusicLibrary(limit = Infinity) {
         let isActive = true;
         let syncTimeout: NodeJS.Timeout;
 
-        async function initAndSync() {
+        function initAndSync() {
             const store = usePlayerStore.getState();
             if (store.hasSynced) return;
 
@@ -270,46 +268,52 @@ export function useMusicLibrary(limit = Infinity) {
                 }
 
                 // 3. Run background scan with delay
-                syncTimeout = setTimeout(async () => {
-                    try {
-                        await syncMusicLibrary(limit, cached, (newOrModifiedTracks, deletedIds) => {
-                            if (!isActive) return;
+                syncTimeout = setTimeout(() => {
+                    void (async () => {
+                        try {
+                            await syncMusicLibrary(
+                                limit,
+                                cached,
+                                (newOrModifiedTracks, deletedIds) => {
+                                    if (!isActive) return;
 
-                            // Update global state
-                            const currentStore = usePlayerStore.getState();
-                            let next = [...currentStore.libraryTracks];
+                                    // Update global state
+                                    const currentStore = usePlayerStore.getState();
+                                    let next = [...currentStore.libraryTracks];
 
-                            // Remove deleted
-                            if (deletedIds.length > 0) {
-                                const deletedSet = new Set(deletedIds);
-                                next = next.filter((t) => !deletedSet.has(t.assetId));
-                            }
+                                    // Remove deleted
+                                    if (deletedIds.length > 0) {
+                                        const deletedSet = new Set(deletedIds);
+                                        next = next.filter((t) => !deletedSet.has(t.assetId));
+                                    }
 
-                            // Update or Add new
-                            if (newOrModifiedTracks.length > 0) {
-                                const newMap = new Map(
-                                    newOrModifiedTracks.map((t) => [t.assetId, t])
-                                );
-                                // Update existing in-place
-                                next = next.map((t) =>
-                                    newMap.has(t.assetId) ? newMap.get(t.assetId)! : t
-                                );
-                                // Append purely new ones
-                                const existingIds = new Set(next.map((t) => t.assetId));
-                                const purelyNew = newOrModifiedTracks.filter(
-                                    (t) => !existingIds.has(t.assetId)
-                                );
-                                next = [...next, ...purelyNew];
-                            }
+                                    // Update or Add new
+                                    if (newOrModifiedTracks.length > 0) {
+                                        const newMap = new Map(
+                                            newOrModifiedTracks.map((t) => [t.assetId, t])
+                                        );
+                                        // Update existing in-place
+                                        next = next.map((t) =>
+                                            newMap.has(t.assetId) ? newMap.get(t.assetId)! : t
+                                        );
+                                        // Append purely new ones
+                                        const existingIds = new Set(next.map((t) => t.assetId));
+                                        const purelyNew = newOrModifiedTracks.filter(
+                                            (t) => !existingIds.has(t.assetId)
+                                        );
+                                        next = [...next, ...purelyNew];
+                                    }
 
-                            currentStore.setLibraryTracks(next);
-                            currentStore.setLibraryLoading(false);
-                        });
-                    } catch (syncError) {
-                        log.error("Error during syncMusicLibrary:", syncError);
-                    } finally {
-                        if (isActive) usePlayerStore.getState().setLibraryLoading(false);
-                    }
+                                    currentStore.setLibraryTracks(next);
+                                    currentStore.setLibraryLoading(false);
+                                }
+                            );
+                        } catch (syncError) {
+                            log.error("Error during syncMusicLibrary:", syncError);
+                        } finally {
+                            if (isActive) usePlayerStore.getState().setLibraryLoading(false);
+                        }
+                    })();
                 }, 500); // 500ms delay debounce
             } catch (err) {
                 log.error("Error initializing tracks database:", err);

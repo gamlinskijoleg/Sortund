@@ -1,9 +1,9 @@
 import { log } from "@/utils/logger";
-import * as SQLite from "expo-sqlite";
+import { openDatabaseSync } from "expo-sqlite";
 import type { MusicTrack } from "./music";
 
 // Open (or create) database
-const db = SQLite.openDatabaseSync("music_player.db");
+const db = openDatabaseSync("music_player.db");
 
 export function initDatabase() {
     // Create table if it does not exist
@@ -32,12 +32,28 @@ export function initDatabase() {
 export function getCachedTracks(): MusicTrack[] {
     // time
     const startTime = Date.now();
-    const tracks = db.getAllSync("SELECT * FROM tracks") as any[];
+    const tracks = db.getAllSync<{
+        assetId: string;
+        sourceUri: string;
+        title: string;
+        artist: string;
+        color: string;
+        duration: number;
+        album?: string;
+        artwork?: string;
+        genre?: string;
+        date?: string;
+        rating?: number;
+        analysis_source?: string;
+        tags?: string;
+        isAnalyzed?: number;
+        modificationTime?: number;
+    }>("SELECT * FROM tracks");
     const endTime = Date.now();
     log.debug(`SQLite: Fetching ${tracks.length} tracks took ${endTime - startTime} ms`);
     return tracks.map((track) => ({
         ...track,
-        tags: track.tags ? JSON.parse(track.tags) : undefined,
+        tags: track.tags ? (JSON.parse(track.tags) as string[]) : undefined,
         isAnalyzed: !!track.isAnalyzed,
         modificationTime: track.modificationTime,
     }));

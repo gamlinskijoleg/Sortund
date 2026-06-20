@@ -36,24 +36,24 @@ describe("file-utils", () => {
     });
 
     describe("saveBase64ArtworkAsync", () => {
-        it("should save a base64 string to a file and return the URI", async () => {
+        it("should save a base64 string to a file and return the URI", () => {
             const base64Str =
                 "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=";
             const assetId = "test-asset-123";
 
-            const result = await saveBase64ArtworkAsync(base64Str, assetId);
+            const result = saveBase64ArtworkAsync(base64Str, assetId);
 
             expect(Directory).toHaveBeenCalledWith("mock-cache-path", "artwork");
             expect(File).toHaveBeenCalled();
             expect(result).toBe(`file://mock-cache-path/artwork/cover_test-asset-123.png`);
         });
 
-        it("should log a warning and return null if an error occurs", async () => {
+        it("should log a warning and return null if an error occurs", () => {
             // Mock File to throw an error on write
             const mockWrite = jest.fn().mockImplementation(() => {
                 throw new Error("Write failed");
             });
-            (File as jest.Mock).mockImplementationOnce((dir, filename) => {
+            (File as unknown as jest.Mock).mockImplementationOnce((dir, filename) => {
                 return {
                     write: mockWrite,
                     uri: `file://mock-cache-path/artwork/${filename}`,
@@ -61,7 +61,7 @@ describe("file-utils", () => {
             });
 
             const base64Str = "data:image/png;base64,invalid-base64";
-            const result = await saveBase64ArtworkAsync(base64Str);
+            const result = saveBase64ArtworkAsync(base64Str);
 
             expect(result).toBeNull();
             expect(log.warn).toHaveBeenCalledWith(

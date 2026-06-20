@@ -7,19 +7,18 @@ import { TamaguiProvider, Theme } from "tamagui";
 import appTamaguiConfig from "../tamagui.config";
 import { MusicBottomNav } from "../components/music/music-bottom-nav";
 import { initPlayer } from "../player/music-player";
-import * as SplashScreen from "expo-splash-screen";
+import { setOptions } from "expo-splash-screen";
 import { log } from "@/utils/logger";
 
-SplashScreen.setOptions({
+setOptions({
     duration: 1000,
     fade: true,
 });
 
 export default function RootLayout() {
     useEffect(() => {
-        initPlayer()
-            .then(() => log.debug("Audio service successfully ready for work"))
-            .catch((err) => log.error("Failed to initialize audio mode:", err));
+        initPlayer();
+        log.debug("Audio service successfully ready for work");
     }, []);
 
     return (

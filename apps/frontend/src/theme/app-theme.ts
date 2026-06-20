@@ -1,6 +1,6 @@
 import { useTheme } from "tamagui";
 
-export function useAppTheme() {
+export function useAppTheme(): Record<string, string> {
     const theme = useTheme();
 
     return {
@@ -13,9 +13,9 @@ export function useAppTheme() {
         textPlaceholder: theme.placeholderColor.val,
         border: theme.borderColor.val,
 
-        accent: theme.brandPink.val,
-        accentSoft: theme.brandSoft.val,
-        accentStrong: theme.brandBlue.val,
+        accent: (theme as Record<string, { val?: string }>).brandPink?.val || "#a53a67",
+        accentSoft: (theme as Record<string, { val?: string }>).brandSoft?.val || "#f5d3d8",
+        accentStrong: (theme as Record<string, { val?: string }>).brandBlue?.val || "#3d748d",
 
         inverseText: theme.background.val,
         inverseTextMuted: "$brandPink",

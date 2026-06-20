@@ -74,7 +74,7 @@ function AiTrackRow({ track }: { track: MusicTrack }) {
 
     const onAnalyze = () => {
         if (isAnalyzing || !track.assetId) return;
-        handleAnalyzeTrack(track, setIsAnalyzing, function re(newData) {
+        void handleAnalyzeTrack(track, setIsAnalyzing, (newData) => {
             setTrackData((prev) => ({ ...prev, ...newData }));
         });
     };

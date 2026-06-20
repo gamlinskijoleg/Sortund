@@ -71,7 +71,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
             }
 
             const nextIndex = (currentIndex + 1) % tracks.length;
-            const nextTrack = tracks[nextIndex];
+            const nextTrack = tracks[nextIndex]!;
 
             set({
                 currentIndex: nextIndex,
@@ -86,7 +86,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
             if (tracks.length === 0) return;
 
             const prevIndex = (currentIndex - 1 + tracks.length) % tracks.length;
-            const prevTrack = tracks[prevIndex];
+            const prevTrack = tracks[prevIndex]!;
 
             set({
                 currentIndex: prevIndex,
@@ -117,7 +117,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
             const { tracks } = get();
             const index = tracks.findIndex((t) => t.assetId === assetId);
             if (index !== -1) {
-                const track = tracks[index];
+                const track = tracks[index]!;
                 set({ currentIndex: index, activeTrack: track });
                 triggerNativePlay(track);
             }
