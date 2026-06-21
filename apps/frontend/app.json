@@ -1,14 +1,14 @@
 {
     "expo": {
         "name": "Sortund",
-        "slug": "sortund-frontend",
+        "slug": "sortund",
         "version": "1.0.0",
         "orientation": "portrait",
-        "scheme": "sortundfrontend",
+        "scheme": "sortund",
         "userInterfaceStyle": "automatic",
         "android": {
             "permissions": ["FOREGROUND_SERVICE", "FOREGROUND_SERVICE_MEDIA_PLAYBACK"],
-            "package": "com.sortund.frontend",
+            "package": "com.sortund",
             "predictiveBackGestureEnabled": false,
             "adaptiveIcon": {
                 "backgroundColor": "#E6F4FE",
@@ -18,7 +18,7 @@
             }
         },
         "ios": {
-            "bundleIdentifier": "com.sortund.frontend"
+            "bundleIdentifier": "com.sortund"
         },
         "plugins": [
             [

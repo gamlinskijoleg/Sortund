@@ -1,5 +1,5 @@
-import { usePlayerStore } from "./usePlayerStore";
-import type { MusicTrack } from "../data/music";
+import { usePlayerStore } from "../../src/store/usePlayerStore";
+import type { MusicTrack } from "../../src/data/music";
 import { AudioPlayer } from "expo-audio";
 
 // Mock the tracks data

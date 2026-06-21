@@ -1,6 +1,6 @@
-import { saveBase64ArtworkAsync } from "./file-utils";
+import { saveBase64ArtworkAsync } from "@/utils/file-utils";
+import { log } from "@/utils/logger";
 import { Directory, File } from "expo-file-system";
-import { log } from "./logger";
 
 // Mock expo-file-system
 jest.mock("expo-file-system", () => {
@@ -24,7 +24,7 @@ jest.mock("expo-file-system", () => {
 });
 
 // Mock logger
-jest.mock("./logger", () => ({
+jest.mock("@/utils/logger", () => ({
     log: {
         warn: jest.fn(),
     },
