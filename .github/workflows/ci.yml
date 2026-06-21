@@ -39,13 +39,6 @@ jobs:
                   sudo apt-get update
                   sudo apt-get install -y libsndfile1 ffmpeg libasound2-dev
 
-            - name: Create swap space
-              run: |
-                  sudo fallocate -l 4G /swapfile
-                  sudo chmod 600 /swapfile
-                  sudo mkswap /swapfile
-                  sudo swapon /swapfile
-
             - name: Run Linting
               run: npm run lint
 

@@ -1,5 +1,5 @@
 {
-    "python.defaultInterpreterPath": "${workspaceFolder}/apps/ai-worker/venv/Scripts/python.exe",
+    "python.defaultInterpreterPath": "${workspaceFolder}/apps/ai-worker/.venv/Scripts/python.exe",
     "python.testing.pytestArgs": [],
     "python.testing.cwd": "${workspaceFolder}/apps/ai-worker",
     "python.testing.unittestEnabled": false,
