@@ -241,7 +241,7 @@ export async function syncMusicLibrary(
 export function useMusicLibrary(limit = Infinity) {
     useEffect(() => {
         let isActive = true;
-        let syncTimeout: NodeJS.Timeout;
+        let syncTimeout: ReturnType<typeof setTimeout>;
 
         function initAndSync() {
             const store = usePlayerStore.getState();

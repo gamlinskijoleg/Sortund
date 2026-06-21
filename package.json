@@ -16,12 +16,12 @@
         "lint-staged": "^17.0.5",
         "prettier": "^3.8.3",
         "turbo": "^2.9.14",
-        "typescript": "~6.0.3"
+        "typescript": "catalog:"
     },
     "engines": {
         "node": ">=18"
     },
-    "packageManager": "pnpm@9.1.0",
+    "packageManager": "pnpm@11.5.0",
     "workspaces": [
         "apps/*",
         "packages/*"

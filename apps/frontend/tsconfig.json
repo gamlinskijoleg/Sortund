@@ -1,12 +1,16 @@
 {
-    "extends": "@repo/typescript-config/base.json",
+    "extends": "../../tsconfig.base.json",
     "compilerOptions": {
+        "composite": false,
+        "declaration": false,
+        "declarationMap": false,
+        "incremental": false,
         "jsx": "react-native",
         "lib": ["DOM", "ESNext"],
         "module": "ESNext",
         "moduleResolution": "Bundler",
         "target": "ESNext",
-        "types": ["node", "react", "react-native", "jest"],
+        "types": ["react", "react-native", "jest"],
         "paths": {
             "@/*": ["./src/*"]
         }

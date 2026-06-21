@@ -1,5 +1,12 @@
 packages:
-    - "apps/*"
-    - "packages/*"
+  - "apps/*"
+  - "packages/*"
+
+allowBuilds:
+  esbuild: set this to true or false
+  unrs-resolver: set this to true or false
 
 autoInstallPeers: true
+
+catalog:
+  typescript: "~6.0.3"
