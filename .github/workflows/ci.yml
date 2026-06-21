@@ -1,0 +1,44 @@
+name: CI
+
+on:
+    workflow_dispatch:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+
+jobs:
+    ci:
+        name: Run tests, linting, and typechecking
+        runs-on: ubuntu-latest
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v7
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: 20
+                  cache: "npm"
+
+            - name: Setup uv (for Python)
+              uses: astral-sh/setup-uv@v7
+              with:
+                  enable-cache: true
+                  cache-dependency-glob: "apps/ai-worker/uv.lock"
+
+            - name: Install Python
+              run: uv python install
+
+            - name: Install Node dependencies
+              run: npm ci
+
+            - name: Run Linting
+              run: npm run lint
+
+            - name: Run Typechecking
+              run: npm run check-types
+
+            - name: Run Tests
+              run: npm run test
