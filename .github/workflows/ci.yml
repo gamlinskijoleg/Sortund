@@ -30,9 +30,10 @@ jobs:
               with:
                   enable-cache: true
                   cache-dependency-glob: "apps/ai-worker/uv.lock"
+                  python-version: "3.11.9"
 
             - name: Install Python
-              run: uv python install
+              run: uv python install 3.11.9
 
             - name: Install Node dependencies
               run: pnpm install --frozen-lockfile
