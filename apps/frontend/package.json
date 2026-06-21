@@ -6,7 +6,7 @@
         "dev": "expo run:android",
         "android": "expo run:android",
         "ios": "expo run:ios",
-        "lint": "expo lint",
+        "lint": "eslint",
         "test": "jest",
         "check-types": "tsc --noEmit"
     },
