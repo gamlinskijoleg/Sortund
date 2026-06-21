@@ -53,13 +53,13 @@ The project is built on the principles of a monorepo and microservices architect
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
 # Run entire project (Turborepo)
-npm run dev
+pnpm dev
 
 # Run specific worker
-turbo run dev --filter=ai-worker
+pnpm dev --filter=ai-worker
 
 ```
 
