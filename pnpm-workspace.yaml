@@ -3,6 +3,8 @@ packages:
     - "packages/*"
 
 allowBuilds:
+    "@scarf/scarf": true
+    bcrypt: true
     esbuild: false
     unrs-resolver: false
 
@@ -11,3 +13,6 @@ autoInstallPeers: true
 catalog:
     typescript: "~6.0.3"
     eslint: "^9.39.1"
+
+nodeLinker: hoisted
+virtualStoreDirMaxLength: 60
