@@ -1,0 +1,30 @@
+# Node dependencies & build outputs — never needed in the build context
+**/node_modules
+**/dist
+**/.turbo
+**/coverage
+
+# TypeScript incremental build cache
+**/*.tsbuildinfo
+
+# Environment files — injected at runtime
+**/.env
+**/.env.*
+!**/.env.example
+
+# Git internals
+.git
+
+# IDE / editor
+.vscode
+.idea
+**/*.swp
+
+# Python (ai-worker)
+**/__pycache__
+**/*.py[cod]
+**/.venv
+**/.pytest_cache
+
+# Misc
+**/*.log
