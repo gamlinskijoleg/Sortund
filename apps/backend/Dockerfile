@@ -22,7 +22,7 @@ COPY apps/backend/ ./apps/backend/
 # Compile
 WORKDIR /app/apps/backend
 RUN pnpm run build && \
-    test -f dist/main.js || (echo "ERROR: dist/main.js was not produced by the build!" && exit 1)
+    test -f dist/src/main.js || (echo "ERROR: dist/src/main.js was not produced by the build!" && exit 1)
 
 # Prune devDependencies in-place for a lean runner image
 WORKDIR /app
@@ -37,8 +37,8 @@ WORKDIR /app
 COPY --from=builder /app/node_modules            ./node_modules
 COPY --from=builder /app/apps/backend/node_modules ./apps/backend/node_modules
 
-# Copy compiled output
-COPY --from=builder /app/apps/backend/dist       ./apps/backend/dist
+# Copy compiled output (rootDir="./" means tsc outputs src/ → dist/src/)
+COPY --from=builder /app/apps/backend/dist/src  ./apps/backend/dist/src
 
 # Package manifests needed by Node module resolution at runtime
 COPY package.json pnpm-workspace.yaml ./
@@ -48,4 +48,4 @@ WORKDIR /app/apps/backend
 
 EXPOSE 3000
 
-CMD ["node", "dist/main"]
+CMD ["node", "dist/src/main"]
