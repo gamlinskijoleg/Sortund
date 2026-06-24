@@ -21,7 +21,8 @@ COPY apps/backend/ ./apps/backend/
 
 # Compile
 WORKDIR /app/apps/backend
-RUN pnpm run build
+RUN pnpm run build && \
+    test -f dist/main.js || (echo "ERROR: dist/main.js was not produced by the build!" && exit 1)
 
 # Prune devDependencies in-place for a lean runner image
 WORKDIR /app
