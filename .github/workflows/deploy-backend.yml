@@ -60,14 +60,37 @@ jobs:
                   username: ${{ secrets.SERVER_USER }}
                   key: ${{ secrets.SSH_PRIVATE_KEY }}
                   script: |
+                      # ── Network ────────────────────────────────────────────────
+                      docker network create sortund-net || true
+
+                      # ── Postgres (only start if not already running) ────────────
+                      if ! docker ps --format '{{.Names}}' | grep -q '^sortund-postgres$'; then
+                          docker rm sortund-postgres 2>/dev/null || true
+                          docker run -d \
+                          --name sortund-postgres \
+                          --network sortund-net \
+                          -e POSTGRES_USER=postgres \
+                          -e POSTGRES_PASSWORD="${{ secrets.BACKEND_DB_PASSWORD }}" \
+                          -e POSTGRES_DB=sortund \
+                          -v sortund-pgdata:/var/lib/postgresql/data \
+                          --restart unless-stopped \
+                          postgres:17-alpine
+                          echo "Waiting for Postgres to be ready..."
+                          sleep 5
+                      else
+                          echo "Postgres already running, skipping."
+                      fi
+
+                      # ── Backend ────────────────────────────────────────────────
                       docker stop sortund-backend || true
                       docker rm sortund-backend || true
                       docker run -d \
                       --name sortund-backend \
+                      --network sortund-net \
                       --pull always \
                       -p 3000:3000 \
                       -e NODE_ENV=production \
-                      -e DATABASE_URL="${{ secrets.BACKEND_DATABASE_URL }}" \
+                      -e DATABASE_URL="postgresql://postgres:${{ secrets.BACKEND_DB_PASSWORD }}@sortund-postgres:5432/sortund" \
                       -e JWT_SECRET="${{ secrets.BACKEND_JWT_SECRET }}" \
                       -e JWT_EXPIRES_IN="${{ secrets.BACKEND_JWT_EXPIRES_IN }}" \
                       -e JWT_REFRESH_SECRET="${{ secrets.BACKEND_JWT_REFRESH_SECRET }}" \
