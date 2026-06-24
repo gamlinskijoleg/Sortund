@@ -18,10 +18,10 @@ export class Session {
     @Column({ name: "refresh_token_hash", length: 255 })
     refreshTokenHash!: string;
 
-    @Column({ name: "user_agent", length: 500, nullable: true })
+    @Column({ type: "varchar", name: "user_agent", length: 500, nullable: true })
     userAgent!: string | null;
 
-    @Column({ name: "ip_address", length: 45, nullable: true })
+    @Column({ type: "varchar", name: "ip_address", length: 45, nullable: true })
     ipAddress!: string | null;
 
     @Column({ name: "expires_at", type: "timestamptz" })

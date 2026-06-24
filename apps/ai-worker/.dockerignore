@@ -3,6 +3,7 @@ requirements-dev.txt
 venv
 .venv
 env
+.env
 
 # Python byte-compiled/optimized files
 __pycache__
