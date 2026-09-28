@@ -12,7 +12,7 @@ from app.schemas.analysis import AnalyzeResult
 from app.services.theaudiodb import TheAudioDBClient
 
 setup_logging()
-logger = logging.getLogger("sortund-ai-pipeline")
+logger = logging.getLogger("sortund-ai-pipeline-1")
 
 app = FastAPI(
     title="Sortund AI Hybrid Worker",
