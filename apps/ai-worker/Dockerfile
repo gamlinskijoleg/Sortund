@@ -19,6 +19,9 @@ ENV HOME=/home/user \
 
 WORKDIR $HOME/app
 
+# Model caches (Hugging Face, Whisper) live here; created by `user` so a mounted volume inherits the ownership.
+RUN mkdir -p $HOME/.cache
+
 # Install dependencies using uv
 COPY --chown=user pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-install-project --no-dev

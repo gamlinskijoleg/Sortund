@@ -16,12 +16,17 @@ async def test_recognize_via_shazam_local_success(
                 "subtitle": "Test Artist",
                 "images": {"coverart": "http://example.com/art.jpg"},
                 "isrc": "TEST12345",
+                "key": "12345",
             }
         }
     )
 
     result = await recognize_via_shazam_local("dummy.mp3")
-    assert result == ("Test Artist", "Test Title", "http://example.com/art.jpg", "TEST12345")
+    assert result.artist == "Test Artist"
+    assert result.title == "Test Title"
+    assert result.artwork == "http://example.com/art.jpg"
+    assert result.isrc == "TEST12345"
+    assert result.shazam_key == "12345"
 
 
 @pytest.mark.asyncio

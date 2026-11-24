@@ -1,40 +1,6 @@
-from typing import List, Dict, Set
+"""Class names of the AST audio tagger (AudioSet ontology, 527 classes), indexed by output position."""
 
-CANDIDATE_LABELS: List[str] = [
-    "rock music",
-    "pop music",
-    "electronic music",
-    "hip hop music",
-    "jazz music",
-    "sad mood",
-    "energetic gym workout",
-    "calm chillout",
-    "night drive vibe",
-    "eurovision song contest",
-    "after workout in public transport",
-    "romantic dinner",
-    "gaming focus",
-    "classical music",
-    "techno",
-    "club music",
-    "electronic dance music",
-    "cowboy music",
-]
-
-
-GENRE_LABELS: Set[str] = {
-    "rock music",
-    "pop music",
-    "electronic music",
-    "hip hop music",
-    "jazz music",
-    "classical music",
-    "techno",
-    "club music",
-    "electronic dance music",
-    "cowboy music",
-}
-
+from typing import Dict
 
 AUDIO_LABELS: Dict[str, str] = {
     "0": "Speech",
@@ -565,14 +531,3 @@ AUDIO_LABELS: Dict[str, str] = {
     "525": "Radio",
     "526": "Field recording",
 }
-
-ENERGETIC_TRIGGERS: List[str] = [
-    "Electric guitar",
-    "Guitar",
-    "Rap",
-    "Techno",
-    "Club music",
-    "Electronic dance music",
-    "Drum kit",
-    "Singing",
-]

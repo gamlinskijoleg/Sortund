@@ -15,8 +15,9 @@ def client():
 @pytest.fixture(autouse=True)
 def mock_onnx_models(monkeypatch):
     """Mocks ONNX model loading to prevent slow tests."""
-    # Since load_onnx_models might be called, we patch it
+    # main.py imports the function directly, so it must be patched where it is used.
     monkeypatch.setattr("app.ml.models.load_onnx_models", lambda: None)
+    monkeypatch.setattr("app.main.load_onnx_models", lambda: None)
 
 
 @pytest.fixture

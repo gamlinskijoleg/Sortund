@@ -19,6 +19,8 @@ dependencies = [
     "huggingface_hub",
     "musicbrainzngs>=0.7.1",
     "pydantic-settings>=2.0.0",
+    "faster-whisper>=1.2.1",
+    "langdetect>=1.0.9",
 ]
 
 [dependency-groups]

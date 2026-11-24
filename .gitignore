@@ -31,6 +31,7 @@ dist
 
 # AI worker models
 apps/ai-worker/app/ml/model/
+apps/ai-worker/data/
 
 
 # Debug

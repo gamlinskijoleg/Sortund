@@ -17,3 +17,5 @@ __pycache__
 
 # Tests
 tests
+# Local training data (GTZAN) — not needed at runtime
+data

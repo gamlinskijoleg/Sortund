@@ -1,16 +1,17 @@
+"""ONNX model sessions: AST audio tagger (AudioSet, 527 classes) and an NLI model for zero-shot text tagging."""
+
+import logging
 import os
 import re
-import asyncio
-import logging
+from typing import Any, Dict, List, Optional
+
 import numpy as np
-import librosa
 import onnxruntime as ort
-from transformers import AutoTokenizer, PreTrainedTokenizerBase
-from typing import Tuple, List, Dict, Union, Optional, Any
 from huggingface_hub import snapshot_download
+from transformers import AutoTokenizer, PreTrainedTokenizerBase
 
 from app.core.settings import settings
-from app.core.constants import CANDIDATE_LABELS, AUDIO_LABELS, ENERGETIC_TRIGGERS
+from app.ml.features import NUM_AUDIOSET_CLASSES, ast_input_from_waveform, split_ast_windows
 
 logger = logging.getLogger("sortund-ai-pipeline")
 
@@ -22,24 +23,23 @@ text_session: Optional[ort.InferenceSession] = None
 text_tokenizer: Optional[PreTrainedTokenizerBase] = None
 audio_session: Optional[ort.InferenceSession] = None
 
+# Index of the "contradiction" and "entailment" logits of the MNLI head.
+_CONTRADICTION = 0
+_ENTAILMENT = 2
+_VERSION_SUFFIX_RE = re.compile(
+    r"[\(\[][^\)\]]*(?:version|remix|edit|mix|master|feat|ft)[^\)\]]*[\)\]]",
+    flags=re.IGNORECASE,
+)
 
-def load_onnx_models():
-    """Loads ONNX models into memory. If files are missing, downloads them from HF Model Hub."""
+
+def load_onnx_models() -> None:
+    """Loads ONNX models into memory. If files are missing, downloads them from the HF Model Hub."""
     global text_session, text_tokenizer, audio_session, TEXT_MODEL_PATH, AUDIO_MODEL_PATH
 
-    # 1. CHECK: If local files are missing, download from Hugging Face
     if not os.path.exists(TEXT_MODEL_PATH) or not os.path.exists(AUDIO_MODEL_PATH):
-        logger.info("️Local models not found. Starting download from Hugging Face Model Hub...")
+        logger.info("Local models not found. Starting download from Hugging Face Model Hub...")
         try:
-            hf_token = settings.HF_TOKEN or None
-
-            # Download the entire model repository to system cache
-            downloaded_dir = snapshot_download(
-                repo_id="gamlinskijoleg/sortund-models",
-                token=hf_token,
-            )
-
-            # Reassign paths to downloaded files
+            downloaded_dir = snapshot_download(repo_id="gamlinskijoleg/sortund-models", token=settings.HF_TOKEN or None)
             TEXT_MODEL_PATH = os.path.join(downloaded_dir, "text_zero_shot", "model.onnx")
             AUDIO_MODEL_PATH = os.path.join(downloaded_dir, "audio_tagger", "model.onnx")
             logger.info(f"Models successfully loaded into cache: {downloaded_dir}")
@@ -47,7 +47,6 @@ def load_onnx_models():
             logger.error(f"Failed to download models from Hugging Face Hub: {e}", exc_info=True)
             return
 
-    # 2. SESSION INITIALIZATION (Original code, but with new paths)
     opts = ort.SessionOptions()
     opts.intra_op_num_threads = 2
     opts.inter_op_num_threads = 2
@@ -56,155 +55,84 @@ def load_onnx_models():
     if os.path.exists(TEXT_MODEL_PATH):
         try:
             text_session = ort.InferenceSession(TEXT_MODEL_PATH, sess_options=opts, providers=["CPUExecutionProvider"])
-            # Tokenizer is expected in the same folder as the ONNX model
             text_tokenizer = AutoTokenizer.from_pretrained(os.path.dirname(TEXT_MODEL_PATH))
-            logger.info("Text Zero-Shot ONNX successfully loaded.")
+            logger.info("Text zero-shot ONNX successfully loaded.")
         except Exception as e:
-            logger.error(
-                f"Error initializing text model: {e}",
-                exc_info=True,
-            )
+            logger.error(f"Error initializing text model: {e}", exc_info=True)
 
     if os.path.exists(AUDIO_MODEL_PATH):
         try:
             audio_session = ort.InferenceSession(
-                AUDIO_MODEL_PATH,
-                sess_options=opts,
-                providers=["CPUExecutionProvider"],
+                AUDIO_MODEL_PATH, sess_options=opts, providers=["CPUExecutionProvider"]
             )
             logger.info("Audio AST ONNX successfully loaded.")
         except Exception as e:
             logger.error(f"Error initializing audio model: {e}", exc_info=True)
 
 
-def _sync_predict_text_zero_shot(text: str) -> List[Dict[str, Union[str, float]]]:
-    """Synchronously predicts text tags using zero-shot model."""
-    if text_session is None or text_tokenizer is None:
-        return []
+def audioset_probabilities(y: np.ndarray) -> np.ndarray:
+    """AudioSet class probabilities averaged over up to three 10-second windows of ``y``."""
+    if audio_session is None or y.size == 0:
+        return np.zeros(NUM_AUDIOSET_CLASSES, dtype=np.float32)
+    batch = np.stack([ast_input_from_waveform(w) for w in split_ast_windows(y)])
+    outputs: Any = audio_session.run(None, {"input_values": batch})
+    logits = np.asarray(outputs[0], dtype=np.float32)
+    return (1.0 / (1.0 + np.exp(-logits))).mean(axis=0).astype(np.float32)
 
-    clean_text = re.sub(
-        r"[\(\]][^\)\]]*(?:version|remix|edit|mix|master|feat|ft)[^\)\]]*[\)\]]",
-        "",
-        text,
-        flags=re.IGNORECASE,
-    )
-    clean_text = " ".join(clean_text.split()).strip()
-    raw_results = []
 
+def clean_text_for_zero_shot(text: str) -> str:
+    return " ".join(_VERSION_SUFFIX_RE.sub("", text).split()).strip()
+
+
+def zero_shot(
+    premise: str,
+    hypotheses: Dict[str, str],
+    template: str = "This music is {}.",
+    max_length: int = 256,
+) -> Dict[str, float]:
+    """Multi-label zero-shot classification: entailment probability (0..1) for every hypothesis."""
+    if text_session is None or text_tokenizer is None or not premise.strip() or not hypotheses:
+        return {}
+
+    labels = list(hypotheses.keys())
     try:
-        for label in CANDIDATE_LABELS:
-            inputs = text_tokenizer(
-                clean_text,
-                f"This music is {label}.",
-                return_tensors="np",
-                truncation=True,
-                max_length=128,
-            )
-            input_feed = {
-                "input_ids": np.array(
-                    inputs["input_ids"],
-                    dtype=np.int64,
-                ),
-                "attention_mask": np.array(
-                    inputs["attention_mask"],
-                    dtype=np.int64,
-                ),
-            }
-            ort_outs = text_session.run(None, input_feed)
-            if isinstance(ort_outs, list):
-                out_0: Any = ort_outs[0]
-                logits = out_0[0]
-                relevant_logits = np.array([logits[0], logits[2]])
-                probs = np.exp(relevant_logits - np.max(relevant_logits))
-                probs /= probs.sum()
-                entail_prob = float(probs[1]) * 100
-
-                if entail_prob > 85.0:
-                    raw_results.append({"label": label, "prob": entail_prob})
+        inputs = text_tokenizer(
+            [premise] * len(labels),
+            [template.format(hypotheses[label]) for label in labels],
+            return_tensors="np",
+            truncation="only_first",
+            padding=True,
+            max_length=max_length,
+        )
+        feed = {
+            "input_ids": np.asarray(inputs["input_ids"], dtype=np.int64),
+            "attention_mask": np.asarray(inputs["attention_mask"], dtype=np.int64),
+        }
+        outputs: Any = text_session.run(None, feed)
+        logits = np.asarray(outputs[0], dtype=np.float64)
+        pair = logits[:, [_CONTRADICTION, _ENTAILMENT]]
+        pair -= pair.max(axis=1, keepdims=True)
+        probs = np.exp(pair)
+        probs /= probs.sum(axis=1, keepdims=True)
+        return {label: float(probs[i, 1]) for i, label in enumerate(labels)}
     except Exception as e:
-        logger.error(f"Text Zero-Shot calculation failure: {e}")
-    return raw_results
+        logger.error(f"Zero-shot text classification failure: {e}")
+        return {}
 
 
-def _sync_predict_audio_tags(
-    file_path: str,
-) -> Tuple[
-    List[str],
-    str,
-]:
-    """Synchronously analyzes audio file and determines audio tags and default mood (as fallback)."""
-    if audio_session is None:
-        return (
-            [],
-            "Unknown",
-        )
-
-    try:
-        # Since the frontend already trims the audio, we process it from the beginning
-        y, sr = librosa.load(file_path, sr=16000, offset=0.0, duration=10)
-        if y.size == 0:
-            logger.warning(f"️ Audio file loaded as an empty array. Skipping processing.")
-            return ([], "Unknown")
-        if np.max(np.abs(y)) < 1e-4:
-            return ([], "Calm")
-
-        stft = np.abs(
-            librosa.stft(
-                y,
-                n_fft=400,
-                hop_length=160,
-                win_length=400,
-                window="hann",
-                center=True,
-            )
-        )
-        mel_basis = librosa.filters.mel(sr=16000, n_fft=400, n_mels=128, fmin=0, fmax=8000)
-        mel = np.dot(mel_basis, stft)
-        log_mel = np.log(mel + 1e-7)
-        log_mel = librosa.util.fix_length(log_mel, size=1024, axis=1)
-
-        normalized_mel = (log_mel.T - (-4.268)) / 4.569
-        input_data = np.expand_dims(normalized_mel, axis=0).astype(np.float32)
-
-        audio_outs = audio_session.run(None, {"input_values": input_data})
-        if isinstance(audio_outs, list):
-            out_0: Any = audio_outs[0]
-            logits = out_0[0]
-            probabilities = 1 / (1 + np.exp(-logits))
-            top_indices = np.argsort(probabilities)[::-1][:15]
-
-            detected_audio_tags = []
-            for idx in top_indices:
-                prob = float(probabilities[idx]) * 100
-                if idx in AUDIO_LABELS and prob > 8.0:
-                    tag_name = AUDIO_LABELS[idx]
-                    if tag_name not in detected_audio_tags:
-                        detected_audio_tags.append(tag_name)
-
-        if any(g in detected_audio_tags for g in ["Guitar", "Electric guitar", "Acoustic guitar"]):
-            if "Plucked string instrument" in detected_audio_tags:
-                detected_audio_tags.remove("Plucked string instrument")
-        if len(detected_audio_tags) > 1 and "Musical instrument" in detected_audio_tags:
-            detected_audio_tags.remove("Musical instrument")
-
-        primary_mood = "Neutral"
-        if any(trig in detected_audio_tags for trig in ENERGETIC_TRIGGERS):
-            primary_mood = "Energetic"
-        elif "Piano" in detected_audio_tags or "Acoustic guitar" in detected_audio_tags:
-            primary_mood = "Calm"
-
-        return (
-            detected_audio_tags,
-            primary_mood,
-        )
-    except Exception as e:
-        logger.error(f"Audio AST Engine computation failure: {e}")
-        return ([], "Unknown")
+def zero_shot_single_label(
+    premise: str, hypotheses: Dict[str, str], template: str = "This music is {}."
+) -> Dict[str, float]:
+    """Single-label variant: entailment logits normalised with softmax across all hypotheses."""
+    multi = zero_shot(premise, hypotheses, template)
+    if not multi:
+        return {}
+    values = np.asarray(list(multi.values()))
+    logits = np.log(np.clip(values, 1e-6, 1.0))
+    exp = np.exp(logits - logits.max())
+    exp /= exp.sum()
+    return {label: float(p) for label, p in zip(multi.keys(), exp)}
 
 
-async def predict_text_zero_shot(text: str) -> List[Dict[str, Union[str, float]]]:
-    return await asyncio.to_thread(_sync_predict_text_zero_shot, text)
-
-
-async def predict_audio_tags(file_path: str) -> Tuple[List[str], str]:
-    return await asyncio.to_thread(_sync_predict_audio_tags, file_path)
+def top_labels(probs: Dict[str, float], limit: int) -> List[str]:
+    return [k for k, _ in sorted(probs.items(), key=lambda kv: kv[1], reverse=True)[:limit]]
