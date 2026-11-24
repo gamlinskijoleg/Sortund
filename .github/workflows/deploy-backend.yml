@@ -10,6 +10,11 @@ on:
             - "pnpm-lock.yaml"
             - "pnpm-workspace.yaml"
             - "tsconfig.base.json"
+            - ".github/workflows/deploy-backend.yml"
+
+concurrency:
+    group: deploy-backend
+    cancel-in-progress: false
 
 jobs:
     deploy:
@@ -45,58 +50,58 @@ jobs:
                   file: ./apps/backend/Dockerfile
                   push: true
                   tags: ${{ secrets.DOCKERHUB_USERNAME }}/sortund-backend:latest
-                  cache-from: type=gha
-                  cache-to: type=gha,mode=max
+                  cache-from: type=gha,scope=backend
+                  cache-to: type=gha,mode=max,scope=backend
 
             # 5. Test connectivity to server
             - name: Test Ping to Server
               run: ping -c 4 ${{ secrets.SERVER_IP }}
 
-            # 6. Deploy to server via SSH (inside Tailscale tunnel)
+            # 6. Deploy to server via SSH (inside Tailscale tunnel).
+            #    Runtime secrets live on the server (chmod 600):
+            #      ~/sortund/postgres.env — POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB
+            #      ~/sortund/backend.env  — DATABASE_URL, JWT_*, AI_WORKER_URL, AI_WORKER_TOKEN, ADMIN_EMAILS, …
             - name: Deploy via SSH
               uses: appleboy/ssh-action@master
               with:
                   host: ${{ secrets.SERVER_IP }}
                   username: ${{ secrets.SERVER_USER }}
                   key: ${{ secrets.SSH_PRIVATE_KEY }}
+                  command_timeout: 10m
                   script: |
-                      # ── Network ────────────────────────────────────────────────
-                      docker network create sortund-net || true
+                      set -e
+                      IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/sortund-backend:latest"
+                      for f in backend.env postgres.env; do
+                        test -f ~/sortund/$f || { echo "~/sortund/$f is missing"; exit 1; }
+                      done
+                      docker network create sortund-net 2>/dev/null || true
 
-                      # ── Postgres (only start if not already running) ────────────
+                      # ── Postgres (only started if not already running) ────────────
                       if ! docker ps --format '{{.Names}}' | grep -q '^sortund-postgres$'; then
-                          docker rm sortund-postgres 2>/dev/null || true
-                          docker run -d \
-                          --name sortund-postgres \
-                          --network sortund-net \
-                          -e POSTGRES_USER=postgres \
-                          -e POSTGRES_PASSWORD="${{ secrets.BACKEND_DB_PASSWORD }}" \
-                          -e POSTGRES_DB=sortund \
-                          -v sortund-pgdata:/var/lib/postgresql/data \
-                          --restart unless-stopped \
-                          postgres:17-alpine
-                          echo "Waiting for Postgres to be ready..."
-                          sleep 5
-                      else
-                          echo "Postgres already running, skipping."
+                        docker rm sortund-postgres 2>/dev/null || true
+                        docker run -d --name sortund-postgres --network sortund-net --env-file ~/sortund/postgres.env -v sortund-pgdata:/var/lib/postgresql/data --restart unless-stopped postgres:17-alpine
+                        until docker exec sortund-postgres pg_isready -U postgres >/dev/null 2>&1; do sleep 2; done
                       fi
 
-                      # ── Backend ────────────────────────────────────────────────
-                      docker stop sortund-backend || true
-                      docker rm sortund-backend || true
-                      docker run -d \
-                      --name sortund-backend \
-                      --network sortund-net \
-                      --pull always \
-                      -p 3000:3000 \
-                      -e NODE_ENV=production \
-                      -e DATABASE_URL="postgresql://postgres:${{ secrets.BACKEND_DB_PASSWORD }}@sortund-postgres:5432/sortund" \
-                      -e JWT_SECRET="${{ secrets.BACKEND_JWT_SECRET }}" \
-                      -e JWT_EXPIRES_IN="${{ secrets.BACKEND_JWT_EXPIRES_IN }}" \
-                      -e JWT_REFRESH_SECRET="${{ secrets.BACKEND_JWT_REFRESH_SECRET }}" \
-                      -e JWT_REFRESH_EXPIRES_IN="${{ secrets.BACKEND_JWT_REFRESH_EXPIRES_IN }}" \
-                      --restart unless-stopped \
-                      ${{ secrets.DOCKERHUB_USERNAME }}/sortund-backend:latest
+                      # ── Backend (runs DB migrations on startup) ───────────────────
+                      docker pull "$IMAGE"
+                      docker stop sortund-backend 2>/dev/null || true
+                      docker rm sortund-backend 2>/dev/null || true
+                      docker run -d --name sortund-backend --network sortund-net -p 3000:3000 --env-file ~/sortund/backend.env --restart unless-stopped "$IMAGE"
+
+                      for i in $(seq 1 60); do
+                        if curl -fsS http://127.0.0.1:3000/ >/dev/null 2>&1; then
+                          echo "Backend is healthy"
+                          # The mobile app reaches the backend through Tailscale Funnel (public HTTPS).
+                          tailscale funnel --bg 3000 >/dev/null
+                          docker image prune -f >/dev/null
+                          exit 0
+                        fi
+                        sleep 2
+                      done
+                      echo "Backend did not become healthy"
+                      docker logs --tail 100 sortund-backend
+                      exit 1
 
             # 7. Cleanup Tailscale connection
             - name: Disconnect Tailscale

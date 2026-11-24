@@ -6,6 +6,12 @@ on:
         branches: [main]
         paths:
             - "apps/ai-worker/**"
+            - ".github/workflows/deploy-ai-worker.yml"
+
+# Never run two deployments of the worker at the same time.
+concurrency:
+    group: deploy-ai-worker
+    cancel-in-progress: false
 
 jobs:
     deploy:
@@ -39,31 +45,49 @@ jobs:
                   context: ./apps/ai-worker
                   push: true
                   tags: ${{ secrets.DOCKERHUB_USERNAME }}/ai-worker:latest
-                  cache-from: type=gha
-                  cache-to: type=gha,mode=max
+                  cache-from: type=gha,scope=ai-worker
+                  cache-to: type=gha,mode=max,scope=ai-worker
 
             # 5. Test connectivity to server
             - name: Test Ping to Server
               run: ping -c 4 ${{ secrets.SERVER_IP }}
 
-            # 6. Deploy to server via SSH (inside Tailscale tunnel)
+            # 6. Deploy to server via SSH (inside Tailscale tunnel).
+            #    Runtime secrets live on the server in ~/sortund/worker.env (chmod 600):
+            #    WORKER_TOKEN (shared with the backend), HF_TOKEN, WHISPER_MODEL, …
             - name: Deploy via SSH
               uses: appleboy/ssh-action@master
               with:
                   host: ${{ secrets.SERVER_IP }}
                   username: ${{ secrets.SERVER_USER }}
                   key: ${{ secrets.SSH_PRIVATE_KEY }}
+                  command_timeout: 20m
                   script: |
-                      docker stop ai-worker || true
-                      docker rm ai-worker || true
-                      docker run -d \
-                      --name ai-worker \
-                      --pull always \
-                      -p 8000:8000 \
-                      -e HUGGING_FACE_HUB_TOKEN="${{ secrets.HF_TOKEN }}" \
-                      -v hf-cache:/root/.cache/huggingface \
-                      --restart unless-stopped \
-                      ${{ secrets.DOCKERHUB_USERNAME }}/ai-worker:latest
+                      set -e
+                      IMAGE="${{ secrets.DOCKERHUB_USERNAME }}/ai-worker:latest"
+                      test -f ~/sortund/worker.env || { echo "~/sortund/worker.env is missing"; exit 1; }
+                      docker network create sortund-net 2>/dev/null || true
+
+                      docker pull "$IMAGE"
+                      docker stop ai-worker 2>/dev/null || true
+                      docker rm ai-worker 2>/dev/null || true
+
+                      # Only the backend talks to the worker (over sortund-net). The port is bound to
+                      # localhost for debugging only and is not reachable from outside.
+                      docker run -d --name ai-worker --network sortund-net -p 127.0.0.1:8000:8000 --env-file ~/sortund/worker.env -v sortund-worker-cache:/home/user/.cache --restart unless-stopped "$IMAGE"
+
+                      # Models are loaded on startup (first start downloads them) — wait for /health.
+                      for i in $(seq 1 120); do
+                        if curl -fsS http://127.0.0.1:8000/health >/dev/null 2>&1; then
+                          echo "AI worker is healthy"
+                          docker image prune -f >/dev/null
+                          exit 0
+                        fi
+                        sleep 5
+                      done
+                      echo "AI worker did not become healthy"
+                      docker logs --tail 100 ai-worker
+                      exit 1
 
             # 7. Cleanup Tailscale connection
             - name: Disconnect Tailscale
