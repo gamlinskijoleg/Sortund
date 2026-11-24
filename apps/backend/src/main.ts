@@ -1,11 +1,13 @@
 import { NestFactory } from "@nestjs/core";
 import { ValidationPipe } from "@nestjs/common";
+import type { NestExpressApplication } from "@nestjs/platform-express";
+import { join } from "path";
 import { DocumentBuilder, SwaggerModule } from "@nestjs/swagger";
 import helmet from "helmet";
 import { AppModule } from "./app.module";
 
 async function bootstrap() {
-    const app = await NestFactory.create(AppModule);
+    const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
     // ── Security headers ──────────────────────────────────────────────────────
     app.use(helmet());
@@ -28,6 +30,9 @@ async function bootstrap() {
         })
     );
 
+    // ── Admin web panel (static files, talks to the same REST API) ───────────
+    app.useStaticAssets(join(__dirname, "..", "..", "public", "admin"), { prefix: "/admin" });
+
     // ── Swagger ───────────────────────────────────────────────────────────────
     const swaggerConfig = new DocumentBuilder()
         .setTitle("Sortund API")
@@ -41,6 +46,7 @@ async function bootstrap() {
     await app.listen(process.env.PORT ?? 3000);
     console.log(`Application running on: ${await app.getUrl()}`);
     console.log(`Swagger docs:           ${await app.getUrl()}/api/docs`);
+    console.log(`Admin panel:            ${await app.getUrl()}/admin/`);
 }
 
 void bootstrap();

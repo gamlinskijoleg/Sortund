@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, UnauthorizedException } from "@nestjs/common";
+import { ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import { Request } from "express";
@@ -39,7 +39,7 @@ export class AuthService {
      * Called by LocalStrategy.
      */
     async validateUser(email: string, password: string): Promise<User | null> {
-        const user = await this.usersService.findByEmail(email);
+        const user = await this.usersService.findByEmail(email.trim().toLowerCase());
         if (!user) return null;
         const matches = await bcrypt.compare(password, user.passwordHash);
         return matches ? user : null;
@@ -52,6 +52,10 @@ export class AuthService {
     async refresh(userId: string, sessionId: string): Promise<TokenPair> {
         const user = await this.usersService.findById(userId);
         if (!user) throw new UnauthorizedException();
+        if (user.isBlocked) {
+            await this.sessionsService.delete(sessionId);
+            throw new ForbiddenException("Account is blocked");
+        }
 
         const refreshExpiresIn = this.configService.getOrThrow<string>("JWT_REFRESH_EXPIRES_IN");
         const expiresAt = this.parseExpiry(refreshExpiresIn);
@@ -106,7 +110,8 @@ export class AuthService {
 
     private signAccess(userId: string, email: string, sessionId: string) {
         return this.jwtService.signAsync(
-            { sub: userId, email, sessionId },
+            // jti makes every token unique even when two are issued within the same second.
+            { sub: userId, email, sessionId, jti: randomUUID() },
             {
                 secret: this.configService.getOrThrow<string>("JWT_SECRET"),
                 // ConfigService returns string; cast to satisfy @nestjs/jwt's StringValue type.
@@ -118,7 +123,7 @@ export class AuthService {
 
     private signRefresh(userId: string, sessionId: string, expiresIn: string) {
         return this.jwtService.signAsync(
-            { sub: userId, sessionId },
+            { sub: userId, sessionId, jti: randomUUID() },
             {
                 secret: this.configService.getOrThrow<string>("JWT_REFRESH_SECRET"),
 

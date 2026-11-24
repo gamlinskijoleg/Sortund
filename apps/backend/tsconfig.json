@@ -6,7 +6,7 @@
         "target": "ES2022",
         "outDir": "./dist",
         "rootDir": "./",
-        "types": ["node", "jest"],
+        "types": ["node", "jest", "multer"],
         "paths": {
             "*": ["./*"]
         }

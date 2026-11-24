@@ -39,6 +39,7 @@ COPY --from=builder /app/apps/backend/node_modules ./apps/backend/node_modules
 
 # Copy compiled output (rootDir="./" means tsc outputs src/ → dist/src/)
 COPY --from=builder /app/apps/backend/dist/src  ./apps/backend/dist/src
+COPY --from=builder /app/apps/backend/public    ./apps/backend/public
 
 # Package manifests needed by Node module resolution at runtime
 COPY package.json pnpm-workspace.yaml ./

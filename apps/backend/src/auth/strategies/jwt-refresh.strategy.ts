@@ -3,8 +3,7 @@ import { ConfigService } from "@nestjs/config";
 import { PassportStrategy } from "@nestjs/passport";
 import { ExtractJwt, Strategy } from "passport-jwt";
 import { Request } from "express";
-import * as bcrypt from "bcrypt";
-import { SessionsService } from "../../sessions/sessions.service";
+import { SessionsService, refreshTokenMatches } from "../../sessions/sessions.service";
 
 export interface JwtRefreshPayload {
     sub: string;
@@ -38,7 +37,7 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, "jwt-refresh"
             throw new UnauthorizedException("Session expired or not found");
         }
 
-        const tokenMatches = await bcrypt.compare(rawToken, session.refreshTokenHash);
+        const tokenMatches = await refreshTokenMatches(rawToken, session.refreshTokenHash);
         if (!tokenMatches) {
             // Possible token reuse — invalidate the session for security
             await this.sessionsService.delete(payload.sessionId);

@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="uk">
+    <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Sortund — адміністрування</title>
+        <link rel="stylesheet" href="./admin.css" />
+    </head>
+    <body>
+        <section id="login-view" class="login" hidden>
+            <form id="login-form" class="card login-card">
+                <h1>Sortund</h1>
+                <p class="muted">Панель адміністратора</p>
+                <label
+                    >Електронна пошта<input
+                        name="email"
+                        type="email"
+                        required
+                        autocomplete="username"
+                /></label>
+                <label
+                    >Пароль<input
+                        name="password"
+                        type="password"
+                        required
+                        autocomplete="current-password"
+                /></label>
+                <button type="submit" class="primary">Увійти</button>
+                <p id="login-error" class="error" role="alert"></p>
+            </form>
+        </section>
+
+        <div id="app-view" hidden>
+            <header class="topbar">
+                <strong class="brand">Sortund admin</strong>
+                <nav id="tabs">
+                    <button data-tab="overview" class="active">Огляд</button>
+                    <button data-tab="users">Користувачі</button>
+                    <button data-tab="queue">Черга аналізу</button>
+                    <button data-tab="corrections">Виправлення</button>
+                    <button data-tab="models">Модель жанру</button>
+                </nav>
+                <span class="spacer"></span>
+                <span id="whoami" class="muted"></span>
+                <button id="logout" class="ghost">Вийти</button>
+            </header>
+
+            <main>
+                <!-- Overview: REQ 69, 71 -->
+                <section data-view="overview">
+                    <div class="toolbar">
+                        <h2>Статистика сервісу</h2>
+                        <label class="inline"
+                            >Період
+                            <select id="stats-days">
+                                <option value="7">7 днів</option>
+                                <option value="14" selected>14 днів</option>
+                                <option value="30">30 днів</option>
+                                <option value="90">90 днів</option>
+                            </select>
+                        </label>
+                        <button id="stats-refresh" class="ghost">Оновити</button>
+                    </div>
+                    <div id="kpis" class="kpis"></div>
+                    <div class="grid2">
+                        <div class="card">
+                            <h3>Аналізи за день</h3>
+                            <div id="chart-days" class="chart"></div>
+                            <p class="legend">
+                                <span class="sw sw-a"></span>Виконано моделями
+                                <span class="sw sw-b"></span>З кешу
+                            </p>
+                        </div>
+                        <div class="card">
+                            <h3>Найпоширеніші жанри</h3>
+                            <div id="chart-genres"></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>Черга аналізу зараз</h3>
+                        <div id="queue-counts" class="kpis small"></div>
+                    </div>
+                </section>
+
+                <!-- Users: REQ 66–68 -->
+                <section data-view="users" hidden>
+                    <div class="toolbar">
+                        <h2>Користувачі</h2>
+                        <input id="user-search" type="search" placeholder="Пошук за email…" />
+                    </div>
+                    <div class="card">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Email</th>
+                                    <th>Роль</th>
+                                    <th>Ліміт / міс.</th>
+                                    <th>Використано</th>
+                                    <th>Статус</th>
+                                    <th>Створено</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="users-body"></tbody>
+                        </table>
+                        <div id="users-pager" class="pager"></div>
+                    </div>
+                </section>
+
+                <!-- Queue: REQ 69–70 -->
+                <section data-view="queue" hidden>
+                    <div class="toolbar">
+                        <h2>Задачі аналізу</h2>
+                        <select id="job-status">
+                            <option value="failed" selected>З помилкою</option>
+                            <option value="queued">У черзі</option>
+                            <option value="processing">Обробляються</option>
+                            <option value="done">Готові</option>
+                            <option value="">Усі</option>
+                        </select>
+                        <button id="retry-all" class="ghost">Перезапустити всі з помилкою</button>
+                    </div>
+                    <div class="card">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Файл</th>
+                                    <th>Користувач</th>
+                                    <th>Статус</th>
+                                    <th>Спроб</th>
+                                    <th>Час</th>
+                                    <th>Створено</th>
+                                    <th>Помилка</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="jobs-body"></tbody>
+                        </table>
+                        <div id="jobs-pager" class="pager"></div>
+                    </div>
+                </section>
+
+                <!-- Corrections: REQ 72 -->
+                <section data-view="corrections" hidden>
+                    <div class="toolbar">
+                        <h2>Виправлення від користувачів</h2>
+                        <select id="corr-status">
+                            <option value="pending" selected>Нові</option>
+                            <option value="approved">Відібрані</option>
+                            <option value="rejected">Відхилені</option>
+                            <option value="">Усі</option>
+                        </select>
+                        <select id="corr-field">
+                            <option value="">Жанр і настрій</option>
+                            <option value="genre">Лише жанр</option>
+                            <option value="mood">Лише настрій</option>
+                        </select>
+                    </div>
+                    <p class="muted">
+                        Для донавчання моделі використовуються лише відібрані виправлення жанру з
+                        міткою, яку знає модель (<span id="corr-labels"></span>).
+                    </p>
+                    <div class="card">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Трек</th>
+                                    <th>Поле</th>
+                                    <th>Було</th>
+                                    <th>Стало</th>
+                                    <th>Користувач</th>
+                                    <th>Дата</th>
+                                    <th>Придатне</th>
+                                    <th>Статус</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="corr-body"></tbody>
+                        </table>
+                        <div id="corr-pager" class="pager"></div>
+                    </div>
+                </section>
+
+                <!-- Models: REQ 73–75 -->
+                <section data-view="models" hidden>
+                    <div class="toolbar">
+                        <h2>Версії моделі визначення жанру</h2>
+                        <button id="train" class="primary">
+                            Донавчити на відібраних виправленнях
+                        </button>
+                    </div>
+                    <p class="muted">
+                        Метрики обчислюються на одній і тій самій тестовій вибірці. Нову версію
+                        можна активувати лише якщо її точність і macro-F1 не гірші, ніж в активної.
+                    </p>
+                    <p id="train-status" class="muted"></p>
+                    <div id="models-list"></div>
+                </section>
+            </main>
+        </div>
+
+        <div id="toast" class="toast" hidden></div>
+        <script src="./admin.js"></script>
+    </body>
+</html>

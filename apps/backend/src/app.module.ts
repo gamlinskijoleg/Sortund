@@ -9,6 +9,13 @@ import { AuthModule } from "./auth/auth.module";
 import { UsersModule } from "./users/users.module";
 import { SessionsModule } from "./sessions/sessions.module";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
+import { RolesGuard } from "./common/guards/roles.guard";
+import { AiWorkerModule } from "./ai-worker/ai-worker.module";
+import { AnalysisModule } from "./analysis/analysis.module";
+import { ModelsModule } from "./models/models.module";
+import { CorrectionsModule } from "./corrections/corrections.module";
+import { SyncModule } from "./sync/sync.module";
+import { AdminModule } from "./admin/admin.module";
 import { envValidationSchema } from "./config/env.validation";
 
 @Module({
@@ -46,6 +53,12 @@ import { envValidationSchema } from "./config/env.validation";
         AuthModule,
         UsersModule,
         SessionsModule,
+        AiWorkerModule,
+        ModelsModule,
+        AnalysisModule,
+        CorrectionsModule,
+        SyncModule,
+        AdminModule,
     ],
     controllers: [AppController],
     providers: [
@@ -54,6 +67,8 @@ import { envValidationSchema } from "./config/env.validation";
         { provide: APP_GUARD, useClass: ThrottlerGuard },
         // JWT guard applied globally; routes opt out with @Public().
         { provide: APP_GUARD, useClass: JwtAuthGuard },
+        // Role check runs after authentication; routes opt in with @Roles().
+        { provide: APP_GUARD, useClass: RolesGuard },
     ],
 })
 export class AppModule {}

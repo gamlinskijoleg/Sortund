@@ -1,7 +1,9 @@
-import { Injectable } from "@nestjs/common";
+import { ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
 import { ConfigService } from "@nestjs/config";
 import { PassportStrategy } from "@nestjs/passport";
 import { ExtractJwt, Strategy } from "passport-jwt";
+import { UsersService } from "../../users/users.service";
+import type { UserRole } from "../../users/entities/user.entity";
 
 export interface JwtPayload {
     /** User UUID */
@@ -15,11 +17,15 @@ export interface AuthenticatedUser {
     id: string;
     email: string;
     sessionId: string;
+    role: UserRole;
 }
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, "jwt") {
-    constructor(configService: ConfigService) {
+    constructor(
+        configService: ConfigService,
+        private readonly usersService: UsersService
+    ) {
         super({
             jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
             ignoreExpiration: false,
@@ -27,12 +33,19 @@ export class JwtStrategy extends PassportStrategy(Strategy, "jwt") {
         });
     }
 
-    /** Return value becomes request.user for downstream handlers. */
-    validate(payload: JwtPayload): AuthenticatedUser {
+    /**
+     * Return value becomes request.user. The user is re-read from the database so that
+     * blocking and role changes take effect immediately, not only after the token expires.
+     */
+    async validate(payload: JwtPayload): Promise<AuthenticatedUser> {
+        const user = await this.usersService.findById(payload.sub);
+        if (!user) throw new UnauthorizedException();
+        if (user.isBlocked) throw new ForbiddenException("Account is blocked");
         return {
-            id: payload.sub,
-            email: payload.email,
+            id: user.id,
+            email: user.email,
             sessionId: payload.sessionId,
+            role: user.role,
         };
     }
 }
