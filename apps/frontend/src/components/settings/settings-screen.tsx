@@ -10,6 +10,7 @@ import { useAuthStore } from "../../store/useAuthStore";
 import { useSettingsStore, type Language, type ThemeMode } from "../../store/useSettingsStore";
 import { lastSyncAt, syncNow } from "../../sync/sync";
 import { useAppTheme } from "../../theme/app-theme";
+import { installedVersion, useUpdateStore } from "../../updates/updater";
 
 /** Interface language, theme (REQ 64–65), account and sync (REQ 8, 58–60). */
 export default function SettingsScreen() {
@@ -20,6 +21,7 @@ export default function SettingsScreen() {
     const user = useAuthStore((s) => s.user);
     const status = useAuthStore((s) => s.status);
     const [syncing, setSyncing] = useState(false);
+    const updateChecking = useUpdateStore((s) => s.status === "checking");
     const [lastSync, setLastSync] = useState(lastSyncAt());
 
     const sync = async () => {
@@ -124,6 +126,21 @@ export default function SettingsScreen() {
                         />
                     </Section>
                 )}
+
+                <Section title={t("update.title")}>
+                    <Text style={{ color: theme.textMuted }}>
+                        {t("update.current", {
+                            version: `${installedVersion().name} (${installedVersion().code ?? "dev"})`,
+                        })}
+                    </Text>
+                    <AppButton
+                        variant="secondary"
+                        icon="cellphone-arrow-down"
+                        label={t("update.check")}
+                        loading={updateChecking}
+                        onPress={() => void useUpdateStore.getState().check({ manual: true })}
+                    />
+                </Section>
 
                 <Section>
                     <AppButton

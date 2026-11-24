@@ -238,6 +238,21 @@ export const uk: Record<keyof typeof en, string> = {
     "settings.never": "ніколи",
     "settings.rescan": "Пересканувати бібліотеку",
 
+    "update.title": "Оновлення",
+    "update.available": "Доступна нова версія",
+    "update.versions": "Встановлено: {current} → нова: {next}",
+    "update.size": "Розмір завантаження: {size}",
+    "update.install": "Завантажити й встановити",
+    "update.later": "Пізніше",
+    "update.skip": "Пропустити цю версію",
+    "update.downloading": "Завантаження… {percent}%",
+    "update.failed": "Не вдалося оновити: {error}",
+    "update.upToDate": "У вас остання версія ({version}).",
+    "update.permissionHint":
+        "Під час першого оновлення Android попросить дозволити встановлення застосунків із Sortund.",
+    "update.check": "Перевірити оновлення",
+    "update.current": "Версія {version}",
+
     "player.nowPlaying": "Зараз грає",
     "player.empty": "Нічого не відтворюється.",
     "player.shuffle": "Перемішування",

@@ -236,6 +236,21 @@ export const en = {
     "settings.never": "never",
     "settings.rescan": "Rescan library",
 
+    "update.title": "Updates",
+    "update.available": "New version available",
+    "update.versions": "Installed: {current} → new: {next}",
+    "update.size": "Download size: {size}",
+    "update.install": "Download and install",
+    "update.later": "Later",
+    "update.skip": "Skip this version",
+    "update.downloading": "Downloading… {percent}%",
+    "update.failed": "Update failed: {error}",
+    "update.upToDate": "You have the latest version ({version}).",
+    "update.permissionHint":
+        "Android will ask you to allow installing apps from Sortund the first time.",
+    "update.check": "Check for updates",
+    "update.current": "Version {version}",
+
     "player.nowPlaying": "Now playing",
     "player.empty": "Nothing is playing.",
     "player.shuffle": "Shuffle",

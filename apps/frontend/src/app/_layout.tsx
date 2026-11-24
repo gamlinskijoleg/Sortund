@@ -18,6 +18,8 @@ import { usePlaylistStore } from "../store/usePlaylistStore";
 import { startPolling, useAnalysisStore } from "../analysis/manager";
 import { listenForAnalysisPushes, registerForPushNotifications } from "../notifications/push";
 import { syncNow } from "../sync/sync";
+import { UpdateSheet } from "../components/updates/update-sheet";
+import { useUpdateStore } from "../updates/updater";
 import { useAppTheme, useResolvedScheme } from "../theme/app-theme";
 import { log } from "@/utils/logger";
 
@@ -47,7 +49,15 @@ export default function RootLayout() {
         startLibrarySync();
         usePlaylistStore.getState().load();
         void useAuthStore.getState().restore();
-        return listenForAnalysisPushes();
+        // Release builds look for a newer APK on GitHub a few seconds after start.
+        const updateTimer = __DEV__
+            ? undefined
+            : setTimeout(() => void useUpdateStore.getState().check(), 4000);
+        const unsubscribePush = listenForAnalysisPushes();
+        return () => {
+            if (updateTimer) clearTimeout(updateTimer);
+            unsubscribePush();
+        };
     }, []);
 
     return (
@@ -65,6 +75,7 @@ export default function RootLayout() {
                         />
                         <MiniPlayer />
                         <MusicBottomNav />
+                        <UpdateSheet />
                     </Theme>
                 </TamaguiProvider>
             </SafeAreaProvider>

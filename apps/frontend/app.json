@@ -7,7 +7,11 @@
         "scheme": "sortund",
         "userInterfaceStyle": "automatic",
         "android": {
-            "permissions": ["FOREGROUND_SERVICE", "FOREGROUND_SERVICE_MEDIA_PLAYBACK"],
+            "permissions": [
+                "FOREGROUND_SERVICE",
+                "FOREGROUND_SERVICE_MEDIA_PLAYBACK",
+                "REQUEST_INSTALL_PACKAGES"
+            ],
             "package": "com.sortund",
             "predictiveBackGestureEnabled": false,
             "adaptiveIcon": {
