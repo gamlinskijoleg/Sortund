@@ -53,6 +53,14 @@ jobs:
             - name: Install dependencies
               run: pnpm install --frozen-lockfile
 
+            # Most of the build time is C++ compilation of native modules (Reanimated, Worklets,
+            # gesture handler, Expo modules…). ccache keeps compiled objects between runs.
+            - name: Setup ccache
+              uses: hendrikmuhs/ccache-action@v1.2
+              with:
+                  key: android-arm64
+                  max-size: 2G
+
             # android/ is not committed (Continuous Native Generation) — generate it from app.json.
             - name: Expo prebuild
               working-directory: apps/frontend
@@ -88,8 +96,17 @@ jobs:
                   NODE_ENV: production
                   SORTUND_VERSION_CODE: ${{ github.run_number }}
                   SORTUND_VERSION_NAME: ${{ env.VERSION_NAME }}
+                  # Picked up by CMake (>= 3.17) for every native module.
+                  CMAKE_C_COMPILER_LAUNCHER: ccache
+                  CMAKE_CXX_COMPILER_LAUNCHER: ccache
+                  # Absolute paths differ only by checkout dir; let ccache treat them as equal.
+                  CCACHE_BASEDIR: ${{ github.workspace }}
+                  CCACHE_NOHASHDIR: "true"
+                  CCACHE_SLOPPINESS: "include_file_mtime,include_file_ctime,time_macros,file_macro"
               # arm64-v8a covers practically all phones from the last ~8 years and halves build time.
-              run: ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --no-daemon
+              run: |
+                  ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --build-cache --no-daemon
+                  ccache --show-stats
 
             - name: Rename APK
               run: |
