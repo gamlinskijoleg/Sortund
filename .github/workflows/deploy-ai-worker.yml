@@ -74,7 +74,11 @@ jobs:
 
                       # Only the backend talks to the worker (over sortund-net). The port is bound to
                       # localhost for debugging only and is not reachable from outside.
-                      docker run -d --name ai-worker --network sortund-net -p 127.0.0.1:8000:8000 --env-file ~/sortund/worker.env -v sortund-worker-cache:/home/user/.cache --restart unless-stopped "$IMAGE"
+                      # ONNX models are kept on the server (~/sortund/models) so the worker does not depend on
+                      # downloading them from the private Hugging Face repository on every start.
+                      MODELS=""
+                      if [ -d ~/sortund/models/audio_tagger ]; then MODELS="-v $HOME/sortund/models:/home/user/app/app/ml/model:ro"; fi
+                      docker run -d --name ai-worker --network sortund-net -p 127.0.0.1:8000:8000 --env-file ~/sortund/worker.env -v sortund-worker-cache:/home/user/.cache $MODELS --restart unless-stopped "$IMAGE"
 
                       # Models are loaded on startup (first start downloads them) — wait for /health.
                       for i in $(seq 1 120); do
