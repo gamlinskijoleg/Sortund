@@ -76,9 +76,9 @@ jobs:
                       # localhost for debugging only and is not reachable from outside.
                       # ONNX models are kept on the server (~/sortund/models) so the worker does not depend on
                       # downloading them from the private Hugging Face repository on every start.
-                      MODELS=""
-                      if [ -d ~/sortund/models/audio_tagger ]; then MODELS="-v $HOME/sortund/models:/home/user/app/app/ml/model:ro"; fi
-                      docker run -d --name ai-worker --network sortund-net -p 127.0.0.1:8000:8000 --env-file ~/sortund/worker.env -v sortund-worker-cache:/home/user/.cache $MODELS --restart unless-stopped "$IMAGE"
+                      # (If the directory is empty, the worker falls back to downloading them.)
+                      mkdir -p "$HOME/sortund/models"
+                      docker run -d --name ai-worker --network sortund-net -p 127.0.0.1:8000:8000 --env-file "$HOME/sortund/worker.env" -v sortund-worker-cache:/home/user/.cache -v "$HOME/sortund/models:/home/user/app/app/ml/model:ro" --restart unless-stopped "$IMAGE"
 
                       # Models are loaded on startup (first start downloads them) — wait for /health.
                       for i in $(seq 1 120); do
