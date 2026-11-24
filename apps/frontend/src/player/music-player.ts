@@ -12,7 +12,8 @@ import {
     updateMetadata,
     MediaMetadata,
 } from "expo-media-control";
-import type { MusicTrack } from "../data/music";
+import type { MusicTrack } from "../data/types";
+import { onPlaybackStatus, restartSession } from "./listening-tracker";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { log } from "@/utils/logger";
 
@@ -261,9 +262,21 @@ function setupPlaybackStatusListener(player: AudioPlayer) {
             log.warn("Player: Failed to update playback state", error);
         });
 
+        const store = usePlayerStore.getState();
+        onPlaybackStatus(store.activeTrack?.assetId ?? null, status.currentTime, status.playing);
+
         if (status.didJustFinish) {
-            log.debug("Player: Track finished, playing next");
-            usePlayerStore.getState().playNext();
+            const action = store.handleTrackFinished();
+            log.debug(`Player: Track finished -> ${action}`);
+            if (action === "replay") {
+                restartSession();
+                player
+                    .seekTo(0)
+                    .then(() => player.play())
+                    .catch((error) => {
+                        log.warn("Player: replay failed", error);
+                    });
+            }
         }
     });
 }

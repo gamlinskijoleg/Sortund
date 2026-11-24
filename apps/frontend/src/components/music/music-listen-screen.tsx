@@ -7,6 +7,8 @@ import { AppScreen } from "../app-screen";
 import { getPlayerInstance, togglePlayback } from "../../player/music-player";
 import { usePlayerStore } from "@/store/usePlayerStore";
 import { AppTheme, useAppTheme } from "@/theme/app-theme";
+import { useT } from "@/i18n";
+import { toggleFavourite } from "@/data/library";
 import { AudioPlayer, useAudioPlayerStatus } from "expo-audio";
 import Animated, {
     useAnimatedStyle,
@@ -231,13 +233,16 @@ export default function MusicListenScreen() {
 
     const playNext = usePlayerStore((state) => state.playNext);
     const playPrevious = usePlayerStore((state) => state.playPrevious);
+    const shuffle = usePlayerStore((state) => state.shuffle);
+    const repeat = usePlayerStore((state) => state.repeat);
+    const t = useT();
 
     if (!activeTrack || !player) {
         return (
-            <AppScreen backgroundColor={theme.background} statusBarStyle="dark">
+            <AppScreen backgroundColor={theme.background}>
                 <YStack flex={1} justifyContent="center" alignItems="center">
                     <Text color={theme.textMuted} fontSize={16}>
-                        Player is empty or loading...
+                        {t("player.empty")}
                     </Text>
                 </YStack>
             </AppScreen>
@@ -245,7 +250,7 @@ export default function MusicListenScreen() {
     }
 
     return (
-        <AppScreen backgroundColor={theme.background} statusBarStyle="dark">
+        <AppScreen backgroundColor={theme.background}>
             <YStack flex={1} paddingHorizontal={16} paddingTop={8} paddingBottom={16}>
                 {/* Top panel */}
                 <XStack
@@ -277,7 +282,7 @@ export default function MusicListenScreen() {
                             textTransform="uppercase"
                             letterSpacing={1.2}
                         >
-                            Now playing
+                            {t("player.nowPlaying")}
                         </Text>
                         <Text
                             color={theme.text}
@@ -286,11 +291,18 @@ export default function MusicListenScreen() {
                             marginTop={2}
                             numberOfLines={1}
                         >
-                            Listening screen
+                            {activeTrack.album ?? activeTrack.artist}
                         </Text>
                     </YStack>
 
                     <Button
+                        onPress={() =>
+                            router.push({
+                                pathname: "/track/[assetId]",
+                                params: { assetId: activeTrack.assetId },
+                            })
+                        }
+                        aria-label="Track details"
                         width={42}
                         height={42}
                         borderRadius={21}
@@ -302,7 +314,7 @@ export default function MusicListenScreen() {
                         chromeless
                     >
                         <MaterialCommunityIcons
-                            name="playlist-music"
+                            name="information-outline"
                             size={24}
                             color={theme.text}
                         />
@@ -436,6 +448,58 @@ export default function MusicListenScreen() {
                         chromeless
                     >
                         <MaterialCommunityIcons name="skip-next" size={28} color={theme.text} />
+                    </Button>
+                </XStack>
+
+                {/* Shuffle / favourite / repeat (REQ 44) */}
+                <XStack alignItems="center" justifyContent="space-around" paddingHorizontal={24}>
+                    <Button
+                        chromeless
+                        aria-label={t("player.shuffle")}
+                        onPress={() => usePlayerStore.getState().toggleShuffle()}
+                        padding={0}
+                        width={48}
+                        height={48}
+                    >
+                        <MaterialCommunityIcons
+                            name="shuffle-variant"
+                            size={24}
+                            color={shuffle ? theme.accent : theme.textSubtle}
+                        />
+                    </Button>
+                    <Button
+                        chromeless
+                        aria-label="Favourite"
+                        onPress={() => toggleFavourite(activeTrack.assetId)}
+                        padding={0}
+                        width={48}
+                        height={48}
+                    >
+                        <MaterialCommunityIcons
+                            name={activeTrack.isFavourite ? "heart" : "heart-outline"}
+                            size={26}
+                            color={activeTrack.isFavourite ? theme.accent : theme.textSubtle}
+                        />
+                    </Button>
+                    <Button
+                        chromeless
+                        aria-label={t("player.repeat")}
+                        onPress={() => usePlayerStore.getState().cycleRepeat()}
+                        padding={0}
+                        width={48}
+                        height={48}
+                    >
+                        <MaterialCommunityIcons
+                            name={
+                                repeat === "one"
+                                    ? "repeat-once"
+                                    : repeat === "all"
+                                      ? "repeat"
+                                      : "repeat-off"
+                            }
+                            size={24}
+                            color={repeat === "off" ? theme.textSubtle : theme.accent}
+                        />
                     </Button>
                 </XStack>
             </YStack>

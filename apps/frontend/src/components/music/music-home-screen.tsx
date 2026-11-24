@@ -1,265 +1,319 @@
-import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router, usePathname } from "expo-router";
-import { YStack, XStack, Text, View } from "tamagui";
-import { AppScreen } from "../app-screen";
+import { router } from "expo-router";
+import React, { useMemo, useState } from "react";
 import {
-    createListenRoute,
-    featureCards,
-    type MusicTrack,
-    useMusicLibrary,
-} from "../../data/music";
+    ActivityIndicator,
+    FlatList,
+    Pressable,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
+} from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { AppScreen } from "../app-screen";
+import { useMusicLibrary } from "../../data/music";
+import type { MusicTrack, SortDir, SortKey } from "../../data/types";
+import { useT, useValueLabel } from "../../i18n";
+import {
+    activeFilterCount,
+    applyFilters,
+    collectFacets,
+    emptyFilters,
+    matchesQuery,
+    sortTracks,
+    type LibraryFilters,
+} from "../../library/filters";
+import { usePlayerStore } from "../../store/usePlayerStore";
+import { useDebouncedValue } from "../../hooks/use-debounced-value";
 import { useAppTheme } from "../../theme/app-theme";
-import { usePlayerStore } from "@/store/usePlayerStore";
-import { FlatList } from "react-native";
-import { SearchBar } from "../shared/search-bar";
-import { TrackListItem } from "../shared/track-list-item";
-import { AsyncListState } from "../shared/async-list-state";
-import { MiniPlayer } from "./mini-player";
-import { sectionTabRoutes } from "@/config/routes";
+import { TRACK_ROW_HEIGHT, TrackListItem } from "../shared/track-list-item";
+import { FilterSheet } from "../library/filter-sheet";
+import { AppButton, Chip, EmptyState, IconButton, Sheet } from "../ui/primitives";
+import { MINI_PLAYER_SPACE } from "./mini-player";
 
-function MusicFeatureCard({
-    title,
-    color,
-    href,
-}: {
-    title: string;
-    color: string;
-    href: "/library/favourites" | "/library/playlists" | "/library/recent";
-}) {
-    const theme = useAppTheme();
-    const iconName =
-        title === "Favourites"
-            ? "heart"
-            : title === "Playlists"
-              ? "playlist-music"
-              : "clock-outline";
+const SORT_KEYS: SortKey[] = ["title", "artist", "year", "addedAt", "bpm"];
 
-    return (
-        <YStack
-            flex={1}
-            borderRadius={20}
-            padding={8}
-            backgroundColor={color}
-            justifyContent="space-between"
-            pressStyle={{ opacity: 0.92 }}
-            onPress={() => router.push(href)}
-        >
-            <XStack
-                width={28}
-                height={28}
-                borderRadius={14}
-                justifyContent="center"
-                alignItems="center"
-            >
-                <MaterialCommunityIcons name={iconName} size={20} color={theme.inverseText} />
-            </XStack>
-            <Text fontSize={16} fontWeight="700" lineHeight={24} color={theme.inverseText}>
-                {title}
-            </Text>
-        </YStack>
-    );
+export function playQueue(tracks: MusicTrack[], index: number, shuffle = false) {
+    if (tracks.length === 0) return;
+    const store = usePlayerStore.getState();
+    if (store.shuffle !== shuffle) store.toggleShuffle();
+    store.setQueue(tracks, shuffle ? Math.floor(Math.random() * tracks.length) : index);
 }
 
-function SectionTabs() {
-    const theme = useAppTheme();
-    const pathname = usePathname();
-
-    return (
-        <XStack
-            alignItems="center"
-            paddingHorizontal={16}
-            marginTop={18}
-            justifyContent="space-between"
-        >
-            {sectionTabRoutes.map((section) => {
-                const isActive = section.href === pathname;
-
-                return (
-                    <XStack
-                        key={section.label}
-                        height={44}
-                        paddingHorizontal={18}
-                        borderRadius={17}
-                        backgroundColor={isActive ? theme.text : "transparent"}
-                        justifyContent="center"
-                        alignItems="center"
-                        pressStyle={{ opacity: 0.84 }}
-                        onPress={() => isActive || router.push(section.href)}
-                    >
-                        <Text
-                            fontSize={18}
-                            fontWeight="500"
-                            color={isActive ? theme.inverseText : theme.textMuted}
-                        >
-                            {section.label}
-                        </Text>
-                    </XStack>
-                );
-            })}
-        </XStack>
-    );
-}
-
-function ActionBar() {
-    const theme = useAppTheme();
-
-    return (
-        <XStack
-            marginTop={26}
-            paddingHorizontal={16}
-            alignItems="center"
-            justifyContent="space-between"
-        >
-            <XStack alignItems="center" gap={4}>
-                <XStack
-                    width={30}
-                    height={30}
-                    borderRadius={24}
-                    backgroundColor={theme.text}
-                    justifyContent="center"
-                    alignItems="center"
-                >
-                    <MaterialCommunityIcons name="play" size={20} color={theme.inverseText} />
-                </XStack>
-                <Text fontSize={16} color={theme.text}>
-                    Shuffle playback
-                </Text>
-            </XStack>
-
-            <XStack alignItems="center" gap={18}>
-                <MaterialCommunityIcons name="swap-vertical" size={24} color={theme.text} />
-                <MaterialCommunityIcons name="format-list-bulleted" size={24} color={theme.text} />
-            </XStack>
-        </XStack>
-    );
-}
-
+/** Library browser: search, filters and sorting run locally and work offline (REQ 35–37). */
 export default function MusicHomeScreen() {
-    const theme = useAppTheme();
-    // Initialize library in background once
     useMusicLibrary();
-    const tracks = usePlayerStore((state) => state.libraryTracks);
-    const isLoading = usePlayerStore((state) => state.isLibraryLoading);
+    const theme = useAppTheme();
+    const t = useT();
+    const label = useValueLabel();
+    const tracks = usePlayerStore((s) => s.libraryTracks);
+    const isLoading = usePlayerStore((s) => s.isLibraryLoading);
 
-    // Getting current track from global store!
-    const playerInstance = usePlayerStore((state) => state.playerInstance);
-    const activeTrack = usePlayerStore((state) => state.activeTrack);
-    const playNext = usePlayerStore((state) => state.playNext);
-    const playToggle = usePlayerStore((state) => state.togglePlayPause);
+    const [query, setQuery] = useState("");
+    const [debouncedQuery] = useDebouncedValue(query, 200);
+    const [filters, setFilters] = useState<LibraryFilters>(emptyFilters);
+    const [sortKey, setSortKey] = useState<SortKey>("title");
+    const [sortDir, setSortDir] = useState<SortDir>("asc");
+    const [filtersOpen, setFiltersOpen] = useState(false);
+    const [sortOpen, setSortOpen] = useState(false);
 
-    const handleTrackPress = (selectedTrack: MusicTrack, index: number) => {
-        const store = usePlayerStore.getState();
-
-        // 1. Update queue and active track
-        store.setQueue(tracks, index);
-
-        // 2. If there is no auto-play logic in your music-player or store,
-        // be sure to call the player launch function here! For example:
-        // getPlayerInstance().play(); or the accompanying function you wrote.
-
-        router.push(createListenRoute(selectedTrack));
-    };
-
-    const displayTrack = activeTrack || tracks[0];
-
-    // Move header render to a separate function so FlatList can render it above the list
-    const renderHeader = () => (
-        <YStack gap={18} marginBottom={16}>
-            {/* Search */}
-            <XStack paddingHorizontal={16} alignItems="center" gap={12}>
-                <XStack width={28} height={28} justifyContent="center" alignItems="center">
-                    <MaterialCommunityIcons name="tune-variant" size={30} color={theme.text} />
-                </XStack>
-                <View flex={1}>
-                    <SearchBar />
-                </View>
-                {__DEV__ === true && (
-                    <XStack
-                        width={32}
-                        height={32}
-                        borderRadius={16}
-                        backgroundColor={theme.background || "#f0f0f0"}
-                        justifyContent="center"
-                        alignItems="center"
-                        pressStyle={{ opacity: 0.8 }}
-                        onPress={() => router.push("/debug-db")}
-                    >
-                        <MaterialCommunityIcons name="database" size={20} color={theme.text} />
-                    </XStack>
-                )}
-            </XStack>
-
-            {/* Feature cards */}
-            <XStack gap={10} paddingHorizontal={16}>
-                {featureCards.map((card) => (
-                    <MusicFeatureCard key={card.title} {...card} />
-                ))}
-            </XStack>
-
-            {/* Tabs and Action bar */}
-            <YStack>
-                <SectionTabs />
-                <ActionBar />
-            </YStack>
-        </YStack>
+    const facets = useMemo(() => collectFacets(tracks), [tracks]);
+    const searched = useMemo(
+        () =>
+            debouncedQuery.trim() ? tracks.filter((x) => matchesQuery(x, debouncedQuery)) : tracks,
+        [tracks, debouncedQuery]
     );
-
-    // Loading / error / empty list state inside FlatList
-    const renderEmptyOrStatus = () => (
-        <AsyncListState
-            isLoading={isLoading}
-            error={null}
-            loadingMessage="Loading local music files..."
-            emptyMessage="No local audio files found."
-        />
+    const visible = useMemo(
+        () => sortTracks(applyFilters(searched, filters), sortKey, sortDir),
+        [searched, filters, sortKey, sortDir]
     );
+    const filterCount = activeFilterCount(filters);
 
-    return (
-        <AppScreen>
-            <YStack flex={1} paddingTop={8} position="relative">
-                <FlatList
-                    data={isLoading ? [] : tracks}
-                    keyExtractor={(item, index) => item.sourceUri ?? `${item.title}-${index}`}
-                    // Header that scrolls with the list of tracks
-                    ListHeaderComponent={renderHeader}
-                    // Track rows themselves (ONLY what the user sees is rendered!)
-                    renderItem={({ item, index }) => (
-                        <View paddingHorizontal={16}>
-                            <TrackListItem
-                                track={item}
-                                onPress={() => handleTrackPress(item, index)}
-                            />
-                        </View>
-                    )}
-                    // What to show if the list is empty or loading
-                    ListEmptyComponent={renderEmptyOrStatus}
-                    // Scroll container styles (e.g., large bottom padding for MiniPlayer)
-                    contentContainerStyle={{
-                        paddingBottom: 160,
-                    }}
-                    showsVerticalScrollIndicator={false}
-                    // Speed optimization for large lists
-                    removeClippedSubviews={true}
-                    maxToRenderPerBatch={10}
-                    windowSize={5}
+    const activeChips: { key: string; text: string; remove: () => void }[] = [
+        ...filters.genres.map((g) => ({
+            key: `g${g}`,
+            text: g,
+            remove: () => setFilters({ ...filters, genres: filters.genres.filter((x) => x !== g) }),
+        })),
+        ...filters.moods.map((m) => ({
+            key: `m${m}`,
+            text: label(m),
+            remove: () => setFilters({ ...filters, moods: filters.moods.filter((x) => x !== m) }),
+        })),
+        ...filters.languages.map((l) => ({
+            key: `l${l}`,
+            text: label(l),
+            remove: () =>
+                setFilters({ ...filters, languages: filters.languages.filter((x) => x !== l) }),
+        })),
+        ...filters.themes.map((th) => ({
+            key: `t${th}`,
+            text: label(th),
+            remove: () =>
+                setFilters({ ...filters, themes: filters.themes.filter((x) => x !== th) }),
+        })),
+        ...filters.keys.map((k) => ({
+            key: `k${k}`,
+            text: k,
+            remove: () => setFilters({ ...filters, keys: filters.keys.filter((x) => x !== k) }),
+        })),
+        ...(filters.yearFrom != null || filters.yearTo != null
+            ? [
+                  {
+                      key: "year",
+                      text: `${filters.yearFrom ?? "…"}–${filters.yearTo ?? "…"}`,
+                      remove: () =>
+                          setFilters({ ...filters, yearFrom: undefined, yearTo: undefined }),
+                  },
+              ]
+            : []),
+        ...(filters.bpmFrom != null || filters.bpmTo != null
+            ? [
+                  {
+                      key: "bpm",
+                      text: `${filters.bpmFrom ?? "…"}–${filters.bpmTo ?? "…"} BPM`,
+                      remove: () =>
+                          setFilters({ ...filters, bpmFrom: undefined, bpmTo: undefined }),
+                  },
+              ]
+            : []),
+    ];
+
+    const header = (
+        <View style={{ gap: 12, paddingBottom: 8 }}>
+            <View style={[styles.search, { backgroundColor: theme.surface }]}>
+                <MaterialCommunityIcons name="magnify" size={20} color={theme.textMuted} />
+                <TextInput
+                    value={query}
+                    onChangeText={setQuery}
+                    placeholder={t("home.searchPlaceholder")}
+                    placeholderTextColor={theme.textPlaceholder}
+                    style={[styles.searchInput, { color: theme.text }]}
+                    returnKeyType="search"
+                    accessibilityLabel={t("home.searchPlaceholder")}
                 />
-
-                {/* Mini-player fixed above the list at the very bottom */}
-                {displayTrack && playerInstance && (
-                    <MiniPlayer
-                        onPlayPause={playToggle}
-                        playNext={playNext}
-                        track={displayTrack}
-                        activePlayerInstance={playerInstance}
-                        onPress={() => {
-                            if (!activeTrack && tracks.length > 0) {
-                                usePlayerStore.getState().setQueue(tracks, 0);
-                            }
-                            router.push(createListenRoute(displayTrack));
-                        }}
+                {!!query && (
+                    <IconButton
+                        icon="close-circle"
+                        size={18}
+                        label="Clear"
+                        onPress={() => setQuery("")}
+                        color={theme.textSubtle}
                     />
                 )}
-            </YStack>
+            </View>
+
+            <View style={styles.toolbar}>
+                <AppButton
+                    compact
+                    variant="secondary"
+                    icon="tune-variant"
+                    label={
+                        filterCount ? `${t("home.filters")} · ${filterCount}` : t("home.filters")
+                    }
+                    onPress={() => setFiltersOpen(true)}
+                />
+                <AppButton
+                    compact
+                    variant="secondary"
+                    icon={sortDir === "asc" ? "sort-ascending" : "sort-descending"}
+                    label={t(`sort.${sortKey}`)}
+                    onPress={() => setSortOpen(true)}
+                />
+                <View style={{ flex: 1 }} />
+                <IconButton
+                    icon="shuffle-variant"
+                    label={t("home.shuffle")}
+                    onPress={() => playQueue(visible, 0, true)}
+                />
+                <IconButton
+                    icon="play-circle"
+                    size={30}
+                    label={t("home.playAll")}
+                    color={theme.accent}
+                    onPress={() => playQueue(visible, 0)}
+                />
+            </View>
+
+            {activeChips.length > 0 && (
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                    {activeChips.map((c) => (
+                        <Chip key={c.key} label={`${c.text}  ✕`} selected onPress={c.remove} />
+                    ))}
+                </View>
+            )}
+            <Text style={{ color: theme.textSubtle, fontSize: 12 }}>
+                {t("common.tracks", { n: visible.length })}
+            </Text>
+        </View>
+    );
+
+    return (
+        <AppScreen edges={["top"]}>
+            <FlatList
+                data={visible}
+                keyExtractor={(item) => item.assetId}
+                ListHeaderComponent={
+                    <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>{header}</View>
+                }
+                renderItem={({ item, index }) => (
+                    <TrackListItem
+                        track={item}
+                        onPress={() => {
+                            playQueue(visible, index);
+                            router.push({ pathname: "/listen", params: { assetId: item.assetId } });
+                        }}
+                        onLongPress={() =>
+                            router.push({
+                                pathname: "/track/[assetId]",
+                                params: { assetId: item.assetId },
+                            })
+                        }
+                        trailingActionSlot={
+                            <IconButton
+                                icon="dots-vertical"
+                                label={item.title}
+                                color={theme.textSubtle}
+                                onPress={() =>
+                                    router.push({
+                                        pathname: "/track/[assetId]",
+                                        params: { assetId: item.assetId },
+                                    })
+                                }
+                            />
+                        }
+                    />
+                )}
+                getItemLayout={(_, index) => ({
+                    length: TRACK_ROW_HEIGHT,
+                    offset: TRACK_ROW_HEIGHT * index,
+                    index,
+                })}
+                ListEmptyComponent={
+                    isLoading ? (
+                        <View style={{ padding: 40, alignItems: "center", gap: 12 }}>
+                            <ActivityIndicator color={theme.accent} />
+                            <Text style={{ color: theme.textMuted }}>{t("home.loading")}</Text>
+                        </View>
+                    ) : (
+                        <EmptyState
+                            icon="music-off"
+                            text={tracks.length ? t("home.noResults") : t("home.empty")}
+                        />
+                    )
+                }
+                contentContainerStyle={{ paddingBottom: MINI_PLAYER_SPACE }}
+                keyboardShouldPersistTaps="handled"
+                removeClippedSubviews
+                maxToRenderPerBatch={12}
+                windowSize={7}
+            />
+
+            <FilterSheet
+                key={filtersOpen ? "open" : "closed"}
+                visible={filtersOpen}
+                facets={facets}
+                value={filters}
+                onClose={() => setFiltersOpen(false)}
+                onApply={(f) => {
+                    setFilters(f);
+                    setFiltersOpen(false);
+                }}
+                countFor={(f) => applyFilters(searched, f).length}
+            />
+
+            <Sheet visible={sortOpen} onClose={() => setSortOpen(false)} title={t("home.sort")}>
+                {SORT_KEYS.map((key) => (
+                    <Pressable
+                        key={key}
+                        accessibilityRole="button"
+                        onPress={() => {
+                            if (key === sortKey) setSortDir(sortDir === "asc" ? "desc" : "asc");
+                            else {
+                                setSortKey(key);
+                                setSortDir(key === "addedAt" ? "desc" : "asc");
+                            }
+                            setSortOpen(false);
+                        }}
+                        style={[styles.sortRow, { borderBottomColor: theme.border }]}
+                    >
+                        <Text
+                            style={{
+                                color: theme.text,
+                                fontSize: 16,
+                                flex: 1,
+                                fontWeight: key === sortKey ? "700" : "400",
+                            }}
+                        >
+                            {t(`sort.${key}`)}
+                        </Text>
+                        {key === sortKey && (
+                            <Text style={{ color: theme.accent }}>
+                                {t(sortDir === "asc" ? "sort.asc" : "sort.desc")}
+                            </Text>
+                        )}
+                    </Pressable>
+                ))}
+            </Sheet>
         </AppScreen>
     );
 }
+
+const styles = StyleSheet.create({
+    search: {
+        flexDirection: "row",
+        alignItems: "center",
+        borderRadius: 14,
+        paddingHorizontal: 12,
+        height: 46,
+        gap: 8,
+    },
+    searchInput: { flex: 1, fontSize: 15, height: 46 },
+    toolbar: { flexDirection: "row", alignItems: "center", gap: 8 },
+    sortRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 16,
+        borderBottomWidth: StyleSheet.hairlineWidth,
+    },
+});

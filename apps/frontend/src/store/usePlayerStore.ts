@@ -1,126 +1,171 @@
 import { create } from "zustand";
-import type { MusicTrack } from "../data/music";
+import type { MusicTrack } from "../data/types";
 import { AudioPlayer } from "expo-audio";
+
+export type RepeatMode = "off" | "all" | "one";
 
 interface PlayerState {
     tracks: MusicTrack[];
+    /** Queue in its original order, restored when shuffle is switched off. */
+    originalTracks: MusicTrack[];
     currentIndex: number;
     activeTrack: MusicTrack | null;
     playerInstance: AudioPlayer | null;
     isPlaying: boolean;
+    shuffle: boolean;
+    repeat: RepeatMode;
 
-    // Library Cache
+    // Library cache
     libraryTracks: MusicTrack[];
     isLibraryLoading: boolean;
     hasSynced: boolean;
 
-    // Actions
     setPlayerInstance: (player: AudioPlayer) => void;
     setQueue: (tracks: MusicTrack[], startIndex: number, shouldPlay?: boolean) => void;
     playNext: () => void;
+    /** Called when a track ends by itself — honours "repeat one" and "repeat off". */
+    handleTrackFinished: () => "replay" | "next" | "stop";
     playPrevious: () => void;
     selectTrackById: (assetId: string) => void;
     togglePlayPause: (track: MusicTrack) => void;
+    toggleShuffle: () => void;
+    cycleRepeat: () => void;
 
-    // Library Actions
     setLibraryTracks: (tracks: MusicTrack[]) => void;
     setLibraryLoading: (loading: boolean) => void;
     setHasSynced: (synced: boolean) => void;
 }
 
-export const usePlayerStore = create<PlayerState>((set, get) => {
-    const triggerNativePlay = (track: MusicTrack) => {
-        if (!track) return;
-    };
+/** Fisher–Yates shuffle that keeps `first` at position 0. */
+export function shuffleQueue(tracks: MusicTrack[], first: MusicTrack | null): MusicTrack[] {
+    const rest = tracks.filter((t) => t !== first);
+    for (let i = rest.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [rest[i], rest[j]] = [rest[j]!, rest[i]!];
+    }
+    return first ? [first, ...rest] : rest;
+}
 
-    return {
-        tracks: [],
-        currentIndex: -1,
-        activeTrack: null,
-        playerInstance: null,
-        isPlaying: false,
+export const usePlayerStore = create<PlayerState>((set, get) => ({
+    tracks: [],
+    originalTracks: [],
+    currentIndex: -1,
+    activeTrack: null,
+    playerInstance: null,
+    isPlaying: false,
+    shuffle: false,
+    repeat: "all",
 
-        libraryTracks: [],
-        isLibraryLoading: true,
-        hasSynced: false,
+    libraryTracks: [],
+    isLibraryLoading: true,
+    hasSynced: false,
 
-        setLibraryTracks: (tracks) => set({ libraryTracks: tracks }),
-        setLibraryLoading: (loading) => set({ isLibraryLoading: loading }),
-        setHasSynced: (synced) => set({ hasSynced: synced }),
+    setLibraryTracks: (tracks) => {
+        // Keep queue entries in sync with edited track data (titles, artwork…).
+        const byId = new Map(tracks.map((t) => [t.assetId, t]));
+        const { activeTrack, tracks: queue } = get();
+        set({
+            libraryTracks: tracks,
+            tracks: queue.map((t) => byId.get(t.assetId) ?? t),
+            activeTrack: activeTrack ? (byId.get(activeTrack.assetId) ?? activeTrack) : null,
+        });
+    },
+    setLibraryLoading: (loading) => set({ isLibraryLoading: loading }),
+    setHasSynced: (synced) => set({ hasSynced: synced }),
+    setPlayerInstance: (playerInstance) => set({ playerInstance }),
 
-        setPlayerInstance: (playerInstance) => set({ playerInstance }),
-
-        setQueue: (tracks, startIndex, shouldPlay = true) => {
-            const track = tracks[startIndex] || null;
+    setQueue: (tracks, startIndex, shouldPlay = true) => {
+        const track = tracks[startIndex] || null;
+        if (get().shuffle && tracks.length > 1) {
             set({
-                tracks,
-                currentIndex: startIndex,
+                originalTracks: tracks,
+                tracks: shuffleQueue(tracks, track),
+                currentIndex: track ? 0 : -1,
                 activeTrack: track,
                 isPlaying: shouldPlay,
             });
+            return;
+        }
+        set({
+            tracks,
+            originalTracks: tracks,
+            currentIndex: startIndex,
+            activeTrack: track,
+            isPlaying: shouldPlay,
+        });
+    },
 
-            if (track && shouldPlay) {
-                triggerNativePlay(track);
-            }
-        },
+    playNext: () => {
+        const { tracks, currentIndex, repeat } = get();
+        if (tracks.length === 0) return;
+        const atEnd = currentIndex + 1 >= tracks.length;
+        if (atEnd && repeat === "off") {
+            set({ isPlaying: false });
+            return;
+        }
+        const nextIndex = atEnd ? 0 : currentIndex + 1;
+        set({ currentIndex: nextIndex, activeTrack: tracks[nextIndex]!, isPlaying: true });
+    },
 
-        playNext: () => {
-            const { tracks, currentIndex } = get();
-            if (tracks.length === 0) {
-                return;
-            }
+    handleTrackFinished: () => {
+        const { repeat, tracks, currentIndex } = get();
+        if (repeat === "one") return "replay";
+        if (repeat === "off" && currentIndex + 1 >= tracks.length) {
+            set({ isPlaying: false });
+            return "stop";
+        }
+        get().playNext();
+        return "next";
+    },
 
-            const nextIndex = (currentIndex + 1) % tracks.length;
-            const nextTrack = tracks[nextIndex]!;
+    playPrevious: () => {
+        const { tracks, currentIndex } = get();
+        if (tracks.length === 0) return;
+        const prevIndex = (currentIndex - 1 + tracks.length) % tracks.length;
+        set({ currentIndex: prevIndex, activeTrack: tracks[prevIndex]!, isPlaying: true });
+    },
 
+    togglePlayPause: (track) => {
+        const { playerInstance, activeTrack } = get();
+        if (!playerInstance) return;
+        if (!activeTrack || activeTrack.assetId !== track.assetId) set({ activeTrack: track });
+        if (playerInstance.playing) {
+            playerInstance.pause();
+            set({ isPlaying: false });
+        } else {
+            playerInstance.play();
+            set({ isPlaying: true });
+        }
+    },
+
+    selectTrackById: (assetId) => {
+        const { tracks } = get();
+        const index = tracks.findIndex((t) => t.assetId === assetId);
+        if (index !== -1) set({ currentIndex: index, activeTrack: tracks[index]! });
+    },
+
+    toggleShuffle: () => {
+        const { shuffle, tracks, originalTracks, activeTrack } = get();
+        if (!shuffle) {
+            const shuffled = shuffleQueue(tracks, activeTrack);
             set({
-                currentIndex: nextIndex,
-                activeTrack: nextTrack,
-                isPlaying: true,
+                shuffle: true,
+                originalTracks: tracks,
+                tracks: shuffled,
+                currentIndex: activeTrack ? 0 : -1,
             });
-            triggerNativePlay(nextTrack);
-        },
+        } else {
+            const restored = originalTracks.length ? originalTracks : tracks;
+            const index = activeTrack
+                ? restored.findIndex((t) => t.assetId === activeTrack.assetId)
+                : -1;
+            set({ shuffle: false, tracks: restored, currentIndex: index });
+        }
+    },
 
-        playPrevious: () => {
-            const { tracks, currentIndex } = get();
-            if (tracks.length === 0) return;
-
-            const prevIndex = (currentIndex - 1 + tracks.length) % tracks.length;
-            const prevTrack = tracks[prevIndex]!;
-
-            set({
-                currentIndex: prevIndex,
-                activeTrack: prevTrack,
-                isPlaying: true,
-            });
-            triggerNativePlay(prevTrack);
-        },
-
-        togglePlayPause: (track) => {
-            const { playerInstance, activeTrack } = get();
-            if (!playerInstance) return;
-
-            if (!activeTrack || activeTrack.assetId !== track.assetId) {
-                set({ activeTrack: track });
-            }
-
-            if (playerInstance.playing) {
-                playerInstance.pause();
-                set({ isPlaying: false });
-            } else {
-                playerInstance.play();
-                set({ isPlaying: true });
-            }
-        },
-
-        selectTrackById: (assetId) => {
-            const { tracks } = get();
-            const index = tracks.findIndex((t) => t.assetId === assetId);
-            if (index !== -1) {
-                const track = tracks[index]!;
-                set({ currentIndex: index, activeTrack: track });
-                triggerNativePlay(track);
-            }
-        },
-    };
-});
+    cycleRepeat: () => {
+        const order: RepeatMode[] = ["off", "all", "one"];
+        const { repeat } = get();
+        set({ repeat: order[(order.indexOf(repeat) + 1) % order.length]! });
+    },
+}));

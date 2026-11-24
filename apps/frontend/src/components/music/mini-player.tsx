@@ -1,123 +1,113 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { YStack, XStack, Text, View } from "tamagui";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { AudioPlayer, useAudioPlayerStatus } from "expo-audio";
-import { type MusicTrack } from "../../data/music";
-import { useAppTheme } from "../../theme/app-theme";
+import { useAudioPlayerStatus, type AudioPlayer } from "expo-audio";
+import { Image } from "expo-image";
+import { router, usePathname } from "expo-router";
 import React from "react";
+import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { usePlayerStore } from "../../store/usePlayerStore";
+import { useAppTheme } from "../../theme/app-theme";
+import { NAV_HEIGHT, TAB_ROUTES } from "./music-bottom-nav";
 
-export function MiniPlayer({
-    track,
-    onPress,
-    onPlayPause,
-    playNext,
-    activePlayerInstance,
-}: {
-    track: MusicTrack;
-    onPress: () => void;
-    onPlayPause: (track: MusicTrack) => void;
-    playNext: () => void;
-    activePlayerInstance: AudioPlayer;
-}) {
-    const { playing } = useAudioPlayerStatus(activePlayerInstance);
+export const MINI_PLAYER_SPACE = 150;
+
+function Controls({ player }: { player: AudioPlayer }) {
     const theme = useAppTheme();
-
+    const { playing } = useAudioPlayerStatus(player);
+    const playNext = usePlayerStore((s) => s.playNext);
     return (
-        <SafeAreaView>
-            <XStack
-                position="absolute"
-                left={16}
-                right={16}
-                bottom={70}
-                height={40}
-                borderRadius={22}
-                backgroundColor={theme.accent}
-                alignItems="center"
-                paddingLeft={58}
-                paddingRight={18}
-                paddingVertical={6}
-                pressStyle={{ opacity: 0.92 }}
-                onPress={onPress}
+        <View style={styles.controls}>
+            <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={playing ? "Pause" : "Play"}
+                hitSlop={10}
+                onPress={() => (playing ? player.pause() : player.play())}
             >
-                <YStack flex={1}>
-                    <Text
-                        fontSize={12}
-                        fontWeight="700"
-                        color={theme.inverseText}
-                        numberOfLines={1}
-                    >
-                        {track?.title ?? "Loading local music"}
-                    </Text>
-                    <Text
-                        fontSize={12}
-                        fontWeight="500"
-                        color={theme.inverseTextMuted}
-                        opacity={0.82}
-                        numberOfLines={1}
-                    >
-                        {track?.artist ?? "Scanning your music files"}
-                    </Text>
-                </YStack>
-
-                <XStack alignItems="center" gap={18} paddingLeft={10}>
-                    <XStack
-                        onPress={(e) => {
-                            e.stopPropagation();
-                            onPlayPause(track);
-                        }}
-                        width={24}
-                        aspectRatio={1}
-                        borderRadius={17}
-                        borderWidth={2}
-                        borderColor="rgba(255,255,255,0.65)"
-                        justifyContent="center"
-                        alignItems="center"
-                    >
-                        <MaterialCommunityIcons
-                            name={playing ? "pause" : "play"}
-                            size={16}
-                            color={theme.inverseText}
-                        />
-                    </XStack>
-                    <MaterialCommunityIcons
-                        onPress={(e) => {
-                            e.stopPropagation();
-                            playNext();
-                        }}
-                        name="skip-next"
-                        size={18}
-                        color={theme.inverseText}
-                    />
-                </XStack>
-            </XStack>
-            {/* Vinyl */}
-            <View
-                position="absolute"
-                left={16}
-                bottom={70}
-                height={50}
-                aspectRatio={1}
-                borderRadius={28}
-                borderWidth={6}
-                borderColor="#4f465d"
-                justifyContent="center"
-                alignItems="center"
-                pointerEvents="none"
+                <MaterialCommunityIcons
+                    name={playing ? "pause" : "play"}
+                    size={28}
+                    color={theme.inverseText}
+                />
+            </Pressable>
+            <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Next"
+                hitSlop={10}
+                onPress={playNext}
             >
-                <XStack
-                    width={40}
-                    height={40}
-                    borderRadius={22}
-                    backgroundColor={track?.color ?? theme.accent}
-                    justifyContent="center"
-                    alignItems="center"
-                    overflow="hidden"
-                >
-                    <Text color="rgba(255,255,255,0.18)" fontWeight="800">
-                        M
-                    </Text>
-                </XStack>
-            </View>
-        </SafeAreaView>
+                <MaterialCommunityIcons name="skip-next" size={26} color={theme.inverseText} />
+            </Pressable>
+        </View>
     );
 }
+
+/** Mini player shown above every screen except the full player (REQ 46). */
+export function MiniPlayer() {
+    const theme = useAppTheme();
+    const insets = useSafeAreaInsets();
+    const pathname = usePathname();
+    const track = usePlayerStore((s) => s.activeTrack);
+    const player = usePlayerStore((s) => s.playerInstance);
+
+    if (!track || !player || pathname === "/listen" || pathname.startsWith("/auth")) return null;
+    const bottom = (TAB_ROUTES.has(pathname) ? NAV_HEIGHT : 0) + insets.bottom + 8;
+
+    return (
+        <Pressable
+            accessibilityRole="button"
+            onPress={() => router.push({ pathname: "/listen", params: { assetId: track.assetId } })}
+            style={[styles.bar, { bottom, backgroundColor: theme.accent }]}
+        >
+            <View style={[styles.cover, { backgroundColor: track.color }]}>
+                {track.artwork ? (
+                    <Image
+                        source={{ uri: track.artwork }}
+                        style={StyleSheet.absoluteFill}
+                        contentFit="cover"
+                    />
+                ) : (
+                    <MaterialCommunityIcons name="music-note" size={18} color="#fff" />
+                )}
+            </View>
+            <View style={{ flex: 1 }}>
+                <Text style={[styles.title, { color: theme.inverseText }]} numberOfLines={1}>
+                    {track.title}
+                </Text>
+                <Text style={[styles.artist, { color: theme.inverseTextMuted }]} numberOfLines={1}>
+                    {track.artist}
+                </Text>
+            </View>
+            <Controls player={player} />
+        </Pressable>
+    );
+}
+
+const styles = StyleSheet.create({
+    bar: {
+        position: "absolute",
+        left: 12,
+        right: 12,
+        height: 58,
+        borderRadius: 16,
+        flexDirection: "row",
+        alignItems: "center",
+        paddingHorizontal: 8,
+        gap: 10,
+        elevation: 6,
+        shadowColor: "#000",
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 3 },
+    },
+    cover: {
+        width: 42,
+        height: 42,
+        borderRadius: 8,
+        overflow: "hidden",
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    title: { fontSize: 14, fontWeight: "700" },
+    artist: { fontSize: 12 },
+    controls: { flexDirection: "row", alignItems: "center", gap: 14, paddingRight: 6 },
+});

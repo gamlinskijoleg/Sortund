@@ -6,12 +6,14 @@
 // CMake 3.31.x ships ninja 1.12, which supports long paths.
 //
 // Requires: `sdkmanager "cmake;3.31.6"` and Windows LongPathsEnabled=1.
+// Applied on Windows only — Linux CI runners do not have this problem (or this CMake version).
 const { withAppBuildGradle } = require("expo/config-plugins");
 
 const CMAKE_VERSION = "3.31.6";
 const MARKER = "// with-cmake-version";
 
 module.exports = function withCmakeVersion(config) {
+    if (process.platform !== "win32") return config;
     return withAppBuildGradle(config, (cfg) => {
         if (cfg.modResults.contents.includes(MARKER)) return cfg;
         cfg.modResults.contents = cfg.modResults.contents.replace(

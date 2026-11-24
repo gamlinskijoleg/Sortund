@@ -55,7 +55,11 @@
             "expo-sqlite",
             "expo-font",
             "expo-status-bar",
-            "./plugins/with-cmake-version"
+            "./plugins/with-cmake-version",
+            "expo-secure-store",
+            "expo-sharing",
+            "expo-notifications",
+            "./plugins/with-release-signing"
         ],
         "experiments": {
             "typedRoutes": true,
