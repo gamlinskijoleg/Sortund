@@ -88,5 +88,6 @@ Server layout (`olegserver`): containers `sortund-backend`, `sortund-postgres` a
 APK signing uses the repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
 `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD`; without them the APK is signed with the debug key.
 The version code is the workflow run number, so each APK installs over the previous one.
+The app checks GitHub Releases on start and offers to install a newer APK.
 
 See [docs/requirements.md](docs/requirements.md) for how each functional requirement is implemented.
