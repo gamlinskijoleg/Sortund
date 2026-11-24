@@ -1,5 +1,6 @@
 import { config as baseConfig } from "@repo/eslint-config/base";
 import expoConfig from "eslint-config-expo/flat.js";
+import { configs as tsConfigs } from "typescript-eslint";
 
 // eslint-config-expo registers `@typescript-eslint` in its own config objects,
 // but baseConfig (via tseslint.configs.recommendedTypeChecked) already owns
@@ -20,4 +21,14 @@ export default [
     { ignores: ["coverage/**", ".expo/**"] },
     ...baseConfig,
     ...dedupedExpoConfig,
+    // Expo config plugins are plain CommonJS run by Node at prebuild time, outside
+    // tsconfig, so type-aware rules cannot run on them.
+    {
+        files: ["plugins/**/*.js"],
+        ...tsConfigs.disableTypeChecked,
+        rules: {
+            ...tsConfigs.disableTypeChecked.rules,
+            "@typescript-eslint/no-require-imports": "off",
+        },
+    },
 ];

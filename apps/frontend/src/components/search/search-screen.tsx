@@ -35,7 +35,7 @@ export default function SearchScreen() {
         <AppScreen>
             <YStack flex={1} paddingHorizontal={16} paddingTop={8} position="relative">
                 <XStack alignItems="center" marginBottom={16} gap={12}>
-                    <XStack pressStyle={{ opacity: 0.7 }} onPress={router.back}>
+                    <XStack pressStyle={{ opacity: 0.7 }} onPress={() => router.back()}>
                         <MaterialCommunityIcons name="chevron-left" size={30} color={theme.text} />
                     </XStack>
                     <SearchBar

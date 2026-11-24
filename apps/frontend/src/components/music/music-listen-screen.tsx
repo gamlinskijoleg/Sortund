@@ -255,7 +255,7 @@ export default function MusicListenScreen() {
                     marginBottom={20}
                 >
                     <Button
-                        onPress={router.back}
+                        onPress={() => router.back()}
                         width={42}
                         height={42}
                         borderRadius={21}

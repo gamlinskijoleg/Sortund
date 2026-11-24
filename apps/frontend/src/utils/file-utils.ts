@@ -14,7 +14,7 @@ export function saveBase64ArtworkAsync(base64WithPrefix: string, assetId?: strin
         const filename = `cover_${assetId || Date.now()}.png`;
         const targetFile = new File(cacheDir, filename);
 
-        targetFile.write(base64Data, { encoding: "base64" });
+        targetFile.writeSync(base64Data, { encoding: "base64" });
         return targetFile.uri;
     } catch (error) {
         log.warn("Failed to save base64 artwork string to file", error);

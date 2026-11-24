@@ -16,7 +16,7 @@ jest.mock("expo-file-system", () => {
         }),
         File: jest.fn().mockImplementation((dir, filename) => {
             return {
-                write: jest.fn(),
+                writeSync: jest.fn(),
                 uri: `file://mock-cache-path/artwork/${filename}`,
             };
         }),
@@ -55,7 +55,7 @@ describe("file-utils", () => {
             });
             (File as unknown as jest.Mock).mockImplementationOnce((_, filename) => {
                 return {
-                    write: mockWrite,
+                    writeSync: mockWrite,
                     uri: `file://mock-cache-path/artwork/${filename}`,
                 };
             });

@@ -45,7 +45,7 @@ export function SearchList<T>({
                     <Text color={theme.textSubtle} textAlign="center" marginTop={20}>
                         {searchQuery ? `No results found for ${searchQuery}` : noResultsMessage}
                     </Text>
-                ) : null
+                ) : undefined
             }
             {...props}
         />

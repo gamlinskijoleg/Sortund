@@ -22,7 +22,7 @@ export function PageHeader({
             <XStack alignItems="center" justifyContent="space-between">
                 <XStack alignItems="center" gap={12}>
                     {showBackButton && (
-                        <XStack pressStyle={{ opacity: 0.7 }} onPress={router.back}>
+                        <XStack pressStyle={{ opacity: 0.7 }} onPress={() => router.back()}>
                             <MaterialCommunityIcons
                                 name="chevron-left"
                                 size={30}
