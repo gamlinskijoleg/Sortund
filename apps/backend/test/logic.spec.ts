@@ -1,7 +1,12 @@
 import { compareMetrics } from "../src/models/models.service";
 import { hashRefreshToken, refreshTokenMatches } from "../src/sessions/sessions.service";
 import { incomingWins } from "../src/sync/sync.service";
-import { cosineSimilarity, monthBounds } from "../src/analysis/analysis.service";
+import {
+    MIN_SIMILARITY,
+    cosineSimilarity,
+    monthBounds,
+    rankSimilar,
+} from "../src/analysis/analysis.service";
 import type { ModelMetrics } from "../src/models/entities/model-version.entity";
 
 const metrics = (accuracy: number, macro_f1: number): ModelMetrics => ({
@@ -50,6 +55,28 @@ describe("cosineSimilarity", () => {
     });
     it("handles zero vectors", () => {
         expect(cosineSimilarity([0, 0], [1, 1])).toBe(0);
+    });
+});
+
+describe("rankSimilar", () => {
+    const embeddings = new Map<string, number[]>([
+        ["same", [1, 0, 0]],
+        ["close", [0.9, 0.3, 0]],
+        ["weak", [0.25, 1, 0]],
+        ["orthogonal", [0, 0, 1]],
+        ["opposite", [-1, 0, 0]],
+    ]);
+    const all = [...embeddings.keys()];
+
+    it("drops unrelated and opposite tracks (no negative or near-zero scores)", () => {
+        const result = rankSimilar([1, 0, 0], embeddings, all, 10);
+        expect(result.map((r) => r.fingerprint)).toEqual(["same", "close"]);
+        expect(result.every((r) => r.score >= MIN_SIMILARITY)).toBe(true);
+    });
+
+    it("sorts by score, respects the limit and skips tracks without an embedding", () => {
+        const result = rankSimilar([1, 0, 0], embeddings, ["missing", ...all], 1);
+        expect(result).toEqual([{ fingerprint: "same", score: 1 }]);
     });
 });
 
