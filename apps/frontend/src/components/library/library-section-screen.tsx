@@ -1,12 +1,12 @@
-import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import { FlatList, View } from "react-native";
 import { AppScreen } from "../app-screen";
-import { PageHeader } from "../shared/page-header";
 import { TRACK_ROW_HEIGHT, TrackListItem } from "../shared/track-list-item";
-import { AppButton, EmptyState } from "../ui/primitives";
+import { EmptyState, TopBar } from "../ui/primitives";
 import { MINI_PLAYER_SPACE } from "../music/mini-player";
-import { playQueue } from "../music/music-home-screen";
+import { openTrack, playQueue } from "../music/music-home-screen";
+import { CollectionHeader } from "./playlist-screen";
 import { getRecentAssetIds } from "../../data/db";
 import { useT } from "../../i18n";
 import { usePlayerStore } from "../../store/usePlayerStore";
@@ -16,7 +16,8 @@ export default function LibrarySectionScreen() {
     const t = useT();
     const params = useLocalSearchParams<{ section?: string }>();
     const section = params.section === "recent" ? "recent" : "favourites";
-    const library = usePlayerStore((s) => s.libraryTracks);
+    // All files: a favourite or recently played copy stays visible even if it is a duplicate.
+    const library = usePlayerStore((s) => s.allTracks);
     const [recentIds, setRecentIds] = useState<string[]>([]);
 
     useFocusEffect(
@@ -33,45 +34,27 @@ export default function LibrarySectionScreen() {
 
     return (
         <AppScreen>
+            <View style={{ paddingHorizontal: 8 }}>
+                <TopBar />
+            </View>
             <FlatList
+                showsVerticalScrollIndicator={false}
+                showsHorizontalScrollIndicator={false}
                 data={tracks}
                 keyExtractor={(x) => x.assetId}
                 ListHeaderComponent={
-                    <View style={{ padding: 16, gap: 8 }}>
-                        <PageHeader
-                            title={t(
-                                section === "recent" ? "library.recent" : "library.favourites"
-                            )}
-                        />
-                        {tracks.length > 0 && (
-                            <View style={{ flexDirection: "row", gap: 8 }}>
-                                <AppButton
-                                    compact
-                                    icon="play"
-                                    label={t("home.playAll")}
-                                    onPress={() => playQueue(tracks, 0)}
-                                />
-                                <AppButton
-                                    compact
-                                    variant="secondary"
-                                    icon="shuffle-variant"
-                                    label={t("home.shuffle")}
-                                    onPress={() => playQueue(tracks, 0, true)}
-                                />
-                            </View>
-                        )}
-                    </View>
+                    <CollectionHeader
+                        kicker={t("library.title")}
+                        title={t(section === "recent" ? "library.recent" : "library.favourites")}
+                        tracks={tracks}
+                    />
                 }
                 renderItem={({ item, index }) => (
                     <TrackListItem
                         track={item}
                         onPress={() => playQueue(tracks, index)}
-                        onLongPress={() =>
-                            router.push({
-                                pathname: "/track/[assetId]",
-                                params: { assetId: item.assetId },
-                            })
-                        }
+                        onLongPress={() => openTrack(item.assetId)}
+                        onMore={() => openTrack(item.assetId)}
                     />
                 )}
                 getItemLayout={(_, index) => ({

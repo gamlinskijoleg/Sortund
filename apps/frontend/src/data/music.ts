@@ -1,4 +1,11 @@
-import { Album, AssetField, MediaType, Query, requestPermissionsAsync } from "expo-media-library";
+import {
+    Album,
+    AssetField,
+    MediaType,
+    Query,
+    requestPermissionsAsync,
+    type Asset,
+} from "expo-media-library";
 import { useEffect } from "react";
 import { getArtwork, getMetadata } from "react-native-audio-metadata";
 import {
@@ -6,10 +13,13 @@ import {
     initDatabase,
     upsertScannedTracksAsync,
     deleteTracksByIdAsync,
+    setContentHashesAsync,
 } from "./db";
+import { computeContentHash } from "./file-signature";
 import { usePlayerStore } from "../store/usePlayerStore";
 import { saveBase64ArtworkAsync } from "@/utils/file-utils";
 import { log } from "@/utils/logger";
+import { isInMusicFolder } from "../library/music-folder";
 import type { MusicTrack } from "./types";
 
 export type { MusicTrack } from "./types";
@@ -51,8 +61,47 @@ export function refreshLibrary() {
 
 let isSyncingLibrary = false;
 
+async function backfillContentHashes(tracks: MusicTrack[], onProgress: () => void) {
+    if (tracks.length === 0) return;
+    log.debug(`Computing file signatures for ${tracks.length} tracks...`);
+    const CHUNK = 50;
+    for (let i = 0; i < tracks.length; i += CHUNK) {
+        const hashes = new Map<string, string>();
+        for (const t of tracks.slice(i, i + CHUNK)) {
+            const hash = computeContentHash(t.sourceUri, t.filename ?? t.sourceUri);
+            if (hash) hashes.set(t.assetId, hash);
+        }
+        await setContentHashesAsync(hashes);
+        // Give the UI thread a chance to render between chunks of synchronous file reads.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    onProgress();
+}
+
 /**
- * Scans the device's Music album (REQ 9–12). Only new and modified files are read again;
+ * Android albums are single folders (subfolders are separate albums), so the Music folder and
+ * every folder inside it (e.g. Music/Telegram Music) are collected by checking where one audio
+ * file of each album lies.
+ */
+async function findMusicAlbums(): Promise<Album[]> {
+    const result: Album[] = [];
+    for (const album of await Album.getAll()) {
+        try {
+            const [sample] = await new Query()
+                .album(album)
+                .eq(AssetField.MEDIA_TYPE, MediaType.AUDIO)
+                .limit(1)
+                .exe();
+            if (sample && isInMusicFolder(await sample.getUri())) result.push(album);
+        } catch (error) {
+            log.warn("Could not inspect an album:", error);
+        }
+    }
+    return result;
+}
+
+/**
+ * Scans the device's Music folder with all its subfolders (REQ 9–12). Only new and modified files are read again;
  * records of deleted files are removed.
  */
 export async function syncMusicLibrary(
@@ -72,16 +121,20 @@ export async function syncMusicLibrary(
             return;
         }
 
-        const album = await Album.get("Music");
-        if (!album) {
-            log.error("Album 'Music' not found.");
+        const albums = await findMusicAlbums();
+        if (albums.length === 0) {
+            log.error("No audio found in the Music folder.");
             return;
         }
 
-        let query = new Query().album(album).eq(AssetField.MEDIA_TYPE, MediaType.AUDIO);
-        if (limit !== Infinity) query = query.limit(limit);
-        const queryMedia = await query.exe();
-        log.debug(`Found tracks in album ${await album.getTitle()}: ${queryMedia.length}`);
+        let queryMedia: Asset[] = [];
+        for (const album of albums) {
+            if (queryMedia.length >= limit) break;
+            let query = new Query().album(album).eq(AssetField.MEDIA_TYPE, MediaType.AUDIO);
+            if (limit !== Infinity) query = query.limit(limit - queryMedia.length);
+            queryMedia = queryMedia.concat(await query.exe());
+        }
+        log.debug(`Found ${queryMedia.length} tracks in ${albums.length} Music folder(s)`);
 
         const cachedMap = new Map(cachedTracks.map((t) => [t.assetId, t]));
         const currentAssetIds = new Set<string>();
@@ -106,6 +159,15 @@ export async function syncMusicLibrary(
             await deleteTracksByIdAsync(deletedIds);
             onProgress();
         }
+
+        // Tracks scanned before file signatures existed get one without re-reading their tags.
+        const toProcess = new Set(assetsToProcess.map((a) => a.cleanId));
+        await backfillContentHashes(
+            cachedTracks.filter(
+                (t) => !t.contentHash && currentAssetIds.has(t.assetId) && !toProcess.has(t.assetId)
+            ),
+            onProgress
+        );
 
         if (assetsToProcess.length === 0) {
             log.debug("No new or modified tracks to process.");
@@ -149,6 +211,7 @@ export async function syncMusicLibrary(
                             duration: parseDurationToMs(metadata.duration) || 0,
                             color: colorFromName(filename),
                             modificationTime: fileModTime,
+                            contentHash: computeContentHash(uri, filename),
                         });
                     } catch (error) {
                         log.error(`Error processing track ${cleanId}:`, error);
@@ -197,6 +260,23 @@ export function startLibrarySync(limit = Infinity, force = false) {
         log.error("Error initializing tracks database:", err);
         store.setLibraryLoading(false);
     }
+}
+
+/**
+ * Manual rescan from the settings. The quick one reads only new and modified files (REQ 12);
+ * the full one reads every file again (useful when tags were changed by another app).
+ */
+export function rescanLibrary(full: boolean) {
+    if (!full) {
+        startLibrarySync(Infinity, true);
+        return;
+    }
+    // Pretending every cached file is older than it is forces all of them to be re-read,
+    // while deleted files are still detected through the cached ids.
+    const cached = getCachedTracks().map((t) => ({ ...t, modificationTime: 0 }));
+    void syncMusicLibrary(Infinity, cached, refreshLibrary)
+        .catch((error) => log.error("Full rescan failed:", error))
+        .finally(() => refreshLibrary());
 }
 
 export function useMusicLibrary(limit = Infinity) {

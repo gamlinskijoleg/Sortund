@@ -71,6 +71,9 @@ const MIGRATIONS: string[] = [
     );
     CREATE INDEX IF NOT EXISTS idx_listens_started ON listens(startedAt);
     CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY NOT NULL, value TEXT);`,
+    // v3 — signature of the audio data, used to find identical files in different folders
+    `ALTER TABLE tracks ADD COLUMN contentHash TEXT;
+    CREATE INDEX IF NOT EXISTS idx_tracks_content_hash ON tracks(contentHash);`,
 ];
 
 let initialized = false;
@@ -154,6 +157,7 @@ type TrackRow = {
     removedTags: string | null;
     isFavourite: number | null;
     userUpdatedAt: number | null;
+    contentHash: string | null;
 };
 
 function parseJson<T>(value: string | null): T | undefined {
@@ -206,6 +210,7 @@ function rowToTrack(r: TrackRow): MusicTrack {
         removedTags: parseJson<string[]>(r.removedTags),
         isFavourite: !!r.isFavourite,
         userUpdatedAt: opt(r.userUpdatedAt),
+        contentHash: opt(r.contentHash),
     };
 }
 
@@ -234,11 +239,12 @@ export async function upsertScannedTracksAsync(tracks: MusicTrack[]) {
     await db.withTransactionAsync(async () => {
         const statement = await db.prepareAsync(`
             INSERT INTO tracks (assetId, sourceUri, filename, title, artist, album, artwork, duration,
-                                color, modificationTime, addedAt, analysisStatus, isAnalyzed)
+                                color, modificationTime, addedAt, analysisStatus, isAnalyzed, contentHash)
             VALUES ($assetId, $sourceUri, $filename, $title, $artist, $album, $artwork, $duration,
-                    $color, $modificationTime, $addedAt, 'none', 0)
+                    $color, $modificationTime, $addedAt, 'none', 0, $contentHash)
             ON CONFLICT(assetId) DO UPDATE SET
                 sourceUri = excluded.sourceUri,
+                contentHash = COALESCE(excluded.contentHash, tracks.contentHash),
                 filename = excluded.filename,
                 duration = excluded.duration,
                 modificationTime = excluded.modificationTime,
@@ -264,10 +270,22 @@ export async function upsertScannedTracksAsync(tracks: MusicTrack[]) {
                     $color: t.color,
                     $modificationTime: t.modificationTime || 0,
                     $addedAt: t.addedAt ?? now,
+                    $contentHash: t.contentHash ?? null,
                 });
             }
         } finally {
             await statement.finalizeAsync();
+        }
+    });
+}
+
+/** Stores file signatures computed for tracks scanned before signatures existed. */
+export async function setContentHashesAsync(hashes: Map<string, string>) {
+    if (hashes.size === 0) return;
+    initDatabase();
+    await db.withTransactionAsync(async () => {
+        for (const [assetId, hash] of hashes) {
+            await db.runAsync("UPDATE tracks SET contentHash = ? WHERE assetId = ?", hash, assetId);
         }
     });
 }

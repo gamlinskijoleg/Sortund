@@ -57,9 +57,12 @@ export function formatDuration(ms: number | undefined): string {
         : `${m}:${String(s).padStart(2, "0")}`;
 }
 
-export function formatListeningTime(ms: number): string {
+export function formatListeningTime(
+    ms: number,
+    units: { h: string; min: string } = { h: "h", min: "min" }
+): string {
     const minutes = Math.round(ms / 60000);
-    if (minutes < 60) return `${minutes} min`;
+    if (minutes < 60) return `${minutes} ${units.min}`;
     const hours = Math.floor(minutes / 60);
-    return `${hours} h ${minutes % 60} min`;
+    return `${hours} ${units.h} ${minutes % 60} ${units.min}`;
 }

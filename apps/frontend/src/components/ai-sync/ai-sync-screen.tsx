@@ -1,11 +1,28 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from "react-native";
+import {
+    ActivityIndicator,
+    FlatList,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View,
+} from "react-native";
+import Animated, { FadeInDown, FadeOutDown } from "react-native-reanimated";
 import { AppScreen } from "../app-screen";
 import { TRACK_ROW_HEIGHT, TrackListItem } from "../shared/track-list-item";
-import { AppButton, ConfidenceBar, EmptyState, Notice, Segmented } from "../ui/primitives";
-import { MINI_PLAYER_SPACE } from "../music/mini-player";
+import {
+    AppButton,
+    ConfidenceBar,
+    EmptyState,
+    Notice,
+    ProfileButton,
+    ScreenTitle,
+} from "../ui/primitives";
+import { MINI_PLAYER_SPACE, useBottomOverlayOffset } from "../music/mini-player";
+import { openTrack } from "../music/music-home-screen";
 import { analyzeTracks, retryFailed, useAnalysisStore } from "../../analysis/manager";
 import type { AnalysisStatus, MusicTrack } from "../../data/types";
 import { useT, type TranslationKey } from "../../i18n";
@@ -16,46 +33,58 @@ import { useAppTheme } from "../../theme/app-theme";
 type FilterKey = "all" | "none" | "pending" | "failed" | "done";
 
 const STATUS_ICON: Record<AnalysisStatus, keyof typeof MaterialCommunityIcons.glyphMap> = {
-    none: "cloud-upload-outline",
+    none: "circle-outline",
     queued: "clock-outline",
-    processing: "progress-clock",
-    done: "check-circle",
-    failed: "alert-circle",
+    processing: "loading",
+    done: "check",
+    failed: "alert-outline",
 };
 
-function StatusBadge({ status }: { status: AnalysisStatus }) {
+function StatusLabel({ status }: { status: AnalysisStatus }) {
     const theme = useAppTheme();
     const t = useT();
-    const color =
-        status === "done"
-            ? theme.success
-            : status === "failed"
-              ? theme.danger
-              : status === "none"
-                ? theme.textSubtle
-                : theme.warning;
+    const muted = status === "done" || status === "none";
+    const color = muted ? theme.textSubtle : theme.text;
     return (
-        <View style={styles.badge} accessibilityLabel={t(`ai.status.${status}` as TranslationKey)}>
+        <View style={styles.status}>
             {status === "processing" ? (
-                <ActivityIndicator size="small" color={color} />
+                <ActivityIndicator size={13} color={color} />
             ) : (
-                <MaterialCommunityIcons name={STATUS_ICON[status]} size={22} color={color} />
+                <MaterialCommunityIcons name={STATUS_ICON[status]} size={14} color={color} />
             )}
-            <Text style={{ color, fontSize: 11 }} numberOfLines={1}>
+            <Text style={{ color, fontSize: 12, fontWeight: "500" }} numberOfLines={1}>
                 {t(`ai.status.${status}` as TranslationKey)}
             </Text>
         </View>
     );
 }
 
-/** Sending tracks for analysis and following their status (REQ 13–20). */
+function Check({ on }: { on: boolean }) {
+    const theme = useAppTheme();
+    return (
+        <View
+            style={[
+                styles.check,
+                {
+                    borderColor: on ? theme.accent : theme.textSubtle,
+                    backgroundColor: on ? theme.accent : "transparent",
+                },
+            ]}
+        >
+            {on && <MaterialCommunityIcons name="check" size={14} color={theme.inverseText} />}
+        </View>
+    );
+}
+
+/** Sending tracks for analysis and following their status (REQ 13–20, 34). */
 export default function AiAnalyzeScreen() {
     const t = useT();
     const theme = useAppTheme();
+    const overlayBottom = useBottomOverlayOffset();
     const tracks = usePlayerStore((s) => s.libraryTracks);
     const signedIn = useAuthStore((s) => s.status === "signedIn");
+    const email = useAuthStore((s) => s.user?.email);
     const usage = useAnalysisStore((s) => s.usage);
-    const uploading = useAnalysisStore((s) => s.uploading);
     const lastError = useAnalysisStore((s) => s.lastError);
     const activeModel = useAnalysisStore((s) => s.activeModelVersion);
 
@@ -75,26 +104,26 @@ export default function AiAnalyzeScreen() {
         const notAnalyzed = tracks.filter((x) => status(x) === "none");
         const failed = tracks.filter((x) => status(x) === "failed");
         const pending = tracks.filter((x) => ["queued", "processing"].includes(status(x)));
-        const outdated = tracks.filter(
-            (x) =>
-                status(x) === "done" &&
-                activeModel &&
-                x.modelVersion &&
-                x.modelVersion !== activeModel
+        const done = tracks.filter((x) => status(x) === "done");
+        const outdated = done.filter(
+            (x) => activeModel && x.modelVersion && x.modelVersion !== activeModel
         );
-        return { notAnalyzed, failed, pending, outdated };
+        return { notAnalyzed, failed, pending, done, outdated };
     }, [tracks, activeModel]);
 
-    const visible = useMemo(() => {
-        return tracks.filter((x) => {
-            const s = status(x);
-            if (filter === "none") return s === "none";
-            if (filter === "pending") return s === "queued" || s === "processing";
-            if (filter === "failed") return s === "failed";
-            if (filter === "done") return s === "done";
-            return true;
-        });
-    }, [tracks, filter]);
+    const visible = useMemo(
+        () =>
+            filter === "all"
+                ? tracks
+                : filter === "none"
+                  ? groups.notAnalyzed
+                  : filter === "pending"
+                    ? groups.pending
+                    : filter === "failed"
+                      ? groups.failed
+                      : groups.done,
+        [tracks, groups, filter]
+    );
 
     const toggle = (assetId: string) => {
         const next = new Set(selected);
@@ -115,13 +144,16 @@ export default function AiAnalyzeScreen() {
     if (!signedIn) {
         return (
             <AppScreen edges={["top"]}>
+                <View style={{ paddingHorizontal: 16 }}>
+                    <ScreenTitle title={t("ai.title")} right={<ProfileButton email={email} />} />
+                </View>
                 <EmptyState
                     icon="creation"
                     text={t("ai.loginRequired")}
                     action={
                         <AppButton
+                            compact
                             label={t("ai.login")}
-                            icon="login"
                             onPress={() => router.push("/auth/login")}
                         />
                     }
@@ -130,21 +162,54 @@ export default function AiAnalyzeScreen() {
         );
     }
 
+    const tabs: { key: FilterKey; label: string; n: number }[] = [
+        { key: "all", label: t("ai.filter.all"), n: tracks.length },
+        { key: "none", label: t("ai.filter.none"), n: groups.notAnalyzed.length },
+        { key: "pending", label: t("ai.filter.pending"), n: groups.pending.length },
+        { key: "failed", label: t("ai.filter.failed"), n: groups.failed.length },
+        { key: "done", label: t("ai.filter.done"), n: groups.done.length },
+    ];
+
     const header = (
-        <View style={{ padding: 16, gap: 12 }}>
-            <Text style={[styles.h1, { color: theme.text }]}>{t("ai.title")}</Text>
+        <View style={{ paddingHorizontal: 16, gap: 12, paddingBottom: 6 }}>
+            <ScreenTitle
+                title={t("ai.title")}
+                right={
+                    <Pressable
+                        accessibilityRole="button"
+                        onPress={() => {
+                            setSelecting(!selecting);
+                            setSelected(new Set());
+                        }}
+                        style={[
+                            styles.selectBtn,
+                            { backgroundColor: selecting ? theme.surfaceStrong : "transparent" },
+                        ]}
+                    >
+                        <Text style={{ color: theme.text, fontWeight: "600", fontSize: 15 }}>
+                            {t(selecting ? "common.cancel" : "ai.select")}
+                        </Text>
+                    </Pressable>
+                }
+            />
 
             {usage && (
                 <View style={[styles.usage, { backgroundColor: theme.surface }]}>
-                    <Text style={{ color: theme.text, fontWeight: "600" }}>
-                        {t("ai.usage", { used: usage.used, limit: usage.limit })}
-                    </Text>
-                    <ConfidenceBar value={usage.limit ? usage.used / usage.limit : 1} />
-                    {(usage.pending > 0 || uploading > 0) && (
-                        <Text style={{ color: theme.textMuted, fontSize: 13 }}>
-                            {t("ai.pending", { n: Math.max(usage.pending, groups.pending.length) })}
+                    <View style={styles.usageHead}>
+                        <Text style={{ color: theme.textMuted, fontSize: 14 }}>
+                            {t("ai.limitTitle")}
                         </Text>
-                    )}
+                        <Text style={{ color: theme.textSubtle, fontSize: 14 }}>
+                            <Text style={{ color: theme.text, fontSize: 18, fontWeight: "700" }}>
+                                {usage.used}
+                            </Text>
+                            {` ${t("ai.of")} ${usage.limit}`}
+                        </Text>
+                    </View>
+                    <ConfidenceBar value={usage.limit ? usage.used / usage.limit : 1} height={6} />
+                    <Text style={{ color: theme.textSubtle, fontSize: 12 }}>
+                        {t("ai.left", { n: Math.max(0, usage.limit - usage.used) })}
+                    </Text>
                 </View>
             )}
 
@@ -156,61 +221,85 @@ export default function AiAnalyzeScreen() {
             )}
             {lastError?.code === "network" && <Notice tone="error" text={t("auth.network")} />}
 
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+            <View style={{ flexDirection: "row", gap: 8 }}>
                 <AppButton
                     compact
                     icon="creation"
-                    label={t("ai.analyzeAll", { n: groups.notAnalyzed.length })}
+                    label={t("ai.analyzeNew", { n: groups.notAnalyzed.length })}
                     disabled={groups.notAnalyzed.length === 0}
                     onPress={() => void analyzeTracks(groups.notAnalyzed)}
+                    style={{ flex: 1 }}
                 />
                 {groups.failed.length > 0 && (
                     <AppButton
                         compact
                         variant="secondary"
                         icon="refresh"
-                        label={t("ai.retryFailed", { n: groups.failed.length })}
+                        label={t("ai.retry", { n: groups.failed.length })}
                         onPress={() => void retryFailed(groups.failed)}
                     />
                 )}
-                {groups.outdated.length > 0 && (
-                    <AppButton
-                        compact
-                        variant="secondary"
-                        icon="update"
-                        label={t("ai.reanalyzeOutdated", { n: groups.outdated.length })}
-                        onPress={() => void analyzeTracks(groups.outdated, { force: true })}
-                    />
-                )}
+            </View>
+            {groups.outdated.length > 0 && (
+                // REQ 34: re-analysis after a model update
                 <AppButton
                     compact
-                    variant={selecting ? "primary" : "ghost"}
-                    icon="checkbox-multiple-marked-outline"
-                    label={selecting ? t("ai.selected", { n: selected.size }) : t("ai.select")}
-                    onPress={() => {
-                        setSelecting(!selecting);
-                        setSelected(new Set());
-                    }}
+                    variant="ghost"
+                    label={t("ai.refreshOld", { n: groups.outdated.length })}
+                    onPress={() => void analyzeTracks(groups.outdated, { force: true })}
                 />
-            </View>
+            )}
 
-            <Segmented<FilterKey>
-                value={filter}
-                onChange={setFilter}
-                options={[
-                    { value: "all", label: t("ai.filter.all") },
-                    { value: "none", label: t("ai.filter.none") },
-                    { value: "pending", label: t("ai.filter.pending") },
-                    { value: "failed", label: t("ai.filter.failed") },
-                    { value: "done", label: t("ai.filter.done") },
-                ]}
-            />
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                showsHorizontalScrollIndicator={false}
+                horizontal
+                style={{ marginHorizontal: -16, marginTop: 4 }}
+                contentContainerStyle={{ paddingHorizontal: 16, gap: 6 }}
+            >
+                {tabs.map((tab) => {
+                    const on = tab.key === filter;
+                    return (
+                        <Pressable
+                            key={tab.key}
+                            accessibilityRole="tab"
+                            accessibilityState={{ selected: on }}
+                            onPress={() => setFilter(tab.key)}
+                            style={[
+                                styles.tab,
+                                { backgroundColor: on ? theme.accent : theme.surface },
+                            ]}
+                        >
+                            <Text
+                                style={{
+                                    color: on ? theme.inverseText : theme.textMuted,
+                                    fontWeight: "600",
+                                    fontSize: 13,
+                                }}
+                            >
+                                {tab.label}
+                            </Text>
+                            <Text
+                                style={{
+                                    color: on ? theme.inverseTextMuted : theme.textSubtle,
+                                    fontWeight: "600",
+                                    fontSize: 13,
+                                }}
+                            >
+                                {tab.n}
+                            </Text>
+                        </Pressable>
+                    );
+                })}
+            </ScrollView>
         </View>
     );
 
     return (
         <AppScreen edges={["top"]}>
             <FlatList
+                showsVerticalScrollIndicator={false}
+                showsHorizontalScrollIndicator={false}
                 data={visible}
                 keyExtractor={(x) => x.assetId}
                 ListHeaderComponent={header}
@@ -223,19 +312,15 @@ export default function AiAnalyzeScreen() {
                                 ? item.analysisError
                                 : undefined
                         }
-                        onPress={() =>
-                            selecting
-                                ? toggle(item.assetId)
-                                : router.push({
-                                      pathname: "/track/[assetId]",
-                                      params: { assetId: item.assetId },
-                                  })
+                        leadingSlot={
+                            selecting ? <Check on={selected.has(item.assetId)} /> : undefined
                         }
+                        onPress={() => (selecting ? toggle(item.assetId) : openTrack(item.assetId))}
                         onLongPress={() => {
                             setSelecting(true);
                             toggle(item.assetId);
                         }}
-                        trailingActionSlot={<StatusBadge status={status(item)} />}
+                        trailingActionSlot={<StatusLabel status={status(item)} />}
                     />
                 )}
                 getItemLayout={(_, index) => ({
@@ -243,27 +328,84 @@ export default function AiAnalyzeScreen() {
                     offset: TRACK_ROW_HEIGHT * index,
                     index,
                 })}
-                ListEmptyComponent={<EmptyState icon="playlist-check" text={t("home.noResults")} />}
-                contentContainerStyle={{ paddingBottom: MINI_PLAYER_SPACE + 60 }}
+                ListEmptyComponent={<EmptyState icon="playlist-check" text={t("ai.emptyFilter")} />}
+                contentContainerStyle={{ paddingBottom: MINI_PLAYER_SPACE + 70 }}
                 removeClippedSubviews
                 windowSize={7}
             />
             {selecting && selected.size > 0 && (
-                <View style={[styles.fab, { bottom: MINI_PLAYER_SPACE - 20 }]}>
-                    <AppButton
-                        icon="creation"
-                        label={`${t("ai.analyzeSelected")} (${selected.size})`}
+                <Animated.View
+                    entering={FadeInDown.duration(200)}
+                    exiting={FadeOutDown.duration(150)}
+                    style={[
+                        styles.selBar,
+                        { bottom: overlayBottom, backgroundColor: theme.accent },
+                    ]}
+                >
+                    <Text
+                        style={{
+                            color: theme.inverseText,
+                            fontSize: 15,
+                            fontWeight: "600",
+                            flex: 1,
+                        }}
+                    >
+                        {t("ai.selected", { n: selected.size })}
+                    </Text>
+                    <Pressable
+                        accessibilityRole="button"
                         onPress={runSelected}
-                    />
-                </View>
+                        style={[styles.selBtn, { backgroundColor: theme.inverseText }]}
+                    >
+                        <Text style={{ color: theme.text, fontWeight: "700", fontSize: 14 }}>
+                            {t("ai.analyze")}
+                        </Text>
+                    </Pressable>
+                </Animated.View>
             )}
         </AppScreen>
     );
 }
 
 const styles = StyleSheet.create({
-    h1: { fontSize: 26, fontWeight: "800" },
-    usage: { borderRadius: 14, padding: 14, gap: 8 },
-    badge: { alignItems: "center", width: 84, gap: 2 },
-    fab: { position: "absolute", left: 16, right: 16 },
+    selectBtn: { height: 36, paddingHorizontal: 14, borderRadius: 18, justifyContent: "center" },
+    usage: { borderRadius: 16, padding: 16, gap: 10 },
+    usageHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" },
+    status: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 5,
+        paddingHorizontal: 8,
+        minWidth: 96,
+        justifyContent: "flex-end",
+    },
+    check: {
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        borderWidth: 2,
+        alignItems: "center",
+        justifyContent: "center",
+    },
+    tab: {
+        height: 34,
+        paddingHorizontal: 13,
+        borderRadius: 17,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 6,
+    },
+    selBar: {
+        position: "absolute",
+        left: 8,
+        right: 8,
+        height: 60,
+        borderRadius: 14,
+        flexDirection: "row",
+        alignItems: "center",
+        paddingLeft: 16,
+        paddingRight: 8,
+        elevation: 12,
+    },
+    selBtn: { height: 44, paddingHorizontal: 18, borderRadius: 22, justifyContent: "center" },
 });

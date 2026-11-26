@@ -1,3 +1,4 @@
+import { findDuplicates, type DuplicateGroup } from "../library/duplicates";
 import { create } from "zustand";
 import type { MusicTrack } from "../data/types";
 import { AudioPlayer } from "expo-audio";
@@ -16,7 +17,12 @@ interface PlayerState {
     repeat: RepeatMode;
 
     // Library cache
+    /** Library without hidden duplicates: what lists, filters, smart playlists and analysis use. */
     libraryTracks: MusicTrack[];
+    /** Every scanned file, including hidden duplicates; use it to look tracks up by id. */
+    allTracks: MusicTrack[];
+    /** Groups of identical files (the same audio in several folders). */
+    duplicateGroups: DuplicateGroup[];
     isLibraryLoading: boolean;
     hasSynced: boolean;
 
@@ -57,15 +63,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     repeat: "all",
 
     libraryTracks: [],
+    allTracks: [],
+    duplicateGroups: [],
     isLibraryLoading: true,
     hasSynced: false,
 
     setLibraryTracks: (tracks) => {
-        // Keep queue entries in sync with edited track data (titles, artwork…).
+        // Keep queue entries in sync with edited track data (titles, artwork).
         const byId = new Map(tracks.map((t) => [t.assetId, t]));
         const { activeTrack, tracks: queue } = get();
+        const { visible, groups } = findDuplicates(tracks);
         set({
-            libraryTracks: tracks,
+            libraryTracks: visible,
+            allTracks: tracks,
+            duplicateGroups: groups,
             tracks: queue.map((t) => byId.get(t.assetId) ?? t),
             activeTrack: activeTrack ? (byId.get(activeTrack.assetId) ?? activeTrack) : null,
         });

@@ -1,3 +1,4 @@
+import { formatListeningTime } from "../library/track-utils";
 import { useCallback } from "react";
 import { useSettingsStore, type Language } from "../store/useSettingsStore";
 import { en } from "./en";
@@ -106,5 +107,14 @@ export function useValueLabel() {
             return LANGUAGE_NAMES[language][value] ?? VALUE_LABELS[language][value] ?? value;
         },
         [language]
+    );
+}
+
+/** Listening time in the interface language ("1 год 5 хв" / "1 h 5 min"). */
+export function useListeningTime() {
+    const t = useT();
+    return useCallback(
+        (ms: number) => formatListeningTime(ms, { h: t("time.h"), min: t("time.min") }),
+        [t]
     );
 }

@@ -20,7 +20,7 @@ const OGG_SLACK = 256 * 1024;
 
 export class FragmentError extends Error {}
 
-function readRange(file: File, start: number, length: number): Uint8Array {
+export function readRange(file: File, start: number, length: number): Uint8Array {
     const handle = file.open();
     try {
         handle.offset = start;
@@ -31,7 +31,7 @@ function readRange(file: File, start: number, length: number): Uint8Array {
 }
 
 /** Reads FLAC metadata blocks one by one so a large embedded picture is never loaded. */
-function readFlacHeader(file: File): Uint8Array {
+export function readFlacHeader(file: File): Uint8Array {
     const handle = file.open();
     try {
         const parts: Uint8Array[] = [handle.readBytesSync(4)];

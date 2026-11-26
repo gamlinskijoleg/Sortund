@@ -6,21 +6,22 @@ import { useT, type TranslationKey } from "../../i18n";
 import { useAppTheme } from "../../theme/app-theme";
 
 type Tab = {
-    href: "/" | "/ai-sync" | "/library" | "/stats" | "/settings";
+    href: "/" | "/library" | "/ai-sync" | "/stats";
     label: TranslationKey;
     icon: keyof typeof MaterialCommunityIcons.glyphMap;
+    iconActive: keyof typeof MaterialCommunityIcons.glyphMap;
 };
 
+// Settings are opened from the profile button in the screen headers.
 const TABS: Tab[] = [
-    { href: "/", label: "nav.music", icon: "music-note" },
-    { href: "/ai-sync", label: "nav.ai", icon: "creation" },
-    { href: "/library", label: "nav.library", icon: "bookshelf" },
-    { href: "/stats", label: "nav.stats", icon: "chart-bar" },
-    { href: "/settings", label: "nav.settings", icon: "cog-outline" },
+    { href: "/", label: "nav.music", icon: "music-note-outline", iconActive: "music-note" },
+    { href: "/library", label: "nav.library", icon: "bookshelf", iconActive: "bookshelf" },
+    { href: "/ai-sync", label: "nav.ai", icon: "creation-outline", iconActive: "creation" },
+    { href: "/stats", label: "nav.stats", icon: "chart-bar", iconActive: "chart-bar" },
 ];
 
 export const TAB_ROUTES = new Set<string>(TABS.map((t) => t.href));
-export const NAV_HEIGHT = 56;
+export const NAV_HEIGHT = 60;
 
 export function MusicBottomNav() {
     const theme = useAppTheme();
@@ -32,6 +33,7 @@ export function MusicBottomNav() {
 
     return (
         <View
+            accessibilityRole="tablist"
             style={[
                 styles.nav,
                 {
@@ -44,7 +46,7 @@ export function MusicBottomNav() {
         >
             {TABS.map((tab) => {
                 const active = pathname === tab.href;
-                const color = active ? theme.accent : theme.textSubtle;
+                const color = active ? theme.text : theme.textSubtle;
                 return (
                     <Pressable
                         key={tab.href}
@@ -53,9 +55,13 @@ export function MusicBottomNav() {
                         onPress={() => {
                             if (!active) router.replace(tab.href);
                         }}
-                        style={styles.item}
+                        style={({ pressed }) => [styles.item, pressed && { opacity: 0.6 }]}
                     >
-                        <MaterialCommunityIcons name={tab.icon} size={22} color={color} />
+                        <MaterialCommunityIcons
+                            name={active ? tab.iconActive : tab.icon}
+                            size={24}
+                            color={color}
+                        />
                         <Text style={[styles.label, { color }]} numberOfLines={1}>
                             {t(tab.label)}
                         </Text>
@@ -75,6 +81,6 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         borderTopWidth: StyleSheet.hairlineWidth,
     },
-    item: { flex: 1, alignItems: "center", justifyContent: "center", gap: 2, paddingTop: 6 },
-    label: { fontSize: 11, fontWeight: "600" },
+    item: { flex: 1, alignItems: "center", justifyContent: "center", gap: 3, paddingTop: 4 },
+    label: { fontSize: 11, fontWeight: "500" },
 });

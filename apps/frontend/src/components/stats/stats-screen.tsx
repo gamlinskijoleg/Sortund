@@ -1,11 +1,19 @@
 import { useFocusEffect } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import Animated, { FadeIn } from "react-native-reanimated";
 import { AppScreen } from "../app-screen";
-import { Section, Segmented } from "../ui/primitives";
+import {
+    Card,
+    ConfidenceBar,
+    Cover,
+    ProfileButton,
+    ScreenTitle,
+    Segmented,
+} from "../ui/primitives";
 import { MINI_PLAYER_SPACE } from "../music/mini-player";
 import { getListenAggregates, type ListenAggregate } from "../../data/db";
-import { useT, useValueLabel } from "../../i18n";
+import { useListeningTime, useT, useValueLabel, type TranslationKey } from "../../i18n";
 import {
     libraryDistribution,
     periodStart,
@@ -13,42 +21,26 @@ import {
     summarizeListening,
     type Bucket,
 } from "../../library/stats";
-import { formatListeningTime } from "../../library/track-utils";
+import { useAuthStore } from "../../store/useAuthStore";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import { useAppTheme } from "../../theme/app-theme";
 
 type Period = "week" | "month" | "all";
+type Dist = "genres" | "moods" | "languages" | "decades";
 
 function Bars({ data, format }: { data: Bucket[]; format?: (v: number) => string }) {
     const theme = useAppTheme();
     const label = useValueLabel();
     const max = Math.max(1, ...data.map((d) => d.value));
     return (
-        <View style={{ gap: 8 }}>
+        <View style={{ gap: 4 }}>
             {data.map((d) => (
                 <View key={d.label} style={styles.barRow}>
-                    <Text style={{ color: theme.text, width: 110 }} numberOfLines={1}>
+                    <Text style={{ color: theme.text, width: 104, fontSize: 14 }} numberOfLines={1}>
                         {label(d.label)}
                     </Text>
-                    <View style={[styles.track, { backgroundColor: theme.surface }]}>
-                        <View
-                            style={[
-                                styles.fill,
-                                {
-                                    width: `${(d.value / max) * 100}%`,
-                                    backgroundColor: theme.accent,
-                                },
-                            ]}
-                        />
-                    </View>
-                    <Text
-                        style={{
-                            color: theme.textMuted,
-                            width: 64,
-                            textAlign: "right",
-                            fontSize: 12,
-                        }}
-                    >
+                    <ConfidenceBar value={d.value / max} height={10} />
+                    <Text style={[styles.barValue, { color: theme.textSubtle }]} numberOfLines={1}>
                         {format ? format(d.value) : d.value}
                     </Text>
                 </View>
@@ -57,12 +49,21 @@ function Bars({ data, format }: { data: Bucket[]; format?: (v: number) => string
     );
 }
 
+function H2({ children }: { children: string }) {
+    const theme = useAppTheme();
+    return <Text style={[styles.h2, { color: theme.text }]}>{children}</Text>;
+}
+
 /** Listening and library statistics shown as charts and rankings (REQ 61–63). */
 export default function StatsScreen() {
     const t = useT();
     const theme = useAppTheme();
+    const formatListeningTime = useListeningTime();
     const tracks = usePlayerStore((s) => s.libraryTracks);
+    const allTracks = usePlayerStore((s) => s.allTracks);
+    const email = useAuthStore((s) => s.user?.email);
     const [period, setPeriod] = useState<Period>("week");
+    const [dist, setDist] = useState<Dist>("genres");
     const [aggregates, setAggregates] = useState<ListenAggregate[]>([]);
 
     useFocusEffect(
@@ -71,7 +72,10 @@ export default function StatsScreen() {
         }, [period])
     );
 
-    const summary = useMemo(() => summarizeListening(aggregates, tracks), [aggregates, tracks]);
+    const summary = useMemo(
+        () => summarizeListening(aggregates, allTracks),
+        [aggregates, allTracks]
+    );
     const unknown = t("stats.notAnalyzed");
     const library = useMemo(
         () => ({
@@ -82,116 +86,191 @@ export default function StatsScreen() {
         }),
         [tracks, unknown]
     );
+    const artistArt = useMemo(() => {
+        const map = new Map<string, string | undefined>();
+        for (const x of tracks) if (!map.get(x.artist) && x.artwork) map.set(x.artist, x.artwork);
+        return map;
+    }, [tracks]);
+
+    const DIST_LABELS: Record<Dist, TranslationKey> = {
+        genres: "stats.libraryGenres",
+        moods: "stats.libraryMoods",
+        languages: "stats.libraryLanguages",
+        decades: "stats.libraryDecades",
+    };
 
     return (
         <AppScreen edges={["top"]}>
-            <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: MINI_PLAYER_SPACE }}>
-                <Text style={[styles.h1, { color: theme.text }]}>{t("stats.title")}</Text>
-
-                <Segmented<Period>
-                    value={period}
-                    onChange={setPeriod}
-                    options={[
-                        { value: "week", label: t("stats.week") },
-                        { value: "month", label: t("stats.month") },
-                        { value: "all", label: t("stats.all") },
-                    ]}
-                />
-
-                <View style={styles.kpis}>
-                    <View style={[styles.kpi, { backgroundColor: theme.surface }]}>
-                        <Text style={{ color: theme.textMuted, fontSize: 12 }}>
-                            {t("stats.listeningTime")}
-                        </Text>
-                        <Text style={[styles.kpiValue, { color: theme.text }]}>
-                            {formatListeningTime(summary.totalMs)}
-                        </Text>
-                    </View>
-                    <View style={[styles.kpi, { backgroundColor: theme.surface }]}>
-                        <Text style={{ color: theme.textMuted, fontSize: 12 }}>
-                            {t("stats.listens")}
-                        </Text>
-                        <Text style={[styles.kpiValue, { color: theme.text }]}>
-                            {summary.plays}
-                        </Text>
-                    </View>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: MINI_PLAYER_SPACE }}
+            >
+                <ScreenTitle title={t("stats.title")} right={<ProfileButton email={email} />} />
+                <View style={{ marginTop: 10 }}>
+                    <Segmented<Period>
+                        value={period}
+                        onChange={setPeriod}
+                        options={[
+                            { value: "week", label: t("stats.week") },
+                            { value: "month", label: t("stats.month") },
+                            { value: "all", label: t("stats.all") },
+                        ]}
+                    />
                 </View>
 
+                <Animated.View
+                    key={period}
+                    entering={FadeIn.duration(300)}
+                    style={{ marginTop: 24 }}
+                >
+                    <Text style={{ color: theme.textSubtle, fontSize: 13 }}>
+                        {t("stats.listeningTime")}
+                    </Text>
+                    <Text style={[styles.big, { color: theme.text }]}>
+                        {formatListeningTime(summary.totalMs)}
+                    </Text>
+                    <Text style={{ color: theme.textSubtle, fontSize: 13, marginTop: 4 }}>
+                        {t("stats.plays", { n: summary.plays })}
+                    </Text>
+                </Animated.View>
+
                 {summary.plays === 0 ? (
-                    <Text style={{ color: theme.textMuted, marginBottom: 24 }}>
+                    <Text style={{ color: theme.textMuted, marginTop: 20 }}>
                         {t("stats.noListens")}
                     </Text>
                 ) : (
                     <>
-                        <Section title={t("stats.topTracks")}>
-                            {summary.topTracks.map((x, i) => (
-                                <View key={x.track.assetId} style={styles.topRow}>
+                        <H2>{t("stats.topTracks")}</H2>
+                        {summary.topTracks.map((x, i) => (
+                            <View key={x.track.assetId} style={styles.rank}>
+                                <Text style={[styles.rankN, { color: theme.textSubtle }]}>
+                                    {i + 1}
+                                </Text>
+                                <Cover uri={x.track.artwork} size={44} />
+                                <View style={{ flex: 1 }}>
                                     <Text
                                         style={{
-                                            color: theme.accent,
-                                            fontWeight: "800",
-                                            width: 22,
+                                            color: theme.text,
+                                            fontSize: 15,
+                                            fontWeight: "500",
                                         }}
+                                        numberOfLines={1}
                                     >
-                                        {i + 1}
+                                        {x.track.title}
                                     </Text>
-                                    <View style={{ flex: 1 }}>
-                                        <Text
-                                            style={{ color: theme.text, fontWeight: "600" }}
-                                            numberOfLines={1}
-                                        >
-                                            {x.track.title}
-                                        </Text>
-                                        <Text
-                                            style={{ color: theme.textMuted, fontSize: 12 }}
-                                            numberOfLines={1}
-                                        >
-                                            {x.track.artist}
-                                        </Text>
-                                    </View>
-                                    <Text style={{ color: theme.textMuted, fontSize: 12 }}>
-                                        {t("stats.plays", { n: x.plays })}
+                                    <Text
+                                        style={{
+                                            color: theme.textSubtle,
+                                            fontSize: 13,
+                                            marginTop: 2,
+                                        }}
+                                        numberOfLines={1}
+                                    >
+                                        {x.track.artist}
+                                    </Text>
+                                </View>
+                                <Text
+                                    style={{
+                                        color: theme.textSubtle,
+                                        fontSize: 13,
+                                        fontVariant: ["tabular-nums"],
+                                    }}
+                                >
+                                    {x.plays}
+                                </Text>
+                            </View>
+                        ))}
+
+                        <H2>{t("stats.topArtists")}</H2>
+                        <ScrollView
+                            showsVerticalScrollIndicator={false}
+                            showsHorizontalScrollIndicator={false}
+                            horizontal
+                            contentContainerStyle={{ gap: 16 }}
+                        >
+                            {summary.topArtists.map((a) => (
+                                <View key={a.label} style={{ width: 80, alignItems: "center" }}>
+                                    <Cover uri={artistArt.get(a.label)} size={80} radius={40} />
+                                    <Text
+                                        style={{
+                                            color: theme.text,
+                                            fontSize: 13,
+                                            fontWeight: "500",
+                                            marginTop: 8,
+                                        }}
+                                        numberOfLines={1}
+                                    >
+                                        {a.label}
+                                    </Text>
+                                    <Text style={{ color: theme.textSubtle, fontSize: 12 }}>
+                                        {formatListeningTime(a.value)}
                                     </Text>
                                 </View>
                             ))}
-                        </Section>
-                        <Section title={t("stats.topArtists")}>
-                            <Bars data={summary.topArtists} format={formatListeningTime} />
-                        </Section>
+                        </ScrollView>
+
                         {summary.topGenres.length > 0 && (
-                            <Section title={t("stats.topGenres")}>
-                                <Bars data={summary.topGenres} format={formatListeningTime} />
-                            </Section>
+                            <>
+                                <H2>{t("stats.topGenres")}</H2>
+                                <Card style={{ padding: 16 }}>
+                                    <Bars data={summary.topGenres} format={formatListeningTime} />
+                                </Card>
+                            </>
                         )}
                     </>
                 )}
 
-                <Text style={[styles.h2, { color: theme.text }]}>{t("stats.library")}</Text>
-                <Section title={t("stats.libraryGenres")}>
-                    <Bars data={library.genres} />
-                </Section>
-                <Section title={t("stats.libraryMoods")}>
-                    <Bars data={library.moods} />
-                </Section>
-                <Section title={t("stats.libraryLanguages")}>
-                    <Bars data={library.languages} />
-                </Section>
-                <Section title={t("stats.libraryDecades")}>
-                    <Bars data={library.decades} />
-                </Section>
+                <H2>{t("stats.library")}</H2>
+                <Card style={{ padding: 16, gap: 14 }}>
+                    <ScrollView
+                        showsVerticalScrollIndicator={false}
+                        showsHorizontalScrollIndicator={false}
+                        horizontal
+                        contentContainerStyle={{ gap: 6 }}
+                    >
+                        {(Object.keys(DIST_LABELS) as Dist[]).map((d) => (
+                            <Text
+                                key={d}
+                                accessibilityRole="tab"
+                                accessibilityState={{ selected: d === dist }}
+                                onPress={() => setDist(d)}
+                                style={[
+                                    styles.distTab,
+                                    {
+                                        backgroundColor:
+                                            d === dist ? theme.accent : theme.surfaceStrong,
+                                        color: d === dist ? theme.inverseText : theme.textMuted,
+                                    },
+                                ]}
+                            >
+                                {t(DIST_LABELS[d])}
+                            </Text>
+                        ))}
+                    </ScrollView>
+                    <Animated.View key={dist} entering={FadeIn.duration(250)}>
+                        <Bars data={library[dist]} />
+                    </Animated.View>
+                </Card>
             </ScrollView>
         </AppScreen>
     );
 }
 
 const styles = StyleSheet.create({
-    h1: { fontSize: 26, fontWeight: "800", marginBottom: 16 },
-    h2: { fontSize: 20, fontWeight: "800", marginVertical: 12 },
-    kpis: { flexDirection: "row", gap: 10, marginVertical: 16 },
-    kpi: { flex: 1, borderRadius: 14, padding: 14, gap: 4 },
-    kpiValue: { fontSize: 22, fontWeight: "800" },
-    barRow: { flexDirection: "row", alignItems: "center", gap: 8 },
-    track: { flex: 1, height: 10, borderRadius: 5, overflow: "hidden" },
-    fill: { height: 10, borderRadius: 5 },
-    topRow: { flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 4 },
+    big: { fontSize: 46, fontWeight: "800", letterSpacing: -1.5, marginTop: 2 },
+    h2: { fontSize: 20, fontWeight: "700", marginTop: 30, marginBottom: 12 },
+    rank: { flexDirection: "row", alignItems: "center", gap: 12, height: 60 },
+    rankN: { width: 18, fontSize: 15, fontWeight: "700", textAlign: "center" },
+    barRow: { flexDirection: "row", alignItems: "center", gap: 10, height: 30 },
+    barValue: { width: 64, textAlign: "right", fontSize: 12, fontVariant: ["tabular-nums"] },
+    distTab: {
+        height: 32,
+        lineHeight: 32,
+        paddingHorizontal: 12,
+        borderRadius: 16,
+        overflow: "hidden",
+        fontSize: 13,
+        fontWeight: "600",
+    },
 });

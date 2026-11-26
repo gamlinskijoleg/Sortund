@@ -46,6 +46,8 @@ export default function DebugDbScreen() {
                 </Text>
 
                 <FlatList
+                    showsVerticalScrollIndicator={false}
+                    showsHorizontalScrollIndicator={false}
                     data={tracks}
                     keyExtractor={(item, index) => item.assetId || String(index)}
                     renderItem={({ item }) => (

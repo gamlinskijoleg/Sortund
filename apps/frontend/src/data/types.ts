@@ -63,6 +63,8 @@ export type MusicTrack = {
     isFavourite?: boolean;
     /** Last manual change (edits, tags, favourite) — used for "last write wins" sync. */
     userUpdatedAt?: number;
+    /** Signature of the audio data; equal values mean identical files (see library/duplicates.ts). */
+    contentHash?: string;
 };
 
 export type SortKey = "title" | "artist" | "year" | "addedAt" | "bpm";
