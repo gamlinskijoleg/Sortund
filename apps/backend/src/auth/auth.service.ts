@@ -1,4 +1,10 @@
-import { ForbiddenException, Injectable, UnauthorizedException } from "@nestjs/common";
+import {
+    ForbiddenException,
+    HttpException,
+    HttpStatus,
+    Injectable,
+    UnauthorizedException,
+} from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { ConfigService } from "@nestjs/config";
 import { Request } from "express";
@@ -8,6 +14,18 @@ import { UsersService } from "../users/users.service";
 import { SessionsService } from "../sessions/sessions.service";
 import { User } from "../users/entities/user.entity";
 import { RegisterDto } from "./dto/register.dto";
+import { remainingLockMs } from "./login-lockout";
+
+/** bcrypt hash of a random string, compared against when the e-mail is unknown. */
+const DUMMY_PASSWORD_HASH = "$2b$12$cb6fMYZE4rVlMiggofyeQOqG.9C.6ykENU9blUckuj76a6MhTGNue";
+
+function tooManyAttempts(waitMs: number): HttpException {
+    const retryAfterSeconds = Math.max(1, Math.ceil(waitMs / 1000));
+    return new HttpException(
+        { statusCode: 429, message: "Too many failed login attempts", retryAfterSeconds },
+        HttpStatus.TOO_MANY_REQUESTS
+    );
+}
 
 export interface TokenPair {
     accessToken: string;
@@ -40,9 +58,28 @@ export class AuthService {
      */
     async validateUser(email: string, password: string): Promise<User | null> {
         const user = await this.usersService.findByEmail(email.trim().toLowerCase());
-        if (!user) return null;
+        if (!user) {
+            // Same bcrypt cost as for a real account, so response time does not reveal which
+            // e-mails are registered.
+            await bcrypt.compare(password, DUMMY_PASSWORD_HASH);
+            return null;
+        }
+
+        // A locked account is refused before the password is checked: guesses made during the
+        // lock reveal nothing (REQ 5; see login-lockout.ts).
+        const waitMs = remainingLockMs(user.lockedUntil, new Date());
+        if (waitMs > 0) throw tooManyAttempts(waitMs);
+
         const matches = await bcrypt.compare(password, user.passwordHash);
-        return matches ? user : null;
+        if (!matches) {
+            const { lockedUntil } = await this.usersService.registerFailedLogin(user.id);
+            if (lockedUntil) throw tooManyAttempts(lockedUntil.getTime() - Date.now());
+            return null;
+        }
+        if (user.failedLoginCount > 0 || user.lockedUntil) {
+            await this.usersService.resetFailedLogins(user.id);
+        }
+        return user;
     }
 
     /**

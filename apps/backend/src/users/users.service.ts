@@ -4,6 +4,7 @@ import { InjectRepository } from "@nestjs/typeorm";
 import { ILike, In, Repository } from "typeorm";
 import * as bcrypt from "bcrypt";
 import { User, UserRole } from "./entities/user.entity";
+import { lockDurationMs } from "../auth/login-lockout";
 
 const BCRYPT_ROUNDS = 12;
 
@@ -67,6 +68,34 @@ export class UsersService implements OnModuleInit {
 
     findByEmail(email: string): Promise<User | null> {
         return this.usersRepository.findOne({ where: { email } });
+    }
+
+    /**
+     * Counts a failed login and locks the account when the free attempts are used up.
+     * The counter is incremented in SQL, so parallel attempts cannot overwrite each other.
+     */
+    async registerFailedLogin(
+        userId: string
+    ): Promise<{ failedCount: number; lockedUntil: Date | null }> {
+        const result: unknown = await this.usersRepository.query(
+            `UPDATE users SET failed_login_count = failed_login_count + 1
+             WHERE id = $1 RETURNING failed_login_count`,
+            [userId]
+        );
+        // For UPDATE … RETURNING the Postgres driver of TypeORM returns [rows, affectedCount].
+        const rows = (Array.isArray(result) && Array.isArray(result[0]) ? result[0] : result) as {
+            failed_login_count: number;
+        }[];
+        const failedCount = Number(rows[0]?.failed_login_count ?? 0);
+        const lockMs = lockDurationMs(failedCount);
+        if (lockMs === 0) return { failedCount, lockedUntil: null };
+        const lockedUntil = new Date(Date.now() + lockMs);
+        await this.usersRepository.update(userId, { lockedUntil });
+        return { failedCount, lockedUntil };
+    }
+
+    async resetFailedLogins(userId: string): Promise<void> {
+        await this.usersRepository.update(userId, { failedLoginCount: 0, lockedUntil: null });
     }
 
     findById(id: string): Promise<User | null> {

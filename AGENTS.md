@@ -97,7 +97,10 @@ Single workflow `.github/workflows/pipeline.yml` (push to `main`; PRs run only `
 - A deploy whose container fails the health check restarts the previous image (rollback). Backend
   migrations have already run at that point — keep them backward compatible with the previous release.
 - Editing `pipeline.yml` or `detect-changes.py` rebuilds and redeploys everything.
-- The backend is bound to `127.0.0.1:3000`; the only public entry point is Tailscale Funnel.
+- The backend is bound to `127.0.0.1:3000` (app API, public through Tailscale Funnel) and `127.0.0.1:3001`
+  (admin panel, admin API, Swagger — tailnet only via `tailscale serve --https=8443`). The public port
+  serves an allowlist of route prefixes (`src/common/http/public-surface.ts`); a new controller the app
+  needs must be added there, everything else stays admin-only. Never expose port 3001 through Funnel.
 - Pin third-party actions that receive secrets (e.g. `appleboy/ssh-action`) to a release SHA.
 - Server `olegserver` (SSH alias): containers `sortund-backend`, `sortund-postgres`, `ai-worker` on the
   Docker network `sortund-net`. Runtime secrets: `~/sortund/{backend,postgres,worker}.env` (chmod 600,

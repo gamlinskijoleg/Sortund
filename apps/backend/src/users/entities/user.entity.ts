@@ -38,6 +38,14 @@ export class User {
     @Column({ name: "push_token", type: "varchar", length: 255, nullable: true })
     pushToken!: string | null;
 
+    /** Consecutive failed logins; reset by a successful one (see auth/login-lockout.ts). */
+    @Column({ name: "failed_login_count", type: "int", default: 0 })
+    failedLoginCount!: number;
+
+    /** Logins are refused without checking the password until this moment. */
+    @Column({ name: "locked_until", type: "timestamptz", nullable: true })
+    lockedUntil!: Date | null;
+
     @OneToMany(() => Session, (session) => session.user, { cascade: true })
     sessions!: Session[];
 

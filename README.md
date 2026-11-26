@@ -17,7 +17,10 @@ Mobile app (Expo) ──HTTPS──► Backend (NestJS + PostgreSQL) ──HTTP�
 - **Backend** (`apps/backend`) — JWT auth with one-time refresh tokens and per-device sessions, roles,
   monthly analysis limits, a PostgreSQL-backed analysis queue, a result cache keyed by acoustic
   fingerprint + model version, similarity search, cross-device sync, push notifications, the genre-model
-  registry and the admin web panel (`/admin`). OpenAPI docs at `/api/docs`.
+  registry and the admin web panel (`/admin`). OpenAPI docs at `/api/docs`. The app API and the admin
+  part listen on separate ports (`PORT` 3000 and `ADMIN_PORT` 3001); the admin panel, admin API and
+  Swagger answer only on the admin port. Logins are rate-limited per IP and per account (temporary lock
+  after 5 wrong passwords, growing up to 60 min).
 - **AI worker** (`apps/ai-worker`) — recognises the track (Shazam fingerprint → MusicBrainz / TheAudioDB /
   YouTube Music; file-name parsing as fallback), runs the AST AudioSet tagger, DSP (BPM, key), the **own
   genre classifier** (logistic regression on AST + DSP features, trained on GTZAN), a zero-shot NLI text
@@ -70,7 +73,8 @@ The mobile app uses native modules (secure store, notifications, document picker
 client must be rebuilt after pulling: `pnpm --filter frontend android`.
 
 Admin access: list the e-mail in `ADMIN_EMAILS` of the backend, register in the app (or sign in) and open
-`http://<backend>/admin/`.
+`http://localhost:3001/admin/` locally, or `https://olegserver.tailc406cc.ts.net:8443/admin/` in production
+(tailnet only: the device must be connected to Tailscale; the public address returns 404 for `/admin`).
 
 ## Deployment (GitHub Actions)
 

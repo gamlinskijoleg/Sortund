@@ -30,6 +30,8 @@ export const envValidationSchema = Joi.object({
     ANALYSIS_PROCESSOR_ENABLED: Joi.boolean().default(true),
 
     // ── Users ────────────────────────────────────────────────────────────────
+    /** Port of the admin panel, admin API and Swagger; publish it to the tailnet only. */
+    ADMIN_PORT: Joi.number().port().default(3001),
     DEFAULT_MONTHLY_ANALYSIS_LIMIT: Joi.number().integer().min(0).default(100),
     /** Comma-separated e-mails that are promoted to admin on startup / registration. */
     ADMIN_EMAILS: Joi.string().allow("").default(""),

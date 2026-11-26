@@ -139,7 +139,9 @@
                 $("#login-error").textContent =
                     res.status === 403
                         ? "Обліковий запис заблоковано."
-                        : "Невірна пошта або пароль.";
+                        : res.status === 429
+                          ? `Забагато спроб. Спробуйте через ${Math.ceil((data.retryAfterSeconds || 60) / 60)} хв.`
+                          : "Невірна пошта або пароль.";
                 return;
             }
             tokens.set(data);

@@ -16,7 +16,7 @@
         "dev": {
             "cache": false,
             "persistent": true,
-            "env": ["ANDROID_HOME", "PORT"]
+            "env": ["ANDROID_HOME", "PORT", "ADMIN_PORT"]
         },
         "format": {
             "inputs": ["src/**/*.py", "pyproject.toml"],
