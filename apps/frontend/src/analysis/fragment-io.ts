@@ -1,4 +1,4 @@
-import { Directory, File, Paths } from "expo-file-system";
+import { Directory, File, FileMode, Paths } from "expo-file-system";
 import type { MusicTrack } from "../data/types";
 import {
     FLAC_MAGIC,
@@ -21,7 +21,8 @@ const OGG_SLACK = 256 * 1024;
 export class FragmentError extends Error {}
 
 export function readRange(file: File, start: number, length: number): Uint8Array {
-    const handle = file.open();
+    // Read-only: the app may read files in Music but is not allowed to write them.
+    const handle = file.open(FileMode.ReadOnly);
     try {
         handle.offset = start;
         return handle.readBytesSync(length);
@@ -32,7 +33,8 @@ export function readRange(file: File, start: number, length: number): Uint8Array
 
 /** Reads FLAC metadata blocks one by one so a large embedded picture is never loaded. */
 export function readFlacHeader(file: File): Uint8Array {
-    const handle = file.open();
+    // Read-only: the app may read files in Music but is not allowed to write them.
+    const handle = file.open(FileMode.ReadOnly);
     try {
         const parts: Uint8Array[] = [handle.readBytesSync(4)];
         for (;;) {
