@@ -18,7 +18,7 @@ type GithubRelease = {
     assets?: { name: string; browser_download_url: string; size: number }[];
 };
 
-/** CI tags releases as `android-v1.0.<run number>`; the run number is also the Android versionCode. */
+/** CI tags releases as `android-v1.0.<versionCode>` (versionCode = workflow run number + 100). */
 const TAG_RE = /^android-v(\d+)\.(\d+)\.(\d+)$/;
 
 export function parseRelease(release: GithubRelease): ReleaseInfo | null {

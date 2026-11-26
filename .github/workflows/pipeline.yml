@@ -1,0 +1,475 @@
+name: CI/CD
+
+# One pipeline for the whole monorepo:
+#
+#   changes ──┬─ ci (lint, types, tests, black) ─────────────┬─ android-release  (GitHub Release)
+#             ├─ android-build (APK, in parallel with ci) ───┘
+#             ├─ backend-build (image :sha) ─────────────────── backend-deploy   (needs ci)
+#             └─ worker-build  (image :sha) ─────────────────── worker-deploy    (needs ci)
+#
+# Builds run in parallel with CI so nothing gets slower, but nothing is published or deployed
+# unless CI passed. Pull requests run only `changes` + `ci`.
+
+on:
+    push:
+        branches: [main]
+    pull_request:
+        branches: [main]
+    workflow_dispatch:
+        inputs:
+            only:
+                description: What to build and deploy
+                type: choice
+                options: [all, frontend, backend, worker, none]
+                default: all
+
+# PRs: a new push cancels the previous run. main: every commit gets its own run (deploy jobs below
+# have their own queues).
+concurrency:
+    group: pipeline-${{ github.event.pull_request.number || github.sha }}
+    cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+    # Backend URL baked into the app (public HTTPS through Tailscale Funnel).
+    # Can be overridden with the repository variable EXPO_PUBLIC_API_URL.
+    EXPO_PUBLIC_API_URL: ${{ vars.EXPO_PUBLIC_API_URL || 'https://olegserver.tailc406cc.ts.net' }}
+
+jobs:
+    # ── What changed? ────────────────────────────────────────────────────────────────────────
+    changes:
+        runs-on: ubuntu-latest
+        outputs:
+            frontend: ${{ steps.detect.outputs.frontend }}
+            backend: ${{ steps.detect.outputs.backend }}
+            worker: ${{ steps.detect.outputs.worker }}
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                  fetch-depth: 0
+            - name: Detect changed apps
+              id: detect
+              env:
+                  EVENT: ${{ github.event_name }}
+                  ONLY: ${{ inputs.only }}
+                  BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+              run: |
+                  if [ "$EVENT" = "workflow_dispatch" ]; then
+                    for t in frontend backend worker; do
+                      if [ "$ONLY" = all ] || [ "$ONLY" = "$t" ]; then v=true; else v=false; fi
+                      echo "$t=$v" | tee -a "$GITHUB_OUTPUT"
+                    done
+                  else
+                    python3 .github/scripts/detect-changes.py "$BASE" "$GITHUB_SHA"
+                  fi
+
+    # ── Quality gate ─────────────────────────────────────────────────────────────────────────
+    ci:
+        name: Lint, type-check, tests
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
+
+            - name: Install pnpm
+              uses: pnpm/action-setup@v6
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: 22
+                  cache: "pnpm"
+
+            - name: Setup uv (for Python)
+              uses: astral-sh/setup-uv@v7
+              with:
+                  enable-cache: true
+                  cache-dependency-glob: "apps/ai-worker/uv.lock"
+                  python-version: "3.11.9"
+
+            - name: Install Python
+              run: uv python install 3.11.9
+
+            - name: Install Node dependencies
+              run: pnpm install --frozen-lockfile
+
+            - name: Install system dependencies
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y libsndfile1 ffmpeg libasound2-dev
+
+            - name: Lint
+              run: pnpm lint
+
+            - name: Check Python formatting
+              working-directory: apps/ai-worker
+              run: uv run black --check .
+
+            - name: Type-check
+              run: pnpm check-types
+
+            - name: Tests
+              run: pnpm test
+
+    # ── Android ──────────────────────────────────────────────────────────────────────────────
+    android-build:
+        needs: changes
+        if: github.event_name != 'pull_request' && needs.changes.outputs.frontend == 'true'
+        runs-on: ubuntu-latest
+        timeout-minutes: 90
+        # A newer commit supersedes an APK that is still compiling.
+        concurrency:
+            group: android-build
+            cancel-in-progress: true
+        outputs:
+            version: ${{ steps.version.outputs.name }}
+        steps:
+            - uses: actions/checkout@v7
+
+            # The old release-android.yml workflow reached run 6, and this workflow's run numbers
+            # start again from 1, so we add 100 to keep the versionCode increasing (Android refuses to
+            # install a lower one). The tag stays `android-v1.0.<versionCode>`, which is what the in-app
+            # updater parses.
+            - name: Compute version
+              id: version
+              run: |
+                  CODE=$((GITHUB_RUN_NUMBER + 100))
+                  echo "SORTUND_VERSION_CODE=$CODE" >> "$GITHUB_ENV"
+                  echo "SORTUND_VERSION_NAME=1.0.$CODE" >> "$GITHUB_ENV"
+                  echo "name=1.0.$CODE" >> "$GITHUB_OUTPUT"
+
+            - name: Install pnpm
+              uses: pnpm/action-setup@v6
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v6
+              with:
+                  node-version: 22
+                  cache: "pnpm"
+
+            - name: Setup Java
+              uses: actions/setup-java@v5
+              with:
+                  distribution: temurin
+                  java-version: 17
+
+            - name: Setup Gradle (with cache)
+              uses: gradle/actions/setup-gradle@v4
+
+            - name: Install dependencies
+              run: pnpm install --frozen-lockfile
+
+            # Most of the build time is C++ compilation of native modules (Reanimated, Worklets,
+            # gesture handler, Expo modules…). ccache keeps compiled objects between runs.
+            - name: Setup ccache
+              uses: hendrikmuhs/ccache-action@v1.2
+              with:
+                  key: android-arm64
+                  max-size: 2G
+
+            # android/ is not committed (Continuous Native Generation) — generate it from app.json.
+            - name: Expo prebuild
+              working-directory: apps/frontend
+              env:
+                  CI: "1"
+              run: npx expo prebuild --platform android --no-install --clean
+
+            # Release key from repository secrets. Without it the APK is signed with the debug key
+            # (still installable, but updates must then keep using the debug key).
+            - name: Prepare signing key
+              env:
+                  KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+                  KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+                  KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+                  KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+              run: |
+                  if [ -n "$KEYSTORE_BASE64" ]; then
+                    echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.jks"
+                    {
+                      echo "SORTUND_KEYSTORE_PATH=$RUNNER_TEMP/release.jks"
+                      echo "SORTUND_KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD"
+                      echo "SORTUND_KEY_ALIAS=$KEY_ALIAS"
+                      echo "SORTUND_KEY_PASSWORD=$KEY_PASSWORD"
+                    } >> "$GITHUB_ENV"
+                    echo "Signing with the release key"
+                  else
+                    echo "::warning::ANDROID_KEYSTORE_BASE64 is not set — signing with the debug key"
+                  fi
+
+            - name: Build release APK
+              working-directory: apps/frontend/android
+              env:
+                  NODE_ENV: production
+                  # Picked up by CMake (>= 3.17) for every native module.
+                  CMAKE_C_COMPILER_LAUNCHER: ccache
+                  CMAKE_CXX_COMPILER_LAUNCHER: ccache
+                  # Absolute paths differ only by checkout dir; let ccache treat them as equal.
+                  CCACHE_BASEDIR: ${{ github.workspace }}
+                  CCACHE_NOHASHDIR: "true"
+                  CCACHE_SLOPPINESS: "include_file_mtime,include_file_ctime,time_macros,file_macro"
+              # arm64-v8a covers practically all phones from the last ~8 years and halves build time.
+              run: |
+                  ./gradlew assembleRelease -PreactNativeArchitectures=arm64-v8a --build-cache --no-daemon
+                  ccache --show-stats
+
+            - name: Rename APK
+              run: |
+                  mkdir -p dist
+                  cp apps/frontend/android/app/build/outputs/apk/release/app-release.apk "dist/Sortund-${SORTUND_VERSION_NAME}.apk"
+                  ls -lh dist
+
+            # Kept as a build artifact (downloadable from the run page) even if CI fails —
+            # handy for testing, but it is NOT published to the in-app updater in that case.
+            - name: Upload APK artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: apk
+                  path: dist/*.apk
+                  retention-days: 30
+
+    android-release:
+        needs: [ci, android-build]
+        runs-on: ubuntu-latest
+        concurrency:
+            group: android-release
+            cancel-in-progress: false
+        permissions:
+            contents: write # create releases
+        env:
+            VERSION_NAME: ${{ needs.android-build.outputs.version }}
+        steps:
+            - uses: actions/download-artifact@v4
+              with:
+                  name: apk
+                  path: dist
+
+            - name: Publish GitHub release
+              uses: softprops/action-gh-release@v2
+              with:
+                  tag_name: android-v${{ env.VERSION_NAME }}
+                  name: Sortund ${{ env.VERSION_NAME }}
+                  target_commitish: ${{ github.sha }}
+                  make_latest: true
+                  files: dist/Sortund-${{ env.VERSION_NAME }}.apk
+                  body: |
+                      Android APK built from ${{ github.sha }}.
+
+                      **${{ github.event.head_commit.message || 'Manual build' }}**
+
+                      Download `Sortund-${{ env.VERSION_NAME }}.apk` on the phone and open it
+                      (allow installing apps from this source). Backend: ${{ env.EXPO_PUBLIC_API_URL }}
+
+    # ── Backend ──────────────────────────────────────────────────────────────────────────────
+    backend-build:
+        needs: changes
+        if: github.event_name != 'pull_request' && needs.changes.outputs.backend == 'true'
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
+            - uses: docker/setup-buildx-action@v4
+            - uses: docker/login-action@v4
+              with:
+                  username: ${{ secrets.DOCKERHUB_USERNAME }}
+                  password: ${{ secrets.DOCKERHUB_TOKEN }}
+            # Pushed only as :<sha>; :latest is moved after a healthy deploy.
+            # Context is the repo root so pnpm workspace deps are available.
+            - name: Build and push
+              uses: docker/build-push-action@v7
+              with:
+                  context: .
+                  file: ./apps/backend/Dockerfile
+                  push: true
+                  tags: ${{ secrets.DOCKERHUB_USERNAME }}/sortund-backend:${{ github.sha }}
+                  cache-from: type=gha,scope=backend
+                  cache-to: type=gha,mode=max,scope=backend
+
+    backend-deploy:
+        needs: [ci, backend-build]
+        runs-on: ubuntu-latest
+        concurrency:
+            group: deploy-backend
+            cancel-in-progress: false
+        steps:
+            - name: Connect to Tailscale
+              uses: tailscale/github-action@v4
+              with:
+                  oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+                  oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+                  tags: tag:ci
+
+            # Runtime secrets live on the server (chmod 600):
+            #   ~/sortund/postgres.env — POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB
+            #   ~/sortund/backend.env  — DATABASE_URL, JWT_*, AI_WORKER_URL, AI_WORKER_TOKEN, ADMIN_EMAILS, …
+            # If the new container is not healthy, the previous image is started again.
+            # (Migrations of the new version have already run by then — keep them backward compatible.)
+            - name: Deploy via SSH
+              uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+              with:
+                  host: ${{ secrets.SERVER_IP }}
+                  username: ${{ secrets.SERVER_USER }}
+                  key: ${{ secrets.SSH_PRIVATE_KEY }}
+                  command_timeout: 10m
+                  script: |
+                      set -e
+                      REPO="${{ secrets.DOCKERHUB_USERNAME }}/sortund-backend"
+                      IMAGE="$REPO:${{ github.sha }}"
+                      for f in backend.env postgres.env; do
+                        test -f ~/sortund/$f || { echo "~/sortund/$f is missing"; exit 1; }
+                      done
+                      docker network create sortund-net 2>/dev/null || true
+
+                      # ── Postgres (only started if not already running) ────────────
+                      if ! docker ps --format '{{.Names}}' | grep -q '^sortund-postgres$'; then
+                        docker rm sortund-postgres 2>/dev/null || true
+                        docker run -d --name sortund-postgres --network sortund-net --env-file ~/sortund/postgres.env -v sortund-pgdata:/var/lib/postgresql/data --restart unless-stopped postgres:17-alpine
+                        until docker exec sortund-postgres pg_isready -U postgres >/dev/null 2>&1; do sleep 2; done
+                      fi
+
+                      # ── Backend (runs DB migrations on startup) ───────────────────
+                      # Bound to localhost only: the public entry point is Tailscale Funnel.
+                      start() {
+                        docker rm -f sortund-backend >/dev/null 2>&1 || true
+                        docker run -d --name sortund-backend --network sortund-net -p 127.0.0.1:3000:3000 --env-file ~/sortund/backend.env --restart unless-stopped "$1"
+                      }
+                      healthy() {
+                        for i in $(seq 1 60); do
+                          curl -fsS http://127.0.0.1:3000/ >/dev/null 2>&1 && return 0
+                          sleep 2
+                        done
+                        return 1
+                      }
+
+                      PREV=$(docker inspect -f '{{.Config.Image}}' sortund-backend 2>/dev/null || true)
+                      docker pull "$IMAGE"
+                      start "$IMAGE"
+                      if healthy; then
+                        echo "Backend is healthy ($IMAGE)"
+                        tailscale funnel --bg 3000 >/dev/null
+                        # Keep the current and the previous image (for rollback), drop older ones.
+                        docker images "$REPO" --format '{{.Repository}}:{{.Tag}}' | grep -vxF -e "$IMAGE" -e "${PREV:-none}" | xargs -r docker rmi >/dev/null 2>&1 || true
+                        docker image prune -f >/dev/null
+                        exit 0
+                      fi
+
+                      echo "Backend did not become healthy"
+                      docker logs --tail 100 sortund-backend
+                      if [ -n "$PREV" ] && [ "$PREV" != "$IMAGE" ]; then
+                        echo "Rolling back to $PREV"
+                        start "$PREV"
+                        healthy && echo "Rollback is healthy" || echo "Rollback is NOT healthy either"
+                      fi
+                      exit 1
+
+            - uses: docker/setup-buildx-action@v4
+            - uses: docker/login-action@v4
+              with:
+                  username: ${{ secrets.DOCKERHUB_USERNAME }}
+                  password: ${{ secrets.DOCKERHUB_TOKEN }}
+            - name: Tag the deployed image as latest
+              run: |
+                  REPO="${{ secrets.DOCKERHUB_USERNAME }}/sortund-backend"
+                  docker buildx imagetools create -t "$REPO:latest" "$REPO:${{ github.sha }}"
+
+            - name: Disconnect Tailscale
+              if: always()
+              run: sudo tailscale logout
+
+    # ── AI worker ────────────────────────────────────────────────────────────────────────────
+    worker-build:
+        needs: changes
+        if: github.event_name != 'pull_request' && needs.changes.outputs.worker == 'true'
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v7
+            - uses: docker/setup-buildx-action@v4
+            - uses: docker/login-action@v4
+              with:
+                  username: ${{ secrets.DOCKERHUB_USERNAME }}
+                  password: ${{ secrets.DOCKERHUB_TOKEN }}
+            - name: Build and push
+              uses: docker/build-push-action@v7
+              with:
+                  context: ./apps/ai-worker
+                  push: true
+                  tags: ${{ secrets.DOCKERHUB_USERNAME }}/ai-worker:${{ github.sha }}
+                  cache-from: type=gha,scope=ai-worker
+                  cache-to: type=gha,mode=max,scope=ai-worker
+
+    worker-deploy:
+        needs: [ci, worker-build]
+        runs-on: ubuntu-latest
+        concurrency:
+            group: deploy-ai-worker
+            cancel-in-progress: false
+        steps:
+            - name: Connect to Tailscale
+              uses: tailscale/github-action@v4
+              with:
+                  oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+                  oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+                  tags: tag:ci
+
+            # Runtime secrets live in ~/sortund/worker.env (chmod 600): WORKER_TOKEN (shared with the
+            # backend), HF_TOKEN, WHISPER_MODEL, … Only the backend talks to the worker (over
+            # sortund-net); the port is bound to localhost for debugging only.
+            # ONNX models are kept on the server (~/sortund/models) so the worker does not depend on
+            # downloading them from the private Hugging Face repository on every start
+            # (if the directory is empty, the worker falls back to downloading them).
+            - name: Deploy via SSH
+              uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1.2.5
+              with:
+                  host: ${{ secrets.SERVER_IP }}
+                  username: ${{ secrets.SERVER_USER }}
+                  key: ${{ secrets.SSH_PRIVATE_KEY }}
+                  command_timeout: 25m
+                  script: |
+                      set -e
+                      REPO="${{ secrets.DOCKERHUB_USERNAME }}/ai-worker"
+                      IMAGE="$REPO:${{ github.sha }}"
+                      test -f ~/sortund/worker.env || { echo "~/sortund/worker.env is missing"; exit 1; }
+                      docker network create sortund-net 2>/dev/null || true
+                      mkdir -p "$HOME/sortund/models"
+
+                      start() {
+                        docker rm -f ai-worker >/dev/null 2>&1 || true
+                        docker run -d --name ai-worker --network sortund-net -p 127.0.0.1:8000:8000 --env-file "$HOME/sortund/worker.env" -v sortund-worker-cache:/home/user/.cache -v "$HOME/sortund/models:/home/user/app/app/ml/model:ro" --restart unless-stopped "$1"
+                      }
+                      # Models are loaded on startup (first start downloads them) — wait for /health.
+                      healthy() {
+                        for i in $(seq 1 120); do
+                          curl -fsS http://127.0.0.1:8000/health >/dev/null 2>&1 && return 0
+                          sleep 5
+                        done
+                        return 1
+                      }
+
+                      PREV=$(docker inspect -f '{{.Config.Image}}' ai-worker 2>/dev/null || true)
+                      docker pull "$IMAGE"
+                      start "$IMAGE"
+                      if healthy; then
+                        echo "AI worker is healthy ($IMAGE)"
+                        docker images "$REPO" --format '{{.Repository}}:{{.Tag}}' | grep -vxF -e "$IMAGE" -e "${PREV:-none}" | xargs -r docker rmi >/dev/null 2>&1 || true
+                        docker image prune -f >/dev/null
+                        exit 0
+                      fi
+
+                      echo "AI worker did not become healthy"
+                      docker logs --tail 100 ai-worker
+                      if [ -n "$PREV" ] && [ "$PREV" != "$IMAGE" ]; then
+                        echo "Rolling back to $PREV"
+                        start "$PREV"
+                        healthy && echo "Rollback is healthy" || echo "Rollback is NOT healthy either"
+                      fi
+                      exit 1
+
+            - uses: docker/setup-buildx-action@v4
+            - uses: docker/login-action@v4
+              with:
+                  username: ${{ secrets.DOCKERHUB_USERNAME }}
+                  password: ${{ secrets.DOCKERHUB_TOKEN }}
+            - name: Tag the deployed image as latest
+              run: |
+                  REPO="${{ secrets.DOCKERHUB_USERNAME }}/ai-worker"
+                  docker buildx imagetools create -t "$REPO:latest" "$REPO:${{ github.sha }}"
+
+            - name: Disconnect Tailscale
+              if: always()
+              run: sudo tailscale logout

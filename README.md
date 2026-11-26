@@ -74,11 +74,22 @@ Admin access: list the e-mail in `ADMIN_EMAILS` of the backend, register in the 
 
 ## Deployment (GitHub Actions)
 
-| Workflow               | Trigger (push to `main`) | Result                                                                                |
-| ---------------------- | ------------------------ | ------------------------------------------------------------------------------------- |
-| `release-android.yml`  | `apps/frontend/**`       | Signed release APK published on the **Releases** page (`android-v1.0.<run>`)          |
-| `deploy-backend.yml`   | `apps/backend/**`        | Docker image → Docker Hub → `sortund-backend` restarted on the server, health-checked |
-| `deploy-ai-worker.yml` | `apps/ai-worker/**`      | Docker image → Docker Hub → `ai-worker` restarted on the server, health-checked       |
+One workflow, `.github/workflows/pipeline.yml`, runs on every push to `main` (and on pull requests,
+where it only runs the checks):
+
+| Job                                 | Runs when                                                    | Result                                                                                          |
+| ----------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| `ci`                                | always                                                       | lint, `black --check`, type-check, tests (Jest + pytest)                                        |
+| `android-build` → `android-release` | `apps/frontend/**`, `packages/**`, frontend deps in lockfile | Signed release APK published on the **Releases** page (`android-v1.0.<code>`)                   |
+| `backend-build` → `backend-deploy`  | `apps/backend/**`, `packages/**`, backend deps in lockfile   | Image `sortund-backend:<sha>` → restarted on the server, health-checked, rolled back on failure |
+| `worker-build` → `worker-deploy`    | `apps/ai-worker/**`                                          | Image `ai-worker:<sha>` → restarted on the server, health-checked, rolled back on failure       |
+
+`.github/scripts/detect-changes.py` decides what changed; for `pnpm-lock.yaml` it compares the
+per-app `importers` blocks, so a backend-only dependency change does not ship a new APK. Builds run in
+parallel with `ci`, but nothing is published or deployed unless `ci` passed. After a healthy deploy the
+image is also tagged `:latest`; the server keeps the previous image for rollback. Changing the workflow
+itself rebuilds and redeploys everything. Manual run: _Actions → CI/CD → Run workflow_ (choose what to
+build).
 
 Server layout (`olegserver`): containers `sortund-backend`, `sortund-postgres` and `ai-worker` share the
 `sortund-net` Docker network; only the backend is public, through Tailscale Funnel
@@ -87,7 +98,8 @@ Server layout (`olegserver`): containers `sortund-backend`, `sortund-postgres` a
 
 APK signing uses the repository secrets `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
 `ANDROID_KEY_ALIAS` and `ANDROID_KEY_PASSWORD`; without them the APK is signed with the debug key.
-The version code is the workflow run number, so each APK installs over the previous one.
+The version code is the workflow run number + 100 (the offset continues the numbering of the old
+`release-android.yml` workflow), so each APK installs over the previous one.
 The app checks GitHub Releases on start and offers to install a newer APK.
 
 See [docs/requirements.md](docs/requirements.md) for how each functional requirement is implemented.

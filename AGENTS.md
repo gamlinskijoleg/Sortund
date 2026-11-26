@@ -13,10 +13,10 @@ packages/*      shared ESLint / Jest config
 
 ## 1. Versioning — automatic, do not touch
 
-- The APK version is set by CI (`.github/workflows/release-android.yml`): `1.0.<run number>`, where the
-  run number is also the Android `versionCode`. Every build therefore installs over the previous one.
+- The APK version is set by CI (`.github/workflows/pipeline.yml`, job `android-build`):
+  `1.0.<run number + 100>`, and that number is also the Android `versionCode`. Every build therefore installs over the previous one.
   **Do not** set `android.versionCode` / `expo.version` by hand and do not bump versions in commits.
-- Do not change the release tag format `android-vX.Y.Z` (`.github/workflows/release-android.yml`): the
+- Do not change the release tag format `android-vX.Y.Z` (`.github/workflows/pipeline.yml`): the
   in-app updater (`apps/frontend/src/updates/release.ts`) parses it and uses `Z` as the versionCode.
 - Genre-model versions (`apps/ai-worker/app/ml/genre_models/vN.*`) are created by training; never
   overwrite an existing `vN`.
@@ -83,13 +83,22 @@ cd apps/ai-worker && uv run black . && uv run pytest
 
 ## 6. CI/CD and the server
 
-| Push to `main` touching                             | Workflow               | Result                                                                     |
-| --------------------------------------------------- | ---------------------- | -------------------------------------------------------------------------- |
-| `apps/frontend/**`, `packages/**`, `pnpm-lock.yaml` | `release-android.yml`  | Signed APK → GitHub Releases `android-vX.Y.Z` (in-app updater picks it up) |
-| `apps/backend/**`, `packages/**`, `pnpm-lock.yaml`  | `deploy-backend.yml`   | Docker image → `sortund-backend` on the server, health-checked             |
-| `apps/ai-worker/**`                                 | `deploy-ai-worker.yml` | Docker image → `ai-worker` on the server, health-checked                   |
-| anything                                            | `ci.yml`               | lint, type-check, tests                                                    |
+Single workflow `.github/workflows/pipeline.yml` (push to `main`; PRs run only `changes` + `ci`):
 
+| Push to `main` touching                                      | Jobs                                | Result                                                                     |
+| ------------------------------------------------------------ | ----------------------------------- | -------------------------------------------------------------------------- |
+| anything                                                     | `ci`                                | lint, `black --check`, type-check, tests                                   |
+| `apps/frontend/**`, `packages/**`, frontend deps in lockfile | `android-build` → `android-release` | Signed APK → GitHub Releases `android-vX.Y.Z` (in-app updater picks it up) |
+| `apps/backend/**`, `packages/**`, backend deps in lockfile   | `backend-build` → `backend-deploy`  | Image `:<sha>` → `sortund-backend` on the server, health-checked           |
+| `apps/ai-worker/**`                                          | `worker-build` → `worker-deploy`    | Image `:<sha>` → `ai-worker` on the server, health-checked                 |
+
+- Release/deploy jobs `need: ci` — a red CI means no APK release and no deploy (the APK is still
+  attached to the run as an artifact). Change detection: `.github/scripts/detect-changes.py`.
+- A deploy whose container fails the health check restarts the previous image (rollback). Backend
+  migrations have already run at that point — keep them backward compatible with the previous release.
+- Editing `pipeline.yml` or `detect-changes.py` rebuilds and redeploys everything.
+- The backend is bound to `127.0.0.1:3000`; the only public entry point is Tailscale Funnel.
+- Pin third-party actions that receive secrets (e.g. `appleboy/ssh-action`) to a release SHA.
 - Server `olegserver` (SSH alias): containers `sortund-backend`, `sortund-postgres`, `ai-worker` on the
   Docker network `sortund-net`. Runtime secrets: `~/sortund/{backend,postgres,worker}.env` (chmod 600,
   never print their values). ONNX models: `~/sortund/models` (mounted read-only into the worker).
