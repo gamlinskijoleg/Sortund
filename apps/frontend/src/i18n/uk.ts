@@ -348,4 +348,5 @@ export const uk: Record<keyof typeof en, string> = {
     "duplicates.shown": "У бібліотеці",
     "duplicates.empty": "Однакових файлів не знайдено.",
     "track.folder": "Папка",
+    "track.lyricsFragment": "Розпізнано з фрагмента треку, текст неповний.",
 };

@@ -882,7 +882,8 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         borderRadius: 10,
     },
-    barTrack: { overflow: "hidden", flex: 1 },
+    // Fixed height, stretches only across: a row parent must give it width (e.g. a flex: 1 wrapper).
+    barTrack: { overflow: "hidden", alignSelf: "stretch" },
     screenTitle: {
         flexDirection: "row",
         alignItems: "center",

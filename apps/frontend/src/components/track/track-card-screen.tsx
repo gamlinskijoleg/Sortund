@@ -26,7 +26,7 @@ import {
 import { AddToPlaylistSheet } from "./add-to-playlist-sheet";
 import { usePlayerStore } from "../../store/usePlayerStore";
 import { useAuthStore } from "../../store/useAuthStore";
-import { analyzeTracks, useAnalysisStore } from "../../analysis/manager";
+import { analyzeTracks } from "../../analysis/manager";
 import { toggleFavourite } from "../../data/library";
 import { writeTagsToFile } from "../../library/tag-writer";
 import { formatDuration, trackYear } from "../../library/track-utils";
@@ -141,7 +141,6 @@ export default function TrackCardScreen() {
     const track = usePlayerStore((s) => s.allTracks.find((x) => x.assetId === assetId));
     const library = usePlayerStore((s) => s.libraryTracks);
     const signedIn = useAuthStore((s) => s.status === "signedIn");
-    const activeModel = useAnalysisStore((s) => s.activeModelVersion);
     const copies = usePlayerStore(
         (s) =>
             s.duplicateGroups.find((g) => g.copies.some((c) => c.assetId === assetId))?.copies
@@ -162,11 +161,6 @@ export default function TrackCardScreen() {
         );
     }
 
-    const outdated =
-        !!track.isAnalyzed &&
-        !!activeModel &&
-        !!track.modelVersion &&
-        track.modelVersion !== activeModel;
     const removed = new Set((track.removedTags ?? []).map((x) => x.toLowerCase()));
     const grouped = new Map<TagCategory, NonNullable<MusicTrack["tagDetails"]>>();
     for (const tag of track.tagDetails ?? []) {
@@ -287,8 +281,9 @@ export default function TrackCardScreen() {
                     <Section
                         title={t("track.aiDetected")}
                         action={
-                            outdated && signedIn ? (
-                                // REQ 34: re-analysis after a model update
+                            signedIn ? (
+                                // REQ 34: re-analysis on request (after a model update or to
+                                // refresh lyrics and metadata); it bypasses the server cache.
                                 <Pressable
                                     accessibilityRole="button"
                                     onPress={() => void analyzeTracks([track], { force: true })}
@@ -391,21 +386,28 @@ export default function TrackCardScreen() {
                 {!!track.lyrics && (
                     <Section title={t("track.lyrics")}>
                         <Card style={{ padding: 16, gap: 12 }}>
+                            {track.lyricsSource === "whisper" && (
+                                <Text style={{ color: theme.textSubtle, fontSize: 12 }}>
+                                    {t("track.lyricsFragment")}
+                                </Text>
+                            )}
                             <Text
                                 style={{ color: theme.textMuted, lineHeight: 22, fontSize: 15 }}
-                                numberOfLines={lyricsOpen ? undefined : 4}
+                                numberOfLines={lyricsOpen ? undefined : 6}
                             >
                                 {track.lyrics}
                             </Text>
-                            <Pressable
-                                accessibilityRole="button"
-                                onPress={() => setLyricsOpen(!lyricsOpen)}
-                                hitSlop={8}
-                            >
-                                <Text style={{ color: theme.text, fontWeight: "600" }}>
-                                    {t(lyricsOpen ? "track.lyricsLess" : "track.lyricsMore")}
-                                </Text>
-                            </Pressable>
+                            {track.lyrics.split("\n").length > 6 && (
+                                <Pressable
+                                    accessibilityRole="button"
+                                    onPress={() => setLyricsOpen(!lyricsOpen)}
+                                    hitSlop={8}
+                                >
+                                    <Text style={{ color: theme.text, fontWeight: "600" }}>
+                                        {t(lyricsOpen ? "track.lyricsLess" : "track.lyricsMore")}
+                                    </Text>
+                                </Pressable>
+                            )}
                         </Card>
                     </Section>
                 )}

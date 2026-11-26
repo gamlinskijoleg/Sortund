@@ -39,7 +39,9 @@ function Bars({ data, format }: { data: Bucket[]; format?: (v: number) => string
                     <Text style={{ color: theme.text, width: 104, fontSize: 14 }} numberOfLines={1}>
                         {label(d.label)}
                     </Text>
-                    <ConfidenceBar value={d.value / max} height={10} />
+                    <View style={{ flex: 1 }}>
+                        <ConfidenceBar value={d.value / max} height={10} />
+                    </View>
                     <Text style={[styles.barValue, { color: theme.textSubtle }]} numberOfLines={1}>
                         {format ? format(d.value) : d.value}
                     </Text>

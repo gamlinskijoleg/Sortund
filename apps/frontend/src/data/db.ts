@@ -74,6 +74,8 @@ const MIGRATIONS: string[] = [
     // v3 — signature of the audio data, used to find identical files in different folders
     `ALTER TABLE tracks ADD COLUMN contentHash TEXT;
     CREATE INDEX IF NOT EXISTS idx_tracks_content_hash ON tracks(contentHash);`,
+    // v4 — where the lyrics came from ("lrclib" = published text, "whisper" = fragment transcript)
+    `ALTER TABLE tracks ADD COLUMN lyricsSource TEXT;`,
 ];
 
 let initialized = false;
@@ -158,6 +160,7 @@ type TrackRow = {
     isFavourite: number | null;
     userUpdatedAt: number | null;
     contentHash: string | null;
+    lyricsSource: string | null;
 };
 
 function parseJson<T>(value: string | null): T | undefined {
@@ -211,6 +214,7 @@ function rowToTrack(r: TrackRow): MusicTrack {
         isFavourite: !!r.isFavourite,
         userUpdatedAt: opt(r.userUpdatedAt),
         contentHash: opt(r.contentHash),
+        lyricsSource: opt(r.lyricsSource),
     };
 }
 

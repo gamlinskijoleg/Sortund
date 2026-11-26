@@ -345,4 +345,5 @@ export const en = {
     "duplicates.shown": "In library",
     "duplicates.empty": "No identical files found.",
     "track.folder": "Folder",
+    "track.lyricsFragment": "Recognised from a fragment of the track, the text is incomplete.",
 };

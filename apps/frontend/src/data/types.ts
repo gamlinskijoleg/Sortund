@@ -65,6 +65,8 @@ export type MusicTrack = {
     userUpdatedAt?: number;
     /** Signature of the audio data; equal values mean identical files (see library/duplicates.ts). */
     contentHash?: string;
+    /** "lrclib" — published lyrics; "whisper" — transcript of the analysed fragment only. */
+    lyricsSource?: string;
 };
 
 export type SortKey = "title" | "artist" | "year" | "addedAt" | "bpm";

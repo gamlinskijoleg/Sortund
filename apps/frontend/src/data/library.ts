@@ -139,6 +139,7 @@ export function applyAnalysisResult(
         instruments: result.instruments.map((i) => i.label),
         vocal: result.vocal ?? undefined,
         lyrics: result.lyrics ?? undefined,
+        lyricsSource: result.lyrics_source ?? undefined,
         tagDetails,
         isAnalyzed: true,
         analysisStatus: "done",
