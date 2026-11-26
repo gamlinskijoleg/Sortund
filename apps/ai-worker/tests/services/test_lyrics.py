@@ -52,3 +52,33 @@ async def test_whisper_fallback_uses_confident_language_only(mocker):
 @pytest.mark.asyncio
 async def test_lrclib_skipped_for_unknown_artist():
     assert await lyrics.fetch_lyrics_lrclib("Unknown Artist", "x") is None
+
+
+def test_pick_lyrics_requires_same_artist_in_free_text_results():
+    results = [
+        {"artistName": "Mafumafu", "trackName": "シャルル", "plainLyrics": "cover"},
+        {"artistName": "Adorable Band", "trackName": "x", "plainLyrics": "other"},
+        {"artistName": "Ado", "trackName": "シャルル", "plainLyrics": "line 1\nline 2"},
+    ]
+    assert lyrics.pick_lyrics(results, "Ado", require_artist=True) == "line 1\nline 2"
+    assert lyrics.pick_lyrics(results, "Ado", require_artist=False) == "cover"
+    assert lyrics.pick_lyrics(results, "Nobody", require_artist=True) is None
+
+
+def test_pick_lyrics_accepts_credited_artists_and_instrumentals():
+    assert lyrics.pick_lyrics([{"artistName": "Ado, Vaundy", "plainLyrics": "t"}], "ado", True) == "t"
+    assert lyrics.pick_lyrics([{"artistName": "Ado feat. X", "plainLyrics": "t"}], "Ado", True) == "t"
+    assert lyrics.pick_lyrics([{"artistName": "Ado", "instrumental": True}], "Ado", True) == ""
+    synced = [{"artistName": "Ado", "syncedLyrics": "[00:01.00] a\n[00:02.00] b"}]
+    assert lyrics.pick_lyrics(synced, "Ado", True) == "a\nb"
+
+
+@pytest.mark.asyncio
+async def test_free_text_search_used_when_field_search_finds_nothing(mocker):
+    search = mocker.patch(
+        "app.services.lyrics._lrclib_search",
+        new_callable=AsyncMock,
+        side_effect=[[], [{"artistName": "Ado", "trackName": "シャルル", "plainLyrics": "full text"}]],
+    )
+    assert await lyrics.fetch_lyrics_lrclib("Ado", "Charles") == "full text"
+    assert search.await_args_list[1].args[1] == {"q": "Ado Charles"}

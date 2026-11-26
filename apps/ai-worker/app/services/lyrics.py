@@ -39,25 +39,63 @@ def _strip_lrc(text: str) -> str:
     return "\n".join(line.strip() for line in _LRC_TIMESTAMP_RE.sub("", text).splitlines() if line.strip())
 
 
+def _norm(value: str) -> str:
+    """Case- and punctuation-insensitive form used to compare artist names."""
+    return re.sub(r"[\W_]+", "", (value or "").casefold())
+
+
+_ARTIST_SEPARATORS = re.compile(r",|&|;|/|\s+(?:feat\.?|ft\.?|x|with)\s+", re.IGNORECASE)
+
+
+def _same_artist(wanted: str, found: str) -> bool:
+    """Same artist, or one of the credited artists ("Ado, Vaundy", "A feat. B")."""
+    target = _norm(wanted)
+    if not target:
+        return False
+    if _norm(found) == target:
+        return True
+    return any(_norm(part) == target for part in _ARTIST_SEPARATORS.split(found or ""))
+
+
+def pick_lyrics(results: Any, artist: str, require_artist: bool) -> Optional[str]:
+    """First usable lyrics in LRCLIB results; "" marks an instrumental track."""
+    for item in results or []:
+        if require_artist and not _same_artist(artist, item.get("artistName") or ""):
+            continue
+        if item.get("instrumental"):
+            return ""
+        text = item.get("plainLyrics") or (item.get("syncedLyrics") and _strip_lrc(item["syncedLyrics"]))
+        if text:
+            return text.strip()
+    return None
+
+
+async def _lrclib_search(session: aiohttp.ClientSession, params: dict) -> Any:
+    async with session.get(f"{settings.LRCLIB_URL}/search", params=params) as response:
+        if response.status != 200:
+            return None
+        return await response.json()
+
+
 async def fetch_lyrics_lrclib(artist: str, title: str) -> Optional[str]:
+    """Published lyrics from LRCLIB.
+
+    The field search needs the title exactly as stored, which fails for songs listed under their
+    original-script title (e.g. Ado "Charles" is stored as "シャルル"). The free-text search finds
+    those, so it is tried next, keeping only results by the same artist.
+    """
     if not artist or not title or artist == "Unknown Artist":
         return None
     try:
         timeout = aiohttp.ClientTimeout(total=8)
         headers = {"User-Agent": "Sortund/1.0 (music tagging)"}
         async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
-            async with session.get(
-                f"{settings.LRCLIB_URL}/search", params={"artist_name": artist, "track_name": title}
-            ) as response:
-                if response.status != 200:
-                    return None
-                results = await response.json()
-        for item in results or []:
-            if item.get("instrumental"):
-                return ""
-            text = item.get("plainLyrics") or (item.get("syncedLyrics") and _strip_lrc(item["syncedLyrics"]))
-            if text:
-                return text.strip()
+            results = await _lrclib_search(session, {"artist_name": artist, "track_name": title})
+            text = pick_lyrics(results, artist, require_artist=False)
+            if text is None:
+                results = await _lrclib_search(session, {"q": f"{artist} {title}"})
+                text = pick_lyrics(results, artist, require_artist=True)
+            return text
     except Exception as e:
         logger.warning(f"LRCLIB lookup failed: {e}")
     return None
