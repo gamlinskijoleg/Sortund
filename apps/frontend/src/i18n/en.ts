@@ -347,4 +347,5 @@ export const en = {
     "track.folder": "Folder",
     "track.lyricsFragment": "Recognised from a fragment of the track, the text is incomplete.",
     "auth.tooManyAttempts": "Too many attempts. Wait a few minutes and try again.",
+    "similar.noneSimilar": "No tracks in your library sound similar to this one.",
 };

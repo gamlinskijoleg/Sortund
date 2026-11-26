@@ -76,7 +76,14 @@ export default function SimilarScreen() {
         body = <EmptyState icon="waveform" text={t("similar.notAnalyzed")} />;
     else if (error) body = <Notice tone="error" text={error} />;
     else if (!results) body = <ActivityIndicator color={theme.text} style={{ marginTop: 40 }} />;
-    else if (results.length === 0) body = <EmptyState icon="waveform" text={t("similar.empty")} />;
+    else if (results.length === 0)
+        body = (
+            <EmptyState
+                icon="waveform"
+                // Analysed tracks exist, but none is close enough (the server drops weak matches).
+                text={t(candidates.length > 0 ? "similar.noneSimilar" : "similar.empty")}
+            />
+        );
 
     const header = (
         <View style={{ paddingHorizontal: 16, gap: 16, paddingBottom: 8 }}>

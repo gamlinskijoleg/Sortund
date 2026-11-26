@@ -350,4 +350,5 @@ export const uk: Record<keyof typeof en, string> = {
     "track.folder": "Папка",
     "track.lyricsFragment": "Розпізнано з фрагмента треку, текст неповний.",
     "auth.tooManyAttempts": "Забагато спроб. Зачекайте кілька хвилин і спробуйте ще раз.",
+    "similar.noneSimilar": "У вашій бібліотеці немає треків, що звучать схоже.",
 };
