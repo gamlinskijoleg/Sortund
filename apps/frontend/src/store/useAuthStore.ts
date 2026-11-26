@@ -16,6 +16,7 @@ export type AuthErrorCode =
     | "network"
     | "weakPassword"
     | "invalidEmail"
+    | "tooManyAttempts"
     | "unknown";
 
 interface AuthState {
@@ -34,6 +35,8 @@ function toErrorCode(error: unknown): AuthErrorCode {
         if (error.status === 401) return "invalidCredentials";
         if (error.status === 403) return "blocked";
         if (error.status === 409) return "emailTaken";
+        // Per-IP rate limit or a temporarily locked account after repeated wrong passwords.
+        if (error.status === 429) return "tooManyAttempts";
         if (error.status === 400)
             return error.message.includes("email") ? "invalidEmail" : "weakPassword";
     }

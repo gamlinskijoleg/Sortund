@@ -34,6 +34,7 @@ const ERROR_KEYS: Record<AuthErrorCode, TranslationKey> = {
     network: "auth.network",
     weakPassword: "auth.weakPassword",
     invalidEmail: "auth.invalidEmail",
+    tooManyAttempts: "auth.tooManyAttempts",
     unknown: "common.error",
 };
 
