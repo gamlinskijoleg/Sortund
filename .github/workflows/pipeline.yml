@@ -324,14 +324,23 @@ jobs:
                       fi
 
                       # ── Backend (runs DB migrations on startup) ───────────────────
-                      # Bound to localhost only: the public entry point is Tailscale Funnel.
+                      # Bound to localhost only. Port 3000 = app API, public through Tailscale Funnel.
+                      # Port 3001 = admin panel, admin API and Swagger, tailnet only (tailscale serve).
                       start() {
                         docker rm -f sortund-backend >/dev/null 2>&1 || true
-                        docker run -d --name sortund-backend --network sortund-net -p 127.0.0.1:3000:3000 --env-file ~/sortund/backend.env --restart unless-stopped "$1"
+                        docker run -d --name sortund-backend --network sortund-net -p 127.0.0.1:3000:3000 -p 127.0.0.1:3001:3001 --env-file ~/sortund/backend.env --restart unless-stopped "$1"
                       }
                       healthy() {
                         for i in $(seq 1 60); do
-                          curl -fsS http://127.0.0.1:3000/ >/dev/null 2>&1 && return 0
+                          if curl -fsS http://127.0.0.1:3000/ >/dev/null 2>&1; then
+                            # Older images have no admin port; the new one must serve it and must
+                            # hide the admin panel on the public port.
+                            [ "$1" != "$IMAGE" ] && return 0
+                            curl -fsS http://127.0.0.1:3001/admin/ >/dev/null 2>&1 || { sleep 2; continue; }
+                            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/admin/)
+                            [ "$code" = "404" ] && return 0
+                            echo "Public port serves /admin/ (HTTP $code)"; return 1
+                          fi
                           sleep 2
                         done
                         return 1
@@ -340,9 +349,11 @@ jobs:
                       PREV=$(docker inspect -f '{{.Config.Image}}' sortund-backend 2>/dev/null || true)
                       docker pull "$IMAGE"
                       start "$IMAGE"
-                      if healthy; then
+                      if healthy "$IMAGE"; then
                         echo "Backend is healthy ($IMAGE)"
+                        # Internet: only the app API. Tailnet only (no Funnel): https://<host>:8443/admin/
                         tailscale funnel --bg 3000 >/dev/null
+                        tailscale serve --bg --https=8443 http://127.0.0.1:3001 >/dev/null
                         # Keep the current and the previous image (for rollback), drop older ones.
                         docker images "$REPO" --format '{{.Repository}}:{{.Tag}}' | grep -vxF -e "$IMAGE" -e "${PREV:-none}" | xargs -r docker rmi >/dev/null 2>&1 || true
                         docker image prune -f >/dev/null
@@ -354,7 +365,7 @@ jobs:
                       if [ -n "$PREV" ] && [ "$PREV" != "$IMAGE" ]; then
                         echo "Rolling back to $PREV"
                         start "$PREV"
-                        healthy && echo "Rollback is healthy" || echo "Rollback is NOT healthy either"
+                        healthy "$PREV" && echo "Rollback is healthy" || echo "Rollback is NOT healthy either"
                       fi
                       exit 1
 
